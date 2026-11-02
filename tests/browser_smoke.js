@@ -1,5 +1,5 @@
 // Optional end-to-end check in a real browser (needs Playwright + Chromium):
-//   cd youpls && python3 -m http.server 8765 &   then   node tests/browser_smoke.js
+//   python3 -m http.server 8765 &   then   node tests/browser_smoke.js
 // Loads the example, runs every analysis, visits every result section and fails on any JS error.
 'use strict';
 const { chromium } = require('playwright');

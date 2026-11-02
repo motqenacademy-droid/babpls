@@ -9,13 +9,15 @@
 
 ## التشغيل
 
+- **على الإنترنت مباشرة:** https://motqenacademy-droid.github.io/youpls/
+
 - **أبسط طريقة:** افتح `index.html` في المتصفح مباشرة. كل شيء يعمل، لكن بعض المتصفحات تمنع «العامل الخلفي» (Web Worker) لملفات `file://`، فتُحسب التحليلات في الصفحة نفسها وقد تتجمّد الواجهة لحظات في الإقلاع الذاتي الطويل.
 - **الطريقة الموصى بها:** خادم محلي، فتُحسب التحليلات الثقيلة في الخلفية مع شريط تقدّم وزرّ إلغاء:
   ```bash
-  cd youpls && python3 -m http.server 8765
+  python3 -m http.server 8765
   ```
   ثم افتح <http://127.0.0.1:8765>.
-- للنشر على الإنترنت: ارفع مجلد `youpls/` كما هو إلى أي استضافة ملفات ثابتة (GitHub Pages أو Netlify أو Cloudflare Pages…). لا يحتاج بناءً ولا مكتبات.
+- للنشر على استضافة أخرى: ارفع المستودع كما هو إلى أي استضافة ملفات ثابتة (GitHub Pages أو Netlify أو Cloudflare Pages…). لا يحتاج بناءً ولا مكتبات.
 
 ## خطوات العمل
 
@@ -56,7 +58,6 @@ CB-SEM (نمذجة التغاير)، تحليل التصنيف الكامن (FIM
 ## للمطوّرين
 
 ```bash
-cd youpls
 npm test                      # اختبارات المحرّك والترجمة (Node 18+، بلا تبعيات)
 node tests/browser_smoke.js   # اختياري: يحتاج Playwright وخادماً على 8765
 node tools/make_example.js    # يعيد توليد بيانات المثال
@@ -84,7 +85,7 @@ python3 tools/reference_pls.py > tests/fixtures/reference.json   # يحتاج nu
 
 > YouPls is an independent project and is not affiliated with SmartPLS GmbH. "SmartPLS" is mentioned for comparison only.
 
-**Run it:** open `index.html`, or (recommended, enables background computation with progress/cancel) `cd youpls && python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. To publish, upload the `youpls/` folder to any static host.
+**Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
 
 **Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.youpls.json` (data + model).
 
