@@ -88,3 +88,54 @@ test('weighted PLS equals replicating each case by its integer weight', () => {
   const b = E.runPLS(Object.assign({}, ds, { cols: ds.cols.map(c => Float64Array.from(rows, i => c[i])) }), model(), { missing: 'casewise', tol: 1e-12 });
   Object.keys(a.stats).filter(k => !/^(r2adj|fit)\|/.test(k)).forEach(k => close(a.stats[k], b.stats[k], 1e-6, k));
 });
+
+const E2 = require('../js/advanced2.js');
+test('GSCA: monotone ALS, local optimum, plausible fit, paths close to PLS', () => {
+  const prep = E2.prepare(ds, model(), {}), fit = E2.gscaFit(prep.raw, prep.spec, null, 1000, 1e-12);
+  assert.ok(fit.trace.every((v, i) => i === 0 || v <= fit.trace[i - 1] + 1e-9), 'criterion never increases');
+  // perturbing any weight vector (then re-optimising loadings/paths) must not lower the criterion
+  const r = E2.rng(9);
+  for (let rep = 0; rep < 20; rep++) {
+    const w = fit.w.map(a => a.map(v => v * (1 + 0.05 * (r() - 0.5))));
+    const g = E2.gscaFit(prep.raw, prep.spec, w, 1, 0); // one ALS sweep starting from perturbed weights
+    assert.ok(g.trace[0] >= fit.f - 1e-6 * fit.f || g.f >= fit.f - 1e-6 * fit.f, 'local optimum');
+  }
+  assert.ok(fit.FIT > 0 && fit.FIT < 1 && fit.AFIT < fit.FIT && fit.SRMR > 0 && fit.GFI > 0.8);
+  const res = E2.gsca(ds, model(), {}, { samples: 50 }), pls = E2.runPLS(ds, model(), {});
+  res.rows.filter(x => x.group === 'path').forEach(x => close(x.original, pls.stats['path|' + x.label], 0.02, 'GSCA vs PLS ' + x.label));
+});
+
+test('logistic regression matches statsmodels', () => {
+  const R = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/logit.json'), 'utf8')), gj = ds.names.indexOf('gender');
+  const L = E2.logistic(ds, model(), {}, { y: 'gender', x: R.x, event: ds.labels[gj].indexOf('male') + 1 });
+  assert.strictEqual(L.n, R.n);
+  L.terms.forEach((x, a) => { close(x.b, R.params[a], 1e-6, 'b' + a); close(x.se, R.bse[a], 1e-6, 'se' + a); });
+  close(L.LL, R.llf, 1e-6, 'logL'); close(L.LL0, R.llnull, 1e-6, 'null logL'); close(L.mcfadden, R.prsquared, 1e-8, 'McFadden'); close(L.aic, R.aic, 1e-6, 'AIC'); close(L.bic, R.bic, 1e-6, 'BIC');
+  assert.ok(L.auc > 0.5 && L.auc < 1);
+});
+
+test('CB-SEM modification index approximates the chi-square change; bootstrap CIs bracket estimates', () => {
+  const full = E2.cbsem(ds, model(), {}), m2 = model();
+  m2.paths = m2.paths.filter(p => !(p.from === 'c5' && p.to === 'c6'));
+  const red = E2.cbsem(ds, m2, {}), mi = red.mi.find(x => x.label === 'Loyalty ~ Satisfaction');
+  const dchi = red.fit.chi2 - full.fit.chi2;
+  assert.ok(Math.abs(mi.mi - dchi) / dchi < 0.1, `MI ${mi.mi} vs Δχ² ${dchi}`);
+  close(mi.sepc, full.paths.find(p => p.from === 'Satisfaction' && p.to === 'Loyalty').std, 0.06, 'EPC vs estimate');
+  const b = E2.cbsem(ds, model(), {}, { samples: 60, seed: 2 });
+  assert.ok(b.boot.failed === 0 && b.paths.every(p => p.lo <= p.std && p.std <= p.hi));
+});
+
+test('CVPAT: PLS beats indicator averages; MGA bootstrap tests agree with permutation', () => {
+  const c = E2.cvpat(ds, model(), {}, { folds: 10, reps: 3 });
+  assert.ok(c.overall.ia.diff > 0 && c.overall.ia.p < 0.05);
+  const r = E2.mgaFull(ds, model(), {}, { groupVar: 'gender', permutations: 150, bootSamples: 150 });
+  r.results[0].rows.filter(x => x.group === 'path').forEach(x => {
+    assert.ok([x.hP2, x.parP, x.wsP].every(v => v >= 0 && v <= 1));
+    assert.ok(Math.abs(x.parP - x.wsP) < 0.1, 'parametric and Welch-Satterthwaite close for similar group sizes');
+  });
+});
+
+test('sample size: inverse square root method reproduces Kock & Hadaya (2018)', () => {
+  assert.strictEqual(E2.sampleSize({ pmin: 0.2, alpha: 0.05, power: 0.8 }).n, 155);
+  assert.strictEqual(E2.sampleSize({ pmin: 0.1, alpha: 0.05, power: 0.8 }).n, 619);
+});

@@ -239,3 +239,9 @@ a.btn:hover { filter: brightness(1.1); }
 .author .avatar { flex: none; width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #312e81, #0e7490); color: #fff; display: grid; place-items: center; font-size: 22px; font-weight: 700; }
 .author h3 { margin: 0 0 4px; }
 .downloads { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+.checklist { list-style: none; padding: 0; margin: 6px 0; }
+.checklist li { display: flex; gap: 10px; padding: 6px 10px; border-radius: 6px; margin: 4px 0; background: var(--bg2); }
+.checklist li span { font-weight: 700; width: 1.2em; text-align: center; }
+.checklist li.ok span { color: var(--good); } .checklist li.warn span { color: var(--warn); } .checklist li.bad span { color: var(--bad); } .checklist li.info span { color: var(--accent); }
+.writeup { line-height: 1.8; background: var(--bg2); padding: 10px 14px; border-radius: 6px; }
+p.big { font-size: 18px; }

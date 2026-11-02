@@ -41,6 +41,7 @@
       <button data-run="bootstrap" data-i="an_bootstrap"></button>
       <button data-run="blindfolding" data-i="an_blindfolding"></button>
       <button data-run="predict" data-i="an_predict"></button>
+      <button data-run="cvpat" data-i="an_cvpat"></button>
       <button data-run="ipma" data-i="an_ipma"></button>
       <button data-run="mga" data-i="an_mga"></button>
       <button data-run="nca" data-i="an_nca"></button>
@@ -51,8 +52,12 @@
       <button data-run="pos" data-i="an_pos"></button>
       <h5 data-i="menu_cb"></h5>
       <button data-run="cbsem" data-i="an_cbsem"></button>
+      <button data-run="gsca" data-i="an_gsca"></button>
       <button data-run="process" data-i="an_process"></button>
       <button data-run="regression" data-i="an_regression"></button>
+      <button data-run="logistic" data-i="an_logistic"></button>
+      <h5 data-i="menu_plan"></h5>
+      <button data-run="samplesize" data-i="an_samplesize"></button>
     </div>
   </div>
 </nav>
@@ -118,11 +123,13 @@
   </form>
 </dialog>
 
-<input id="csvfile" type="file" accept=".csv,.txt,.tsv,text/csv" hidden>
+<input id="csvfile" type="file" accept=".csv,.txt,.tsv,.xlsx,.sav,text/csv" hidden>
 <input id="projfile" type="file" accept=".json,application/json" hidden>
 
 <script src="js/engine.js"></script>
 <script src="js/advanced.js"></script>
+<script src="js/advanced2.js"></script>
+<script src="js/io.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/i18n.js"></script>

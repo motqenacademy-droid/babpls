@@ -1,5 +1,5 @@
 /* Runs heavy YouPls analyses off the main thread. */
-importScripts('engine.js', 'advanced.js');
+importScripts('engine.js', 'advanced.js', 'advanced2.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;
   const E = self.YPEngine;
@@ -12,10 +12,14 @@ self.onmessage = function (ev) {
       case 'blindfolding': result = E.blindfolding(ds, model, settings, opts, progress); break;
       case 'predict': result = E.plspredict(ds, model, settings, opts, progress); break;
       case 'ipma': result = E.ipma(ds, model, settings, opts); break;
-      case 'mga': result = E.mga(ds, model, settings, opts, progress); break;
+      case 'mga': result = E.mgaFull(ds, model, settings, opts, progress); break;
       case 'nca': result = E.nca(ds, model, settings, opts, progress); break;
       case 'regression': result = E.regression(ds, opts); break;
       case 'cbsem': result = E.cbsem(ds, model, settings, opts, progress); break;
+      case 'gsca': result = E.gsca(ds, model, settings, opts, progress); break;
+      case 'cvpat': result = E.cvpat(ds, model, settings, opts, progress); break;
+      case 'logistic': result = E.logistic(ds, model, settings, opts); break;
+      case 'samplesize': result = E.sampleSize(opts); break;
       case 'fimix': result = E.fimix(ds, model, settings, opts, progress); break;
       case 'pos': result = E.pos(ds, model, settings, opts, progress); break;
       case 'cta': result = E.cta(ds, model, settings, opts, progress); break;

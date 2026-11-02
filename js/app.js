@@ -57,7 +57,8 @@
   function table(head, rows, o) {
     o = o || {};
     const id = 'tb' + (++tableSeq);
-    TABLES.set(id, { title: o.title || 'table', csv: toCSV(head, rows.map(r => r.map(c => (c && typeof c === 'object' && 'v' in c) ? c.raw !== undefined ? c.raw : c.v : c))) });
+    const rawRows = rows.map(r => r.map(c => (c && typeof c === 'object' && 'v' in c) ? c.raw !== undefined ? c.raw : c.v : c));
+    TABLES.set(id, { title: o.title || 'table', csv: toCSV(head, rawRows), head, rows: rawRows });
     let h = `<div class="tablewrap"><table class="grid${o.cls ? ' ' + o.cls : ''}" id="${id}"><thead><tr>${head.map(x => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
     rows.forEach((r, i) => {
       h += `<tr${o.rowAttr ? ' ' + o.rowAttr(i) : ''}>` + r.map((c, j) => {
@@ -218,17 +219,21 @@
     blindfolding: { title: 'an_blindfolding', fields: ['distance', 'scheme', 'missing'] },
     predict: { title: 'an_predict', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
     ipma: { title: 'an_ipma', fields: ['target', 'scaleMin', 'scaleMax', 'scheme', 'missing'] },
-    mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'seed', 'scheme', 'missing'] },
+    mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'bootSamples', 'seed', 'scheme', 'missing'] },
     nca: { title: 'an_nca', fields: ['permutations', 'scheme', 'missing'] },
     regression: { title: 'an_regression', fields: ['regY', 'regX'], noModel: true },
-    cbsem: { title: 'an_cbsem', fields: ['missing'] },
+    cbsem: { title: 'an_cbsem', fields: ['cbBoot', 'seed', 'missing'] },
+    gsca: { title: 'an_gsca', fields: ['samples', 'seed', 'missing'] },
+    cvpat: { title: 'an_cvpat', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
+    logistic: { title: 'an_logistic', fields: ['logY', 'logX'], noModel: true },
+    samplesize: { title: 'an_samplesize', fields: ['ssPmin', 'ssAlpha', 'ssPower'], noModel: true, noData: true },
     fimix: { title: 'an_fimix', fields: ['maxK', 'K', 'starts', 'seed', 'scheme', 'missing'] },
     pos: { title: 'an_pos', fields: ['K', 'starts', 'seed', 'scheme', 'missing'] },
     cta: { title: 'an_cta', fields: ['samples', 'alpha', 'seed', 'missing'] },
     copula: { title: 'an_copula', fields: ['samples', 'seed', 'scheme', 'missing'] },
     process: { title: 'an_process', fields: ['pmodel', 'procX', 'procM', 'procW', 'procY', 'samples', 'seed', 'center'], noModel: true }
   };
-  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '' };
+  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '', bootSamples: 1000, cbBoot: 0, ssPmin: 0.2, ssAlpha: 0.05, ssPower: 0.8 };
   function fieldHTML(k, task) {
     const st = Object.assign({}, S.settings, DEF, S['last_' + task] || {});
     const num = (min, max, step) => `<input type="number" name="${k}" value="${esc(st[k])}" min="${min}" max="${max}" step="${step || 1}">`;
@@ -261,6 +266,13 @@
         ctrl = `<select name="groupVar">${cats.map(n => `<option>${esc(n)}</option>`).join('')}</select>`;
         return `<label>${t('f_groupVar')}${ctrl}</label><div id="groupPick"></div>`;
       }
+      case 'bootSamples': ctrl = num(0, 100000, 1); break;
+      case 'cbBoot': ctrl = num(0, 100000, 1); break;
+      case 'ssPmin': ctrl = num(0.01, 1, 'any'); break;
+      case 'ssAlpha': ctrl = `<select name="ssAlpha">${[0.01, 0.05, 0.1].map(v => `<option${+st.ssAlpha === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`; break;
+      case 'ssPower': ctrl = `<select name="ssPower">${[0.8, 0.9, 0.95].map(v => `<option${+st.ssPower === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`; break;
+      case 'logY': { const bin = S.ds.names.filter((n, j) => new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))).size === 2); ctrl = `<select name="logY">${bin.map(v => `<option>${esc(v)}</option>`).join('')}</select><small>${t('binary_hint')}</small>`; break; }
+      case 'logX': ctrl = `<select name="logX" multiple size="8">${processVars().map(v => `<option>${esc(v)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
       case 'maxK': ctrl = num(2, 10); break;
       case 'K': ctrl = num(2, 10); break;
       case 'starts': ctrl = num(1, 100); break;
@@ -290,8 +302,8 @@
     sel.addEventListener('change', draw); draw();
   }
   function openRun(kind) {
-    if (!S.ds) { toast(t('no_data'), 'bad'); return; }
     const def = TASKS[kind];
+    if (!S.ds && !def.noData) { toast(t('no_data'), 'bad'); return; }
     if (!def.noModel) {
       const errs = E.validate(editor.model, S.ds);
       if (errs.length) { toast(errText(errs[0]), 'bad'); setView('model'); return; }
@@ -321,7 +333,11 @@
       distance: +fd.distance || 7, folds: +fd.folds || 10, reps: +fd.reps || 10, permutations: +fd.permutations || 1000,
       target: fd.target, groupVar: fd.groupVar, y: fd.regY, x: fd.regX,
       maxK: +fd.maxK || 4, K: +fd.K || 2, starts: +fd.starts || (kind === 'pos' ? 5 : 10), pmodel: +fd.pmodel || 4, center: !!fd.center,
-      ...(kind === 'process' ? { x: fd.procX, y: fd.procY, m: fd.procM || [], w: fd.procW || undefined } : {})
+      ...(kind === 'process' ? { x: fd.procX, y: fd.procY, m: fd.procM || [], w: fd.procW || undefined } : {}),
+      ...(kind === 'logistic' ? { y: fd.logY, x: fd.logX || [] } : {}),
+      ...(kind === 'cbsem' ? { samples: +fd.cbBoot || 0 } : {}),
+      ...(kind === 'samplesize' ? sampleSizeInputs(fd) : {}),
+      bootSamples: fd.bootSamples === undefined ? 1000 : +fd.bootSamples
     };
     if (fd.gA !== undefined) opts.groups = [+fd.gA, +fd.gB];
     if (kind === 'ipma' && (fd.scaleMin !== '' || fd.scaleMax !== '')) {
@@ -346,7 +362,7 @@
       const local = () => setTimeout(() => {
         try {
           let r;
-          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mga(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), cbsem: () => E.cbsem(S.ds, model, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
+          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mgaFull(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), gsca: () => E.gsca(S.ds, model, settings, opts), cvpat: () => E.cvpat(S.ds, model, settings, opts), logistic: () => E.logistic(S.ds, model, settings, opts), samplesize: () => E.sampleSize(opts), cbsem: () => E.cbsem(S.ds, model, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
           r = fn(); resolve(r);
         } catch (e) { reject({ error: e.message, details: e.details }); }
       }, 60);
@@ -407,7 +423,7 @@
   }
 
   // ---------------------------------------------------------- results
-  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'blindfolding', 'predict', 'ipma', 'mga', 'nca', 'cbsem', 'fimix', 'pos', 'cta', 'copula', 'process', 'regression'];
+  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'blindfolding', 'predict', 'cvpat', 'ipma', 'mga', 'nca', 'cta', 'copula', 'fimix', 'pos', 'cbsem', 'gsca', 'process', 'regression', 'logistic', 'samplesize'];
   function renderResults() {
     const el = $('#resultsview'), kinds = KIND_ORDER.filter(k => S.results[k]);
     if (!kinds.length) { el.innerHTML = `<div class="empty"><p>${t('no_results')}</p><button class="primary" data-run="pls">${t('an_pls')}</button></div>`; return; }
@@ -418,7 +434,7 @@
     if (!S.section || !secs.some(s => s.id === S.section)) S.section = secs[0].id;
     const sec = secs.find(s => s.id === S.section);
     el.innerHTML = `<div class="restabs" role="tablist">${kinds.map(k => `<button role="tab" data-kind="${k}" class="${k === S.current ? 'on' : ''}">${t(TASKS[k].title)}</button>`).join('')}
-        <span class="grow"></span><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
+        <span class="grow"></span><button data-act="excel">⬇ Excel</button><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
       <div class="resbody"><nav class="secnav">${groupNav(secs)}</nav><div class="secout" id="secout">${metaLine(r)}${sec.html()}</div></div>`;
   }
   function groupNav(secs) {
@@ -456,6 +472,10 @@
       case 'nca': return ncaSections(r);
       case 'regression': return regSections(r);
       case 'cbsem': return cbsemSections(r);
+      case 'gsca': return gscaSections(r);
+      case 'cvpat': return cvpatSections(r);
+      case 'logistic': return logitSections(r);
+      case 'samplesize': return ssSections(r);
       case 'fimix': case 'pos': return segSections(r);
       case 'cta': return ctaSections(r);
       case 'copula': return copulaSections(r);
@@ -498,6 +518,7 @@
       const line = mv => ({ points: [-2, 2].map(x => [x, bx * x + bm * mv + bi * x * mv]), label: it.m + (mv > 0 ? ' +1 SD' : mv < 0 ? ' -1 SD' : ' ' + t('mean')) });
       return card(t('simple_slopes') + ': ' + it.name, chart(C.scatter([], { lines: [line(-1), line(0), line(1)], xLabel: it.x, yLabel: it.y, title: it.name + ' → ' + it.y, xmin: -2, xmax: 2 }), 'slopes'), { note: t('slopes_note'), doc: 'slopes' });
     }).join('')));
+    s.push(sec('g_quality', 'assess', t('assessment'), () => card(t('assessment'), checklistHTML(assessment(r, null)), { note: t('assessment_note'), doc: 'outer' })));
     // quality
     s.push(sec('g_quality', 'rel', t('reliability'), () => {
       const rows = real.map(j => { const b = r.reliability[j]; return [N[j], cell(f(b.alpha), b.alpha < 0.7 ? 'warn' : '', b.alpha), cell(f(b.rhoA), b.rhoA < 0.7 ? 'warn' : '', b.rhoA), cell(f(b.rhoC), b.rhoC < 0.7 ? 'warn' : b.rhoC > 0.95 ? 'warn' : '', b.rhoC), cell(f(b.ave), b.ave < 0.5 ? 'bad' : 'good', b.ave)]; });
@@ -551,6 +572,7 @@
         return card(t('bg_' + g), tbl + `<div id="drawbox" class="note">${t('click_row_hist')}</div>` + ciChart(rows, g), { note: (g === 'htmt' ? t('htmt_boot_note') : t('boot_note', { b: r.samples, f: r.failed, test: t('opt_' + r.test) })), doc: r.ci === 'bca' ? 'bca' : 'bootstrap' });
       }));
     });
+    s.unshift(sec('g_final', 'b_writeup', t('writeup'), () => card(t('assessment'), checklistHTML(assessment(r.base, r)), { note: t('assessment_note') }) + card(t('writeup'), `<div class="writeup" id="writeup">${writeup(r)}</div><button class="mini" data-act="copywriteup">${t('copy')}</button>`, { note: t('writeup_note') })));
     s.push(sec('g_data', 'b_info', t('algorithm'), () => card(t('algorithm'), table([t('setting'), t('value')], [[t('f_samples'), r.samples], [t('failed_samples'), r.failed], [t('f_ci'), t('opt_' + r.ci)], [t('f_test'), t('opt_' + r.test)], [t('f_alpha'), r.alpha], [t('f_seed'), r.meta.opts.seed], ['PLSc', r.settings.consistent ? t('yes') : t('no')], ['N', r.n]], { title: 'bootstrap_settings' }))));
     s.push(sec('g_data', 'b_base', t('base_estimates'), () => `<p class="note">${t('base_note')}</p>` + plsSections(r.base).filter(x => ['rel', 'htmt', 'fit', 'r2'].includes(x.id)).map(x => x.html()).join('')));
     return s;
@@ -598,9 +620,10 @@
       const lab = res.g1 + ' vs ' + res.g2;
       ['path', 'total', 'indirect', 'r2', 'loading', 'weight'].forEach(g => {
         const rows = res.rows.filter(x => x.group === g); if (!rows.length) return;
-        out.push(sec('g_final', 'm' + k + g, t('bg_' + g), () => card(t('bg_' + g) + ' – ' + lab, table([t('parameter'), res.g1 + ` (n=${res.n1})`, res.g2 + ` (n=${res.n2})`, t('difference'), t('perm_p')],
-          rows.map(x => [x.label, f(x.g1), f(x.g2), f(x.diff), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p)]), { title: 'mga_' + g }) +
-          (g === 'path' ? chart(C.grouped(rows.map(x => ({ label: x.label, values: [x.g1, x.g2] })), [res.g1, res.g2], { title: t('path_coefs') }), 'mga') : ''), { note: t('mga_note', { p: res.permutations }), doc: 'mga' })));
+        const bt = !!res.bootSamples;
+        out.push(sec('g_final', 'm' + k + g, t('bg_' + g), () => card(t('bg_' + g) + ' – ' + lab, table([t('parameter'), res.g1 + ` (n=${res.n1})`, res.g2 + ` (n=${res.n2})`, t('difference'), t('perm_p')].concat(bt ? ['SE 1', 'SE 2', 'PLS-MGA p (1>2)', 'PLS-MGA p', t('parametric') + ' p', 'Welch-Satterthwaite p'] : []),
+          rows.map(x => [x.label, f(x.g1), f(x.g2), f(x.diff), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p)].concat(bt ? [f(x.se1), f(x.se2), fp(x.hP1), cell(fp(x.hP2), x.hP2 < 0.05 ? 'good' : '', x.hP2), cell(fp(x.parP), x.parP < 0.05 ? 'good' : '', x.parP), cell(fp(x.wsP), x.wsP < 0.05 ? 'good' : '', x.wsP)] : [])), { title: 'mga_' + g }) +
+          (g === 'path' ? chart(C.grouped(rows.map(x => ({ label: x.label, values: [x.g1, x.g2] })), [res.g1, res.g2], { title: t('path_coefs') }), 'mga') : ''), { note: t('mga_note', { p: res.permutations }) + (res.bootSamples ? ' ' + t('mga_boot_note', { b: res.bootSamples }) : ''), doc: 'mga' })));
       });
       out.push(sec('g_quality', 'micom' + k, 'MICOM', () => card(t('micom2'), table([t('construct'), 'c', '5% quantile', t('perm_p'), t('result')], res.micom.map(x => [x.construct, f(x.c, 4), f(x.c5, 4), fp(x.pc), cell(x.c >= x.c5 ? t('established') : t('not_established'), x.c >= x.c5 ? 'good' : 'bad')]), { title: 'micom2' }), { note: t('micom2_note'), doc: 'micom' }) +
         card(t('micom3'), table([t('construct'), t('mean_diff'), '2.5%', '97.5%', t('perm_p'), t('logvar_ratio'), '2.5%', '97.5%', t('perm_p')], res.micom.map(x => [x.construct, f(x.meanDiff), f(x.meanLo), f(x.meanHi), cell(fp(x.pMean), x.pMean < 0.05 ? 'warn' : 'good', x.pMean), f(x.varDiff), f(x.varLo), f(x.varHi), cell(fp(x.pVar), x.pVar < 0.05 ? 'warn' : 'good', x.pVar)]), { title: 'micom3' }), { note: t('micom3_note') })));
@@ -631,15 +654,16 @@
     const N = r.constructs;
     return [
       sec('g_quality', 'cb_fit', t('cb_fit'), () => (r.heywood ? `<p class="warn">⚠ ${t('heywood')}</p>` : '') + card(t('cb_fit'), table(['', t('value'), t('guideline')], fitRows, { title: 'cbsem_fit' }), { note: t('cb_fit_note'), doc: 'cbfit' })),
-      sec('g_final', 'cb_paths', t('path_coefs'), () => card(t('path_coefs'), table([t('relationship'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.paths.map(p => [p.from + ' → ' + p.to, f(p.est), f(p.se), f(p.z), pcell(p.p), f(p.std)]), { title: 'cbsem_paths' }) +
+      sec('g_final', 'cb_paths', t('path_coefs'), () => card(t('path_coefs'), table([t('relationship'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')].concat(r.boot ? ['Boot SE', 'Boot p', '2.5%', '97.5%'] : []), r.paths.map(p => [p.from + ' → ' + p.to, f(p.est), f(p.se), f(p.z), pcell(p.p), f(p.std)].concat(r.boot ? [f(p.bootSE), pcell(p.bootP), f(p.lo), f(p.hi)] : [])), { title: 'cbsem_paths' }) +
         chart(C.bars(r.paths.map(p => ({ label: p.from + ' → ' + p.to, value: p.std })), { title: t('std_estimate') }), 'cbsem_paths'), { note: t('cb_paths_note'), doc: 'cbsem' })),
-      sec('g_final', 'cb_load', t('outer_loadings'), () => card(t('outer_loadings'), table([t('construct'), t('indicator'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.loadings.map(l => [l.construct, l.indicator, f(l.est), l.fixed ? t('fixed') : f(l.se), l.fixed ? '' : f(l.z), l.fixed ? cell('') : pcell(l.p), cell(f(l.std), l.std < 0.7 ? 'warn' : '', l.std)]), { title: 'cbsem_loadings' }) +
+      sec('g_final', 'cb_load', t('outer_loadings'), () => card(t('outer_loadings'), table([t('construct'), t('indicator'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')].concat(r.boot ? ['Boot SE', '2.5%', '97.5%'] : []), r.loadings.map(l => [l.construct, l.indicator, f(l.est), l.fixed ? t('fixed') : f(l.se), l.fixed ? '' : f(l.z), l.fixed ? cell('') : pcell(l.p), cell(f(l.std), l.std < 0.7 ? 'warn' : '', l.std)].concat(r.boot ? [f(l.bootSE), f(l.lo), f(l.hi)] : [])), { title: 'cbsem_loadings' }) +
         chart(C.bars(r.loadings.map(l => ({ label: l.indicator, value: l.std })), { title: t('std_estimate'), thresholds: [{ value: 0.7, label: '0.70' }] }), 'cbsem_loadings'), { note: t('cb_load_note'), doc: 'cbsem' })),
       sec('g_final', 'cb_r2', t('r2'), () => card(t('r2'), table([t('construct'), 'R²'], r.r2.map(x => [x.construct, f(x.r2)]), { title: 'cbsem_r2' }), { doc: 'cbsem' })),
       sec('g_final', 'cb_eff', t('total_effects'), () => card(t('total_effects') + ' (' + t('std_estimate') + ')', table([t('relationship'), t('direct'), t('indirect_total'), t('total')], r.effects.map(e => [e.from + ' → ' + e.to, f(e.direct), f(e.indirect), f(e.total)]), { title: 'cbsem_effects' }), { doc: 'effects' })),
       sec('g_quality', 'cb_rel', t('reliability'), () => card(t('reliability'), table([t('construct'), 'CR', 'AVE', '√AVE'], r.reliability.map(x => [x.construct, cell(f(x.cr), x.cr >= 0.7 ? 'good' : 'warn', x.cr), cell(f(x.ave), x.ave >= 0.5 ? 'good' : 'bad', x.ave), f(Math.sqrt(x.ave))]), { title: 'cbsem_reliability' }) +
         matrixTable(N, N, r.lvcorr.map((row, i) => row.map((v, j) => (i === j ? Math.sqrt(r.reliability[i].ave) : v))), { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(Math.sqrt(r.reliability[i].ave), Math.sqrt(r.reliability[j].ave)) ? 'bad' : ''), title: 'cbsem_fornell' }), { note: t('cb_rel_note'), doc: 'ave' })),
       sec('g_data', 'cb_var', t('cb_variances'), () => card(t('cb_variances'), table(['', t('type'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.covs.map(c => [c.a === c.b ? c.a : c.a + ' ↔ ' + c.b, t('cbk_' + c.kind), cell(f(c.est), c.kind !== 'cov' && c.est < 0 ? 'bad' : '', c.est), f(c.se), f(c.z), pcell(c.p), f(c.std)]).concat(r.resid.map(x => [x.indicator, t('cbk_error'), cell(f(x.est), x.est < 0 ? 'bad' : '', x.est), f(x.se), f(x.z), pcell(x.p), f(x.std)])), { title: 'cbsem_variances' }))),
+      sec('g_quality', 'cb_mi', t('cb_mi'), () => card(t('cb_mi'), table([t('parameter'), t('type'), 'MI', 'p', 'EPC', t('std_epc')], (r.mi || []).filter(x => x.mi >= 3.84).slice(0, 40).map(x => [x.label, t('mi_' + x.type), cell(f(x.mi, 2), x.mi >= 10 ? 'warn' : '', x.mi), fp(x.p), f(x.epc), f(x.sepc)]), { title: 'cbsem_mi' }), { note: t('cb_mi_note'), doc: 'cbmi' })),
       sec('g_data', 'cb_res', t('cb_residuals'), () => card(t('cb_residuals'), chart(C.heatmap(r.indicators, r.indicators, r.resCorr, { lower: true, hideDiag: true, min: -0.2, max: 0.2 }), 'residuals'), { note: t('cb_res_note') }))
     ];
   }
@@ -686,6 +710,122 @@
       sec('g_final', 'pr_eff', t('pr_effects'), () => card(t('pm_' + r.pmodel), table([t('effect'), t('value'), 'Boot SE', 'Boot 2.5%', 'Boot 97.5%', t('result')], r.effects.map((e, q) => [processLabel(r, e.key), f(e.value), f(e.se), f(e.lo), f(e.hi), cell(e.lo > 0 || e.hi < 0 ? t('significant') : t('not_significant'), e.lo > 0 || e.hi < 0 ? 'good' : '')].concat([])), { title: 'process_effects' }) +
         (r.condSE ? table([t('cond_effect'), 'SE', 't', 'p'], r.wvals.map((w, q) => { const e = r.effects.find(x => x.key === 'cond_' + q), tt = e.value / r.condSE[q]; return [processLabel(r, 'cond_' + q), f(r.condSE[q]), f(tt), fp(E.tTwoTailedP(tt, r.equations[0].df))]; }), { title: 'process_conditional' }) : ''), { note: t('pr_note', { b: r.samples, n: r.n }) + (r.center ? ' ' + t('pr_centered') : ''), doc: 'process' })),
       sec('g_final', 'pr_eq', t('pr_equations'), () => r.equations.map(eq => card(t('outcome') + ': ' + eq.outcome, `<p class="meta">R² = ${f(eq.r2)} · F = ${f(eq.F, 2)} · df = ${eq.df}</p>` + table([t('term'), 'b', 'SE', 't', 'p', 'LLCI', 'ULCI'], eq.terms.map(x => [x.name, f(x.b), f(x.se), f(x.t), pcell(x.p), f(x.lo), f(x.hi)]), { title: 'process_' + eq.outcome }))).join(''))];
+  }
+
+  function sampleSizeInputs(fd) {
+    const m = editor.model, o = { pmin: +fd.ssPmin || 0.2, alpha: +fd.ssAlpha || 0.05, power: +fd.ssPower || 0.8 };
+    if (m.constructs.length) {
+      const maxForm = Math.max(0, ...m.constructs.filter(c => c.mode === 'B').map(c => c.indicators.length));
+      const maxArrows = Math.max(0, ...m.constructs.map(c => m.paths.filter(p => p.to === c.id).length + (m.interactions || []).filter(i => i.y === c.id).length));
+      o.tenTimes = 10 * Math.max(maxForm, maxArrows);
+    }
+    const r = S.results.pls || S.results.plsc;
+    if (r) { let best = null; r.pred.forEach((P, j) => P.forEach(i => { const v = Math.abs(r.paths[j][i]); if (!best || v < best.v) best = { v, label: r.constructs[i] + ' → ' + r.constructs[j] }; })); if (best) o.fromModel = best; }
+    if (S.ds) o.currentN = S.ds.n;
+    return o;
+  }
+  function bootTable(rows, title) {
+    return table([t('parameter'), t('original'), t('sample_mean'), t('std_dev'), 'T', 'P', '2.5%', '97.5%'], rows.map(x => [x.label, f(x.original), f(x.mean), f(x.sd), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.lo), f(x.hi)]), { title });
+  }
+  function gscaSections(r) {
+    const grp = g => r.rows.filter(x => x.group === g), fitRow = k => r.rows.find(x => x.key === 'fit|' + k);
+    return [
+      sec('g_quality', 'gs_fit', t('model_fit'), () => card(t('model_fit') + ' (GSCA)', table(['', t('value'), '2.5%', '97.5%'], ['FIT', 'AFIT', 'GFI', 'SRMR'].map(k => { const x = fitRow(k); return [k, f(x.original), f(x.lo), f(x.hi)]; }), { title: 'gsca_fit' }), { note: t('gsca_fit_note', { b: r.samples, i: r.iterations }), doc: 'gsca' })),
+      sec('g_final', 'gs_path', t('path_coefs'), () => card(t('path_coefs'), bootTable(grp('path'), 'gsca_paths') + chart(C.bars(grp('path').map(x => ({ label: x.label, value: x.original })), { title: t('path_coefs') }), 'gsca_paths'), { doc: 'gsca' }) + card('R²', bootTable(grp('r2'), 'gsca_r2'))),
+      sec('g_final', 'gs_w', t('outer_model'), () => card(t('bg_weight'), bootTable(grp('weight'), 'gsca_weights')) + card(t('bg_loading'), bootTable(grp('loading'), 'gsca_loadings'))),
+      sec('g_data', 'gs_corr', t('lv_corr'), () => card(t('lv_corr'), matrixTable(r.constructs, r.constructs, r.lvCorr, { title: 'gsca_lvcorr' })))
+    ];
+  }
+  function cvpatSections(r) {
+    const line = (lbl, x) => [lbl, f(x.plsLoss), f(x.benchLoss), f(x.diff), f(x.t), cell(fp(x.p), x.p < 0.05 ? 'good' : 'warn', x.p)];
+    const head = [t('construct'), t('loss_pls'), t('loss_bench'), t('loss_diff'), 't', 'p'];
+    return [sec('g_final', 'cv', t('an_cvpat'), () => ['ia', 'lm'].map(b => card(t('cvpat_vs_' + b), table(head, [line(t('overall'), r.overall[b])].concat(r.constructs.map(c => line(c.construct, c[b]))), { title: 'cvpat_' + b }), { note: t('cvpat_note', { k: r.folds, r: r.reps }), doc: 'cvpat' })).join(''))];
+  }
+  function logitSections(r) {
+    const roc = (() => { const pts = [[0, 0]], P = r.events, N = r.n - r.events; let tp = 0, fp_ = 0; r.fitted.slice().reverse().forEach(([, y]) => { if (y) tp++; else fp_++; pts.push([fp_ / N, tp / P]); }); return pts; })();
+    const tb = r.table;
+    return [
+      sec('g_final', 'lg_coef', t('coefficients'), () => (r.separation ? `<p class="warn">⚠ ${t('separation')}</p>` : '') + card(t('an_logistic') + ': ' + r.y + ' (' + t('event') + ' = ' + r.event + ', ' + t('reference_cat') + ' = ' + r.reference + ')',
+        table([t('term'), 'B', 'SE', 'z', 'p', t('odds_ratio'), 'OR 2.5%', 'OR 97.5%', 'VIF'], r.terms.map(x => [x.name, f(x.b), f(x.se), f(x.z), pcell(x.p), f(x.or), f(x.orLo), f(x.orHi), f(x.vif)]), { title: 'logistic' }), { note: t('logit_note'), doc: 'logistic' })),
+      sec('g_quality', 'lg_fit', t('model_fit'), () => card(t('model_fit'), table(['', t('value')], [['N', String(r.n)], [t('events'), String(r.events)], ['−2LL', f(r.deviance, 2)], ['LR χ² (df = ' + r.LRdf + ')', f(r.LR, 2)], ['p (LR)', fp(r.LRp)], ['McFadden R²', f(r.mcfadden)], ['Cox & Snell R²', f(r.coxSnell)], ['Nagelkerke R²', f(r.nagelkerke)], ['AIC', f(r.aic, 2)], ['BIC', f(r.bic, 2)], ['AUC (ROC)', f(r.auc)], ['Hosmer–Lemeshow χ² (df = ' + r.hlDf + ')', f(r.hl, 2)], ['p (HL)', cell(fp(r.hlP), r.hlP >= 0.05 ? 'good' : 'warn', r.hlP)]], { title: 'logistic_fit' }), { doc: 'logistic' }) +
+        card(t('classification'), table(['', t('pred_event'), t('pred_ref')], [[t('obs_event'), String(tb.tp), String(tb.fn)], [t('obs_ref'), String(tb.fp), String(tb.tn)]], { title: 'classification' }) + `<p class="meta">${t('accuracy')} ${f(tb.accuracy * 100, 1)}% · ${t('sensitivity')} ${f(tb.sensitivity * 100, 1)}% · ${t('specificity')} ${f(tb.specificity * 100, 1)}% (cut-off 0.5)</p>` +
+        chart(C.scatter([], { lines: [{ points: roc, label: 'ROC (AUC ' + f(r.auc) + ')' }, { points: [[0, 0], [1, 1]], color: 'var(--muted)' }], xLabel: '1 − ' + t('specificity'), yLabel: t('sensitivity'), xmin: 0, xmax: 1, ymin: 0, ymax: 1, width: 420, height: 400, title: 'ROC' }), 'roc')))
+    ];
+  }
+  function ssSections(r) {
+    return [sec('g_final', 'ss', t('an_samplesize'), () => card(t('an_samplesize'), `<p class="big">n<sub>min</sub> = <b>${r.n}</b> <span class="meta">(|β|<sub>min</sub> = ${f(r.pmin, 2)}, α = ${r.alpha}, ${t('power')} = ${r.power})</span></p>` +
+      table(['|β|min', 'n min'], r.table.map(x => [f(x.beta, 2), String(x.n)]), { title: 'sample_size' }) +
+      `<ul>${r.fromModel ? `<li>${t('ss_from_model', { p: esc(r.fromModel.label), b: f(r.fromModel.v), n: Math.ceil((r.z / r.fromModel.v) ** 2) })}</li>` : ''}${r.tenTimes ? `<li>${t('ss_ten_times', { n: r.tenTimes })}</li>` : ''}${r.currentN ? `<li>${t('ss_current', { n: r.currentN })}</li>` : ''}</ul>` +
+      chart(C.bars(r.table.map(x => ({ label: '|β| = ' + x.beta, value: x.n })), { title: 'n min' }), 'sample_size'), { note: t('ss_note'), doc: 'samplesize' }))];
+  }
+
+  // ---------------------------------------------------- assessment & write-up
+  function assessment(r, rb) {
+    const items = [], real = r.constructs.map((_, j) => j).filter(j => !r.isInter[j]);
+    const refl = real.filter(j => r.modes[j] === 'A' && r.indicators[j].length > 1), form = real.filter(j => r.modes[j] === 'B');
+    const add = (status, key, vars) => items.push({ status, text: t(key, vars) });
+    if (!r.converged) add('bad', 'chk_converge');
+    const L = []; refl.forEach(j => r.loadings[j].forEach((v, q) => L.push({ v, name: r.indicators[j][q] })));
+    const low = L.filter(x => x.v < 0.708), vlow = L.filter(x => x.v < 0.4);
+    add(vlow.length ? 'bad' : low.length ? 'warn' : 'ok', 'chk_loadings', { n: low.length, list: low.map(x => x.name).join(', ') || '–' });
+    const relBad = refl.filter(j => r.reliability[j].rhoA < 0.7 || r.reliability[j].rhoC < 0.7), relHigh = refl.filter(j => r.reliability[j].rhoC > 0.95);
+    add(relBad.length ? 'bad' : relHigh.length ? 'warn' : 'ok', 'chk_reliability', { list: relBad.concat(relHigh).map(j => r.constructs[j]).join(', ') || '–' });
+    const aveBad = refl.filter(j => r.reliability[j].ave < 0.5);
+    add(aveBad.length ? 'bad' : 'ok', 'chk_ave', { list: aveBad.map(j => r.constructs[j]).join(', ') || '–' });
+    let hmax = 0, hpair = ''; real.forEach((i, a) => real.forEach((j, b) => { if (b > a && r.htmt[i][j] > hmax) { hmax = r.htmt[i][j]; hpair = r.constructs[i] + ' – ' + r.constructs[j]; } }));
+    add(hmax >= 0.9 ? 'bad' : hmax >= 0.85 ? 'warn' : 'ok', 'chk_htmt', { v: f(hmax), pair: hpair });
+    if (rb) { const hu = rb.rows.filter(x => x.group === 'htmt'), mx = hu.reduce((a, x) => (x.hi > a.hi ? x : a), { hi: -Infinity }); if (hu.length) add(mx.hi >= 1 ? 'bad' : mx.hi >= 0.9 ? 'warn' : 'ok', 'chk_htmt_ci', { v: f(mx.hi), pair: mx.label }); }
+    if (form.length) { let vmax = 0; form.forEach(j => r.outerVIF[j].forEach(v => { vmax = Math.max(vmax, v); })); add(vmax >= 5 ? 'bad' : vmax >= 3 ? 'warn' : 'ok', 'chk_outer_vif', { v: f(vmax) }); }
+    let ivmax = 0; r.pred.forEach((P, j) => P.forEach(i => { if (isFinite(r.innerVIF[i][j])) ivmax = Math.max(ivmax, r.innerVIF[i][j]); }));
+    add(ivmax >= 5 ? 'bad' : ivmax >= 3 ? 'warn' : 'ok', 'chk_inner_vif', { v: f(ivmax) });
+    if (rb) { const ps = rb.rows.filter(x => x.group === 'path'), ns = ps.filter(x => !(x.p < 0.05)); add(ns.length ? 'info' : 'ok', 'chk_paths', { s: ps.length - ns.length, n: ps.length, list: ns.map(x => x.label).join(', ') || '–' }); }
+    const r2 = r.pred.map((P, j) => (P.length && !r.isInter[j] ? r.r2[j] : null)).filter(v => v !== null);
+    if (r2.length) add(Math.min(...r2) < 0.1 ? 'warn' : 'info', 'chk_r2', { lo: f(Math.min(...r2)), hi: f(Math.max(...r2)) });
+    const sr = r.fit.saturated.srmr; add(sr > 0.08 ? 'warn' : 'ok', 'chk_srmr', { v: f(sr) });
+    let bmin = Infinity; r.pred.forEach((P, j) => P.forEach(i => { bmin = Math.min(bmin, Math.abs(r.paths[j][i])); }));
+    if (isFinite(bmin) && bmin > 0) { const need = Math.ceil((2.486 / bmin) ** 2); add(r.n >= need ? 'ok' : 'warn', 'chk_n', { n: r.n, need, b: f(bmin) }); }
+    return items;
+  }
+  function checklistHTML(items) {
+    const icon = { ok: '✓', warn: '⚠', bad: '✗', info: 'ℹ' };
+    return `<ul class="checklist">${items.map(x => `<li class="${x.status}"><span>${icon[x.status]}</span>${esc(x.text)}</li>`).join('')}</ul>`;
+  }
+  function writeup(rb) {
+    const r = rb.base, ar = S.lang === 'ar', real = r.constructs.map((_, j) => j).filter(j => !r.isInter[j]);
+    const refl = real.filter(j => r.modes[j] === 'A' && r.indicators[j].length > 1);
+    const span = a => (a.length ? f(Math.min(...a)) + '–' + f(Math.max(...a)) : '–');
+    const pAPA = p => (p < 0.001 ? '< .001' : '= ' + p.toFixed(3).replace(/^0/, ''));
+    const L = []; refl.forEach(j => r.loadings[j].forEach(v => L.push(v)));
+    const rel = k => refl.map(j => r.reliability[j][k]);
+    let hmax = 0; real.forEach((i, a) => real.forEach((j, b) => { if (b > a) hmax = Math.max(hmax, r.htmt[i][j]); }));
+    const hu = rb.rows.filter(x => x.group === 'htmt'), hiMax = hu.length ? Math.max(...hu.map(x => x.hi)) : NaN;
+    let iv = []; r.pred.forEach((P, j) => P.forEach(i => { if (isFinite(r.innerVIF[i][j])) iv.push(r.innerVIF[i][j]); }));
+    const paths = rb.rows.filter(x => x.group === 'path');
+    const r2s = r.pred.map((P, j) => (P.length && !r.isInter[j] ? r.constructs[j] + ' (R² = ' + f(r.r2[j]) + ')' : null)).filter(Boolean);
+    const ci = x => '[' + f(x.lo) + ', ' + f(x.hi) + ']';
+    const pathTxt = paths.map(x => x.label.replace(' -> ', ' → ') + ' (β = ' + f(x.original) + ', t = ' + f(x.t, 2) + ', p ' + pAPA(x.p) + ', 95% CI ' + ci(x) + ')');
+    const sig = paths.filter(x => x.p < 0.05), ns = paths.filter(x => !(x.p < 0.05));
+    if (ar) return `<p>قُيِّم نموذج القياس وفق إرشادات Hair وآخرين (2019). تراوحت التشبعات الخارجية بين ${span(L)}${L.filter(v => v < 0.708).length ? `، وجاء ${L.filter(v => v < 0.708).length} منها دون 0.708` : '، وكلها فوق 0.708'}. وتراوح معامل ألفا كرونباخ بين ${span(rel('alpha'))}، وρA بين ${span(rel('rhoA'))}، والثبات المركب ρc بين ${span(rel('rhoC'))}، ومتوسط التباين المستخلص (AVE) بين ${span(rel('ave'))}. وبلغت أعلى قيمة لنسبة HTMT ${f(hmax)}${isFinite(hiMax) ? `، وأعلى حدّ أعلى لفترة الثقة 95% ${f(hiMax)}` : ''}${hmax < 0.85 ? '، مما يدعم الصدق التمايزي' : ''}.</p>
+      <p>وفي النموذج الهيكلي تراوحت قيم VIF الداخلية بين ${span(iv)}. وأظهر الإقلاع الذاتي بـ ${rb.samples} عينة فرعية أن ${sig.length} من ${paths.length} مسارات دالة إحصائياً عند 0.05: ${sig.length ? pathTxt.filter((_, q) => paths[q].p < 0.05).join('؛ ') : '–'}.${ns.length ? ` ولم تكن المسارات التالية دالة: ${pathTxt.filter((_, q) => !(paths[q].p < 0.05)).join('؛ ')}.` : ''} ويفسّر النموذج من تباين المتغيرات التابعة: ${r2s.join('، ')}.</p>
+      <p class="note">استُعمل برنامج YouPls (الإصدار ${window.YPDocs.version}) بمخطط ترجيح ${t('opt_' + r.settings.scheme)} و${rb.samples} عينة إقلاع (${t('opt_' + rb.ci)}، ${t('opt_' + rb.test)}).</p>`;
+    return `<p>The measurement model was assessed following Hair et al. (2019). Outer loadings ranged from ${span(L)}${L.filter(v => v < 0.708).length ? `, with ${L.filter(v => v < 0.708).length} below 0.708` : ', all above 0.708'}. Cronbach’s alpha ranged from ${span(rel('alpha'))}, ρA from ${span(rel('rhoA'))} and composite reliability ρc from ${span(rel('rhoC'))}; the average variance extracted (AVE) ranged from ${span(rel('ave'))}. The highest HTMT ratio was ${f(hmax)}${isFinite(hiMax) ? ` and the highest upper bound of the 95% confidence intervals was ${f(hiMax)}` : ''}${hmax < 0.85 ? ', supporting discriminant validity' : ''}.</p>
+      <p>In the structural model, inner VIF values ranged from ${span(iv)}. Bootstrapping with ${rb.samples} subsamples showed ${sig.length} of ${paths.length} paths to be significant at the 5% level: ${sig.length ? pathTxt.filter((_, q) => paths[q].p < 0.05).join('; ') : '–'}.${ns.length ? ` The following paths were not significant: ${pathTxt.filter((_, q) => !(paths[q].p < 0.05)).join('; ')}.` : ''} The model explains ${r2s.join(', ')}.</p>
+      <p class="note">Analysis performed with YouPls (version ${window.YPDocs.version}) using the ${t('opt_' + r.settings.scheme).toLowerCase()} weighting scheme and ${rb.samples} bootstrap subsamples (${t('opt_' + rb.ci).toLowerCase()} confidence intervals, ${t('opt_' + rb.test).toLowerCase()} test).</p>`;
+  }
+
+  // ------------------------------------------------------- Excel export of all results
+  function exportExcel() {
+    const kinds = KIND_ORDER.filter(k => S.results[k]); if (!kinds.length) return;
+    const sheets = [], toNum = v => (typeof v === 'string' && /^-?\d+(\.\d+)?(e[-+]?\d+)?$/i.test(v.trim()) ? Number(v) : v);
+    kinds.forEach(k => {
+      sections(k, S.results[k]).forEach(sc => {
+        TABLES.clear(); sc.html();
+        Array.from(TABLES.values()).forEach((tb, i) => sheets.push({ name: (t(TASKS[k].title).replace(/\s*\(.*$/, '').slice(0, 12) + ' ' + sc.title).slice(0, 31 - (i ? 3 : 0)) + (i ? ' ' + (i + 1) : ''), rows: [tb.head.map(String)].concat(tb.rows.map(r => r.map(toNum))) }));
+      });
+    });
+    const u8 = window.YPIO.writeXLSX(sheets, S.lang === 'ar');
+    download(slug(S.name) + '_results.xlsx', new Blob([u8], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    renderResults();
   }
 
   function regSections(r) {
@@ -963,7 +1103,15 @@
   // ------------------------------------------------------------ wiring
   function readFile(file, cb) { const fr = new FileReader(); fr.onload = () => cb(String(fr.result)); fr.readAsText(file); }
   function bind() {
-    $('#csvfile').addEventListener('change', e => { const fl = e.target.files[0]; if (!fl) return; readFile(fl, txt => { if (setData(txt, fl.name)) { if (!editor.model.constructs.length) setView('model'); } }); e.target.value = ''; });
+    $('#csvfile').addEventListener('change', e => {
+      const fl = e.target.files[0]; if (!fl) return; e.target.value = '';
+      const ext = fl.name.split('.').pop().toLowerCase(), after = txt => { if (setData(txt, fl.name)) { if (!editor.model.constructs.length) setView('model'); } };
+      if (ext === 'xlsx' || ext === 'sav') {
+        const fr = new FileReader();
+        fr.onload = async () => { try { after(ext === 'xlsx' ? await window.YPIO.xlsxToCSV(fr.result) : window.YPIO.savToCSV(fr.result)); } catch (err) { const k = 'err_' + err.message; toast(t('csv_error') + ': ' + (t(k) !== k ? t(k) : err.message), 'bad'); } };
+        fr.readAsArrayBuffer(fl);
+      } else readFile(fl, after);
+    });
     $('#projfile').addEventListener('change', e => { const fl = e.target.files[0]; if (!fl) return; readFile(fl, txt => { try { loadProject(JSON.parse(txt)); toast(t('project_loaded'), 'good'); autosave(); } catch (err) { toast(t('bad_project'), 'bad'); } }); e.target.value = ''; });
     $('#pname').addEventListener('change', e => { S.name = e.target.value.trim() || 'Untitled'; autosave(); });
     $('#lang').addEventListener('click', () => { S.lang = S.lang === 'ar' ? 'en' : 'ar'; prefs(true); refreshAll(); });
@@ -1027,6 +1175,8 @@
         case 'style': openStyle(); break;
         case 'style-reset': resetStyle(); break;
         case 'report': exportReport(); break;
+        case 'excel': exportExcel(); break;
+        case 'copywriteup': { const w = $('#writeup'); if (w) (navigator.clipboard ? navigator.clipboard.writeText(w.innerText) : Promise.reject()).then(() => toast(t('copied'), 'good'), () => toast(t('copy_failed'), 'bad')); break; }
         case 'rerun': openRun(S.current); break;
       }
     });

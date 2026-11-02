@@ -56,7 +56,7 @@
     const X = prep.raw, p = X.length, n = X[0].length, m = spec.J;
     const mu = X.map(mean), S = zeros(p, p);
     for (let a = 0; a < p; a++) for (let b = a; b < p; b++) { let s = 0; for (let t = 0; t < n; t++) s += (X[a][t] - mu[a]) * (X[b][t] - mu[b]); S[a][b] = S[b][a] = s / n; }
-    const ldS = logdet(S);
+    let Scur = S, ldS = logdet(S);   // Scur changes during bootstrapping
     // ---- parameters
     const par = [], single = new Set();
     spec.lv.forEach((l, j) => { if (l.idx.length === 1) single.add(l.idx[0]); l.idx.forEach((k, q) => { if (q > 0) par.push({ t: 'L', k, j }); }); });
@@ -93,11 +93,11 @@
     const F = t => {
       let st; try { st = build(t); } catch (e) { return Infinity; }
       let ld; try { ld = logdet(st.Sig); } catch (e) { return Infinity; }
-      const Si = inverse(st.Sig); let tr = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) tr += S[a][b] * Si[b][a];
+      const Si = inverse(st.Sig); let tr = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) tr += Scur[a][b] * Si[b][a];
       return ld + tr - ldS - p;
     };
     const grad = t => {
-      const st = build(t), Si = inverse(st.Sig), SiS = matmul(Si, S), W = matmul(SiS, Si).map((r, a) => r.map((v, b) => Si[a][b] - v));
+      const st = build(t), Si = inverse(st.Sig), SiS = matmul(Si, Scur), W = matmul(SiS, Si).map((r, a) => r.map((v, b) => Si[a][b] - v));
       const WL = matmul(W, st.L), WLM = matmul(WL, st.M), G = matmul(transpose(st.L), WL), H = matmul(matmul(transpose(st.A), G), st.A), MGA = matmul(matmul(st.M, G), st.A);
       const g = new Float64Array(q);
       par.forEach((pp, z) => {
@@ -112,24 +112,31 @@
       const th0 = Float64Array.from(th, (v, a) => v + 0.05 * Math.sin(a + 1)); const g0 = grad(th0), num = par.map((_, a) => { const tp = Float64Array.from(th0), tm = Float64Array.from(th0); tp[a] += 1e-6; tm[a] -= 1e-6; return (F(tp) - F(tm)) / 2e-6; });
       return { maxGradDiff: Math.max(...num.map((v, a) => Math.abs(v - g0[a]))) };
     }
-    // ---- BFGS
-    let f = F(th), g = grad(th), Hi = eye(q), it = 0, converged = false;
-    if (!isFinite(f)) throw new Error('cbsem_start');
-    for (it = 1; it <= 3000; it++) {
-      let d = new Float64Array(q); for (let a = 0; a < q; a++) { let s = 0; for (let b = 0; b < q; b++) s -= Hi[a][b] * g[b]; d[a] = s; }
-      let gd = dot(g, d); if (!(gd < 0)) { Hi = eye(q); d = Float64Array.from(g, v => -v); gd = -dot(g, g); }
-      let step = 1, tn, fn;
-      for (let ls = 0; ls < 60; ls++) { tn = Float64Array.from(th, (v, a) => v + step * d[a]); fn = F(tn); if (fn <= f + 1e-4 * step * gd) break; step *= 0.5; }
-      if (!(fn <= f + 1e-4 * step * gd)) break;
-      const gn = grad(tn), s = Float64Array.from(tn, (v, a) => v - th[a]), y = Float64Array.from(gn, (v, a) => v - g[a]), sy = dot(s, y);
-      if (sy > 1e-14) {
-        const r = 1 / sy, Hy = Hi.map(row => dot(row, y)), yHy = dot(y, Hy);
-        for (let a = 0; a < q; a++) for (let b = 0; b < q; b++) Hi[a][b] += (1 + r * yHy) * r * s[a] * s[b] - r * (Hy[a] * s[b] + s[a] * Hy[b]);
+    // ---- BFGS (quasi-Newton with Armijo backtracking; Nocedal & Wright, 2006)
+    const optimize = (t0, maxIt, prog) => {
+      const t = Float64Array.from(t0); let f = F(t), g = grad(t), Hi = eye(q), it = 0, converged = false;
+      if (!isFinite(f)) return null;
+      for (it = 1; it <= maxIt; it++) {
+        let d = new Float64Array(q); for (let a = 0; a < q; a++) { let s = 0; for (let b = 0; b < q; b++) s -= Hi[a][b] * g[b]; d[a] = s; }
+        let gd = dot(g, d); if (!(gd < 0)) { Hi = eye(q); d = Float64Array.from(g, v => -v); gd = -dot(g, g); }
+        let step = 1, tn, fn;
+        for (let ls = 0; ls < 60; ls++) { tn = Float64Array.from(t, (v, a) => v + step * d[a]); fn = F(tn); if (fn <= f + 1e-4 * step * gd) break; step *= 0.5; }
+        if (!(fn <= f + 1e-4 * step * gd)) break;
+        const gn = grad(tn), sv = Float64Array.from(tn, (v, a) => v - t[a]), y = Float64Array.from(gn, (v, a) => v - g[a]), sy = dot(sv, y);
+        if (sy > 1e-14) {
+          const r = 1 / sy, Hy = Hi.map(row => dot(row, y)), yHy = dot(y, Hy);
+          for (let a = 0; a < q; a++) for (let b = 0; b < q; b++) Hi[a][b] += (1 + r * yHy) * r * sv[a] * sv[b] - r * (Hy[a] * sv[b] + sv[a] * Hy[b]);
+        }
+        const df_ = f - fn; t.set(tn); f = fn; g = gn;
+        if (prog && it % 20 === 0) prog(Math.min(0.9, it / 600));
+        const gmax = Math.max(...Array.from(g, Math.abs));
+        if (gmax < 1e-7 || (df_ >= 0 && df_ < 1e-14)) { converged = gmax < 1e-4; break; }
       }
-      const df_ = f - fn; th.set(tn); f = fn; g = gn;
-      if (progress && it % 20 === 0) progress(Math.min(0.9, it / 600));
-      if (Math.max(...Array.from(g, Math.abs)) < 1e-7 || (df_ >= 0 && df_ < 1e-14)) { converged = Math.max(...Array.from(g, Math.abs)) < 1e-4; break; }
-    }
+      return { th: t, f, it, converged };
+    };
+    const sol = optimize(th, 3000, opts && opts.samples ? p_ => progress && progress(0.1 * p_) : progress);
+    if (!sol) throw new Error('cbsem_start');
+    th.set(sol.th); const f = sol.f, it = sol.it, converged = sol.converged;
     // ---- standard errors from the expected information (as lavaan/semopy default):
     //      I_ab = (n/2) tr(Σ⁻¹ ∂Σ/∂θ_a Σ⁻¹ ∂Σ/∂θ_b), Cov(θ) = I⁻¹
     const S0 = build(th).Sig, S0i = inverse(S0), h = 1e-6;
@@ -178,8 +185,64 @@
     });
     const lvcorr = M.map((r, a) => r.map((v, b) => v / Math.sqrt(M[a][a] * M[b][b])));
     const resCorr = S.map((r, a) => r.map((v, b) => (v - Sig[a][b]) / Math.sqrt(S[a][a] * S[b][b])));
+    // ---- modification indices (score tests) for fixed-zero parameters: MI = n g² / (4 s), EPC = −g / (2 s), where
+    //      g = ∂F/∂θ_c and s is the Schur complement of the per-case expected information Ĩ = ½ tr(Σ⁻¹Σ_a Σ⁻¹Σ_b)
+    const mi = [];
+    {
+      const Wm = matmul(matmul(Si, S), Si).map((r, a) => r.map((v, b) => Si[a][b] - v)), RL = matmul(M, transpose(st.L)), Ith = info.map(r => r.map(v => v / n));
+      let IthInv = null; try { IthInv = inverse(Ith); } catch (e) { IthInv = null; }
+      const isAnc = (a, b) => { const stck = [b], seen = new Set(); while (stck.length) { const u = stck.pop(); if (u === a) return true; if (seen.has(u)) continue; seen.add(u); spec.pred[u].forEach(v => stck.push(v)); } return false; };
+      const cands = [];
+      for (let k = 0; k < p; k++) for (let j = 0; j < m; j++) if (!spec.lv[j].idx.includes(k)) cands.push({ type: 'load', k, j, label: names[j] + ' =~ ' + ind[k], D: () => { const D = zeros(p, p); for (let b = 0; b < p; b++) { D[k][b] += RL[j][b]; D[b][k] += RL[j][b]; } return D; } });
+      for (let a = 0; a < p; a++) for (let b = a + 1; b < p; b++) cands.push({ type: 'ecov', a, b, label: ind[a] + ' ~~ ' + ind[b], D: () => { const D = zeros(p, p); D[a][b] = D[b][a] = 1; return D; } });
+      for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) if (i !== j && !spec.pred[j].includes(i) && !isAnc(j, i)) cands.push({ type: 'path', i, j, label: names[j] + ' ~ ' + names[i], D: () => { const Eji = zeros(m, m); Eji[j][i] = 1; const dM0 = matmul(matmul(st.A, Eji), M); const dM = dM0.map((r, a) => r.map((v, b) => v + dM0[b][a])); return matmul(matmul(st.L, dM), transpose(st.L)); } });
+      const endo = []; for (let j = 0; j < m; j++) if (spec.pred[j].length) endo.push(j);
+      endo.forEach((a, x) => endo.forEach((b, y) => { if (y > x) cands.push({ type: 'rcov', a, b, label: names[a] + ' ~~ ' + names[b], D: () => { const E2 = zeros(m, m); E2[a][b] = E2[b][a] = 1; return matmul(matmul(st.L, matmul(matmul(st.A, E2), transpose(st.A))), transpose(st.L)); } }); }));
+      if (IthInv) cands.forEach(c => {
+        const D = c.D(), G = matmul(Si, D);
+        let g = 0, icc = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) { g += Wm[a][b] * D[b][a]; icc += G[a][b] * G[b][a]; }
+        icc /= 2;
+        const v = dS.map(dj => { let tr = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) tr += G[a][b] * dj[b][a]; return tr / 2; });
+        let quad = 0; for (let a = 0; a < q; a++) { let s2 = 0; for (let b = 0; b < q; b++) s2 += IthInv[a][b] * v[b]; quad += v[a] * s2; }
+        const schur = icc - quad; if (!(schur > 1e-10)) return;
+        const MI = n * g * g / (4 * schur), epc = -g / (2 * schur);
+        let sepc = epc;
+        if (c.type === 'load') sepc = epc * sdl(c.j) / sdx(c.k);
+        else if (c.type === 'ecov') sepc = epc / Math.sqrt(Sig[c.a][c.a] * Sig[c.b][c.b]);
+        else if (c.type === 'path') sepc = epc * sdl(c.i) / sdl(c.j);
+        else sepc = epc / Math.sqrt(M[c.a][c.a] * M[c.b][c.b]);
+        mi.push({ type: c.type, label: c.label, mi: MI, p: 1 - chi2cdf(MI, 1), epc, sepc });
+      });
+      mi.sort((a, b) => b.mi - a.mi);
+    }
+    // ---- optional bootstrap of the standardised estimates (percentile CIs)
+    let boot = null;
+    const B = (opts && +opts.samples) || 0;
+    if (B > 0) {
+      const rand = rng((opts && opts.seed) || 1), pathDraws = paths.map(() => []), loadDraws = loadings.map(() => []), r2Draws = r2.map(() => []);
+      let failed = 0;
+      for (let b = 0; b < B; b++) {
+        const idx = Int32Array.from({ length: n }, () => Math.floor(rand() * n)), Xb = X.map(c => Float64Array.from(idx, t => c[t])), mb = Xb.map(mean), Sb = zeros(p, p);
+        for (let a = 0; a < p; a++) for (let c = a; c < p; c++) { let v = 0; for (let t = 0; t < n; t++) v += (Xb[a][t] - mb[a]) * (Xb[c][t] - mb[c]); Sb[a][c] = Sb[c][a] = v / n; }
+        try {
+          Scur = Sb; ldS = logdet(Sb);
+          const r = optimize(th, 500); if (!r) throw new Error('fail');
+          const sb = build(r.th), sl = j => Math.sqrt(sb.M[j][j]), sx = k => Math.sqrt(sb.Sig[k][k]);
+          paths.forEach((pp, z) => { const i = names.indexOf(pp.to), j = names.indexOf(pp.from); pathDraws[z].push(sb.B[i][j] * sl(j) / sl(i)); });
+          loadings.forEach((l, z) => { const j = names.indexOf(l.construct), k = ind.indexOf(l.indicator); loadDraws[z].push(sb.L[k][j] * sl(j) / sx(k)); });
+          r2.forEach((x, z) => { const j = names.indexOf(x.construct); r2Draws[z].push(1 - sb.Ps[j][j] / sb.M[j][j]); });
+        } catch (e) { failed++; }
+        if (progress && b % 10 === 0) progress(0.1 + 0.9 * b / B);
+      }
+      Scur = S; ldS = logdet(S);
+      const summ = (o, d) => { const srt = d.filter(isFinite).sort((a, b) => a - b), m_ = mean(srt), s_ = sd(srt, m_), tt = Math.abs(o / s_); return { bootMean: m_, bootSE: s_, bootT: tt, bootP: tTwoTailedP(tt, srt.length - 1), lo: quantile(srt, 0.025), hi: quantile(srt, 0.975) }; };
+      paths.forEach((pp, z) => Object.assign(pp, summ(pp.std, pathDraws[z])));
+      loadings.forEach((l, z) => Object.assign(l, summ(l.std, loadDraws[z])));
+      r2.forEach((x, z) => Object.assign(x, summ(x.r2, r2Draws[z])));
+      boot = { samples: B, failed };
+    }
     if (progress) progress(1);
-    return { kind: 'cbsem', n, fit, loadings, paths, covs, resid, r2, effects, reliability, constructs: names, lvcorr, indicators: ind, resCorr, heywood: resid.some(r => r.est < 0) || covs.some(c => c.kind !== 'cov' && c.est < 0) };
+    return { kind: 'cbsem', n, fit, loadings, paths, covs, resid, r2, effects, reliability, constructs: names, lvcorr, indicators: ind, resCorr, mi, boot, heywood: resid.some(r => r.est < 0) || covs.some(c => c.kind !== 'cov' && c.est < 0) };
   }
 
   // ------------------------------------------------------------- FIMIX-PLS
