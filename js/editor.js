@@ -2,7 +2,6 @@
 (function (root) {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
-  const RX = 54, RY = 30, IW = 70, IH = 22, GAP = 28, DIST = 112;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let uid = Date.now() % 100000;
   const newId = p => p + (++uid).toString(36);
@@ -20,6 +19,7 @@
   P.setModel = function (m) {
     this.model = m || { constructs: [], paths: [], interactions: [] };
     this.model.interactions = this.model.interactions || [];
+    this.model.style = this.model.style || { global: {}, el: {} };
     this.model.paths.forEach(p => { if (!p.id) p.id = newId('p'); });
     this.model.constructs.forEach((c, i) => { if (c.x === undefined) { c.x = 160 + (i % 4) * 230; c.y = 120 + Math.floor(i / 4) * 180; } c.side = c.side || 'left'; });
     this.sel = null; this.render();
@@ -72,6 +72,7 @@
       if (p) m.interactions = m.interactions.filter(i => !(i.x === p.from && i.y === p.to));
     } else if (s.type === 'inter') m.interactions = m.interactions.filter(i => i.id !== s.id);
     else if (s.type === 'indicator') { const c = this.byId(s.cid); if (c) c.indicators = c.indicators.filter(n => n !== s.name); }
+    if (m.style && m.style.el && s.id) delete m.style.el[s.id];
     this.sel = null; this.changed(); if (this.hooks.select) this.hooks.select(null);
   };
   P.autoLayout = function () {
@@ -98,6 +99,37 @@
     this.changed(); this.fit();
   };
 
+  // ------------------------------------------------------------ appearance
+  // Empty colour = follow the app theme (CSS variables), so light/dark mode keeps working.
+  const STYLE_DEFAULTS = {
+    font: 'system', lvShape: 'ellipse', lvW: 108, lvH: 60, lvFill: '', lvStroke: '', lvText: '', lvFont: 12.5, lvBold: true, lvStrokeW: 1.6,
+    indShape: 'rect', indW: 70, indH: 22, indFill: '', indStroke: '', indText: '', indFont: 11,
+    pathColor: '', pathW: 1.8, pathStyle: 'solid', outerColor: '', outerW: 1.1,
+    interFill: '', interStroke: '', labelFont: 11, showOuter: true, showR2: true
+  };
+  const FONTS = {
+    system: 'system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif', sans: 'Arial,Helvetica,"Liberation Sans",sans-serif',
+    serif: '"Times New Roman",Times,"Liberation Serif",serif', georgia: 'Georgia,"DejaVu Serif",serif',
+    tahoma: 'Tahoma,Verdana,sans-serif', mono: 'Consolas,"Courier New",monospace',
+    naskh: '"Noto Naskh Arabic","Traditional Arabic","Times New Roman",serif'
+  };
+  const PRESETS = {
+    theme: {},
+    classic: { lvFill: '#4f81bd', lvStroke: '#2c5d8f', lvText: '#ffffff', indFill: '#fff2a8', indStroke: '#a8962e', indText: '#1f1f1f', pathColor: '#333333', outerColor: '#555555', interFill: '#c6efce', interStroke: '#2e7d32' },
+    journal: { font: 'serif', lvFill: '#ffffff', lvStroke: '#000000', lvText: '#000000', lvBold: false, indFill: '#ffffff', indStroke: '#000000', indText: '#000000', pathColor: '#000000', outerColor: '#000000', interFill: '#ffffff', interStroke: '#000000', lvStrokeW: 1.2, pathW: 1.4 },
+    pastel: { lvFill: '#e0f2fe', lvStroke: '#0284c7', lvText: '#0c4a6e', indFill: '#fce7f3', indStroke: '#db2777', indText: '#831843', pathColor: '#475569', outerColor: '#94a3b8', interFill: '#dcfce7', interStroke: '#16a34a' },
+    forest: { lvFill: '#dcfce7', lvStroke: '#15803d', lvText: '#14532d', indFill: '#fef3c7', indStroke: '#a16207', indText: '#422006', pathColor: '#3f3f46', outerColor: '#78716c', interFill: '#e0e7ff', interStroke: '#4338ca' },
+    contrast: { lvFill: '#000000', lvStroke: '#000000', lvText: '#ffffff', indFill: '#ffd400', indStroke: '#000000', indText: '#000000', pathColor: '#000000', outerColor: '#000000', pathW: 2.6, outerW: 1.6, lvStrokeW: 2, interFill: '#ffffff', interStroke: '#000000' },
+    boxes: { lvShape: 'rounded', indShape: 'rounded', lvW: 120, lvH: 52, lvFill: '#eef2ff', lvStroke: '#4338ca', lvText: '#1e1b4b', indFill: '#f8fafc', indStroke: '#64748b', pathColor: '#334155' }
+  };
+  P.style = function () {
+    const m = this.model; m.style = m.style || { global: {}, el: {} };
+    m.style.global = m.style.global || {}; m.style.el = m.style.el || {};
+    return Object.assign({}, STYLE_DEFAULTS, m.style.global);
+  };
+  P.elStyle = function (id) { const m = this.model; return (m.style && m.style.el && m.style.el[id]) || {}; };
+  P.dims = function (c) { const g = this.style(), e = c ? this.elStyle(c.id) : {}; return { rx: (e.lvW || g.lvW) / 2, ry: (e.lvH || g.lvH) / 2, shape: e.lvShape || g.lvShape }; };
+
   // ------------------------------------------------------------- geometry
   function ellipseEdge(cx, cy, tx, ty, rx, ry) {
     const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy];
@@ -107,78 +139,95 @@
     const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy];
     const t = Math.min(Math.abs((w / 2) / (dx || 1e-9)), Math.abs((h / 2) / (dy || 1e-9))); return [cx + dx * t, cy + dy * t];
   }
+  function shapeEdge(shape, cx, cy, tx, ty, rx, ry) { return shape === 'ellipse' ? ellipseEdge(cx, cy, tx, ty, rx, ry) : rectEdge(cx, cy, tx, ty, 2 * rx, 2 * ry); }
+  function shapeSVG(shape, cx, cy, rx, ry, attr) {
+    if (shape === 'ellipse') return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${attr}/>`;
+    return `<rect x="${cx - rx}" y="${cy - ry}" width="${2 * rx}" height="${2 * ry}" rx="${shape === 'rounded' ? Math.min(14, ry) : 2}"${attr}/>`;
+  }
+  const styleAttr = o => { const s = Object.entries(o).filter(([, v]) => v !== '' && v !== undefined && v !== null).map(([k, v]) => `${k}:${v}`).join(';'); return s ? ` style="${esc(s)}"` : ''; };
+  const dash = (st, w) => st === 'dashed' ? `${4 * w},${2.5 * w}` : st === 'dotted' ? `${w},${1.8 * w}` : '';
+  const fit = (s, px, font) => { const max = Math.max(3, Math.floor(px / (font * 0.58))); return s.length > max ? s.slice(0, max - 1) + '…' : s; };
+
   P.indPos = function (c) {
-    const k = c.indicators.length, out = [];
+    const g = this.style(), e = this.elStyle(c.id), d = this.dims(c);
+    const iw = e.indW || g.indW, ih = g.indH, k = c.indicators.length, out = [];
+    const gap = ih + 6, dist = Math.max(d.rx, d.ry) + 58;
     c.indicators.forEach((n, i) => {
       const off = (i - (k - 1) / 2);
       let x = c.x, y = c.y;
-      if (c.side === 'left') { x -= DIST + 20; y += off * GAP; }
-      else if (c.side === 'right') { x += DIST + 20; y += off * GAP; }
-      else if (c.side === 'top') { x += off * (IW + 8); y -= DIST - 6; }
-      else { x += off * (IW + 8); y += DIST - 6; }
-      out.push({ name: n, x, y });
+      if (c.side === 'left') { x -= d.rx + 40 + iw / 2; y += off * gap; }
+      else if (c.side === 'right') { x += d.rx + 40 + iw / 2; y += off * gap; }
+      else if (c.side === 'top') { x += off * (iw + 8); y -= d.ry + 44 + ih / 2; }
+      else { x += off * (iw + 8); y += d.ry + 44 + ih / 2; }
+      out.push({ name: n, x, y, w: iw, h: ih });
     });
     return out;
   };
 
   // --------------------------------------------------------------- render
   P.render = function () {
-    const m = this.model, o = this.overlay, sel = this.sel;
-    let s = `<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--edge)"/></marker>
-      <marker id="ahs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--accent)"/></marker>
-      <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--c3)"/></marker></defs>`;
-    s += `<g transform="translate(${this.view.x},${this.view.y}) scale(${this.view.k})">`;
-    s += `<rect class="bgcatch" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"/>`;
+    const m = this.model, o = this.overlay, sel = this.sel, g = this.style();
+    const markers = {}; let mk = 0;
+    const marker = color => { const c = color || 'var(--edge)'; if (!markers[c]) markers[c] = 'ah' + (mk++); return markers[c]; };
+    let body = '';
     // outer model
     m.constructs.forEach(c => {
+      const e = this.elStyle(c.id), d = this.dims(c);
+      const oc = e.outerColor || g.outerColor, ow = g.outerW;
+      const iFill = e.indFill || g.indFill, iStroke = e.indStroke || g.indStroke, iText = e.indText || g.indText, iFont = g.indFont, ishape = g.indShape;
       this.indPos(c).forEach((p, q) => {
         const isSel = sel && sel.type === 'indicator' && sel.cid === c.id && sel.name === p.name;
-        const a = ellipseEdge(c.x, c.y, p.x, p.y, RX, RY), b = rectEdge(p.x, p.y, c.x, c.y, IW, IH);
+        const a = shapeEdge(d.shape, c.x, c.y, p.x, p.y, d.rx, d.ry), b = rectEdge(p.x, p.y, c.x, c.y, p.w, p.h);
         const [x1, y1, x2, y2] = c.mode === 'B' ? [b[0], b[1], a[0], a[1]] : [a[0], a[1], b[0], b[1]];
-        s += `<line class="outer" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#ah)"/>`;
-        if (o && o.outer && o.outer[c.id] && o.outer[c.id][q] !== undefined) {
+        body += `<line class="outer" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${marker(oc)})"${styleAttr({ stroke: oc, 'stroke-width': ow })}/>`;
+        if (g.showOuter && o && o.outer && o.outer[c.id] && o.outer[c.id][q] !== undefined) {
           const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-          s += `<text class="olab" x="${mx}" y="${my - 3}" text-anchor="middle">${esc(o.outer[c.id][q])}</text>`;
+          body += `<text class="olab" x="${mx}" y="${my - 3}" text-anchor="middle" style="font-size:${g.labelFont - 1}px">${esc(o.outer[c.id][q])}</text>`;
         }
-        s += `<g class="ind${isSel ? ' sel' : ''}" data-cid="${c.id}" data-name="${esc(p.name)}"><rect x="${p.x - IW / 2}" y="${p.y - IH / 2}" width="${IW}" height="${IH}" rx="3"/><text x="${p.x}" y="${p.y + 4}" text-anchor="middle">${esc(p.name.length > 11 ? p.name.slice(0, 10) + '…' : p.name)}</text><title>${esc(p.name)}</title></g>`;
+        body += `<g class="ind${isSel ? ' sel' : ''}" data-cid="${c.id}" data-name="${esc(p.name)}">${shapeSVG(ishape === 'rounded' ? 'rounded' : 'rect', p.x, p.y, p.w / 2, p.h / 2, styleAttr({ fill: iFill, stroke: isSel ? '' : iStroke }))}<text x="${p.x}" y="${p.y + iFont / 3}" text-anchor="middle"${styleAttr({ fill: iText, 'font-size': iFont + 'px' })}>${esc(fit(p.name, p.w - 4, iFont))}</text><title>${esc(p.name)}</title></g>`;
       });
     });
     // inner paths
+    const label = (mx, my, txt) => { const w = txt.length * g.labelFont * 0.6 + 8; return `<g class="plab"><rect x="${mx - w / 2}" y="${my - g.labelFont * 0.9}" width="${w}" height="${g.labelFont * 1.65}" rx="4"/><text x="${mx}" y="${my + g.labelFont * 0.3}" text-anchor="middle" style="font-size:${g.labelFont}px">${esc(txt)}</text></g>`; };
     m.paths.forEach(p => {
       const a = this.byId(p.from), b = this.byId(p.to); if (!a || !b) return;
-      const s1 = ellipseEdge(a.x, a.y, b.x, b.y, RX, RY), s2 = ellipseEdge(b.x, b.y, a.x, a.y, RX + 2, RY + 2);
+      const da = this.dims(a), db = this.dims(b), e = this.elStyle(p.id);
+      const s1 = shapeEdge(da.shape, a.x, a.y, b.x, b.y, da.rx, da.ry), s2 = shapeEdge(db.shape, b.x, b.y, a.x, a.y, db.rx + 2, db.ry + 2);
       const isSel = sel && sel.type === 'path' && sel.id === p.id;
-      s += `<g class="path${isSel ? ' sel' : ''}" data-pid="${p.id}"><line class="hit" x1="${s1[0]}" y1="${s1[1]}" x2="${s2[0]}" y2="${s2[1]}"/><line class="inner" x1="${s1[0]}" y1="${s1[1]}" x2="${s2[0]}" y2="${s2[1]}" marker-end="url(#${isSel ? 'ahs' : 'ah'})"/></g>`;
-      if (o && o.paths && o.paths[p.from + '>' + p.to] !== undefined) {
-        const mx = (s1[0] + s2[0]) / 2, my = (s1[1] + s2[1]) / 2, txt = o.paths[p.from + '>' + p.to];
-        s += `<g class="plab"><rect x="${mx - txt.length * 3.4 - 4}" y="${my - 10}" width="${txt.length * 6.8 + 8}" height="18" rx="4"/><text x="${mx}" y="${my + 3}" text-anchor="middle">${esc(txt)}</text></g>`;
-      }
+      const col = isSel ? 'var(--accent)' : (e.color || g.pathColor), w = (e.width || g.pathW) * (isSel ? 1.5 : 1);
+      body += `<g class="path${isSel ? ' sel' : ''}" data-pid="${p.id}"><line class="hit" x1="${s1[0]}" y1="${s1[1]}" x2="${s2[0]}" y2="${s2[1]}"/><line class="inner" x1="${s1[0]}" y1="${s1[1]}" x2="${s2[0]}" y2="${s2[1]}" marker-end="url(#${marker(col)})"${styleAttr({ stroke: col, 'stroke-width': w, 'stroke-dasharray': dash(e.style || g.pathStyle, w) })}/></g>`;
+      if (o && o.paths && o.paths[p.from + '>' + p.to] !== undefined) body += label((s1[0] + s2[0]) / 2, (s1[1] + s2[1]) / 2, o.paths[p.from + '>' + p.to]);
     });
     // interactions
     m.interactions.forEach(it => {
       const b = this.byId(it.y); if (!b) return;
+      const db = this.dims(b), irx = db.rx * 0.88, iry = db.ry * 0.72;
       if (it.px === undefined) { it.px = b.x - 120; it.py = b.y - 120; }
-      const e1 = ellipseEdge(it.px, it.py, b.x, b.y, RX - 6, RY - 8), e2 = ellipseEdge(b.x, b.y, it.px, it.py, RX + 2, RY + 2);
+      const e1 = ellipseEdge(it.px, it.py, b.x, b.y, irx, iry), e2 = shapeEdge(db.shape, b.x, b.y, it.px, it.py, db.rx + 2, db.ry + 2);
       const isSel = sel && sel.type === 'inter' && sel.id === it.id;
-      s += `<line class="modline" x1="${e1[0]}" y1="${e1[1]}" x2="${e2[0]}" y2="${e2[1]}" marker-end="url(#ahm)"/>`;
-      if (o && o.paths && o.paths[it.id + '>' + it.y] !== undefined) {
-        const mx = (e1[0] + e2[0]) / 2, my = (e1[1] + e2[1]) / 2, txt = o.paths[it.id + '>' + it.y];
-        s += `<g class="plab"><rect x="${mx - txt.length * 3.4 - 4}" y="${my - 10}" width="${txt.length * 6.8 + 8}" height="18" rx="4"/><text x="${mx}" y="${my + 3}" text-anchor="middle">${esc(txt)}</text></g>`;
-      }
-      s += `<g class="inter${isSel ? ' sel' : ''}" data-iid="${it.id}"><ellipse cx="${it.px}" cy="${it.py}" rx="${RX - 6}" ry="${RY - 8}"/><text x="${it.px}" y="${it.py + 4}" text-anchor="middle">${esc(it.name.length > 16 ? it.name.slice(0, 15) + '…' : it.name)}</text><title>${esc(it.name)}</title></g>`;
+      const ist = g.interStroke;
+      body += `<line class="modline" x1="${e1[0]}" y1="${e1[1]}" x2="${e2[0]}" y2="${e2[1]}" marker-end="url(#${marker(ist || 'var(--c3)')})"${styleAttr({ stroke: ist })}/>`;
+      if (o && o.paths && o.paths[it.id + '>' + it.y] !== undefined) body += label((e1[0] + e2[0]) / 2, (e1[1] + e2[1]) / 2, o.paths[it.id + '>' + it.y]);
+      body += `<g class="inter${isSel ? ' sel' : ''}" data-iid="${it.id}"><ellipse cx="${it.px}" cy="${it.py}" rx="${irx}" ry="${iry}"${styleAttr({ fill: g.interFill, stroke: isSel ? '' : ist })}/><text x="${it.px}" y="${it.py + 4}" text-anchor="middle"${styleAttr({ fill: g.lvText, 'font-size': (g.lvFont - 1) + 'px' })}>${esc(fit(it.name, 2 * irx - 8, g.lvFont - 1))}</text><title>${esc(it.name)}</title></g>`;
     });
     // constructs
     m.constructs.forEach(c => {
+      const e = this.elStyle(c.id), d = this.dims(c);
       const isSel = sel && sel.type === 'construct' && sel.id === c.id, pend = this.pending === c.id;
-      const r2 = o && o.r2 && o.r2[c.id];
-      s += `<g class="lv${isSel ? ' sel' : ''}${pend ? ' pend' : ''}${c.indicators.length ? '' : ' empty'}" data-id="${c.id}"><ellipse cx="${c.x}" cy="${c.y}" rx="${RX}" ry="${RY}"/>`;
-      s += `<text class="lvname" x="${c.x}" y="${c.y + (r2 ? -2 : 4)}" text-anchor="middle">${esc(c.name.length > 15 ? c.name.slice(0, 14) + '…' : c.name)}</text>`;
-      if (r2) s += `<text class="r2" x="${c.x}" y="${c.y + 14}" text-anchor="middle">${esc(r2)}</text>`;
-      if (c.mode === 'B') s += `<text class="modeb" x="${c.x + RX - 6}" y="${c.y - RY + 8}" text-anchor="middle">B</text>`;
-      s += `<title>${esc(c.name)}</title></g>`;
+      const r2 = g.showR2 && o && o.r2 && o.r2[c.id], font = e.lvFont || g.lvFont, bold = e.lvBold !== undefined ? e.lvBold : g.lvBold;
+      const txt = e.lvText || g.lvText;
+      body += `<g class="lv${isSel ? ' sel' : ''}${pend ? ' pend' : ''}${c.indicators.length ? '' : ' empty'}" data-id="${c.id}">` +
+        shapeSVG(d.shape, c.x, c.y, d.rx, d.ry, styleAttr({ fill: e.lvFill || g.lvFill, stroke: isSel || pend ? '' : (e.lvStroke || g.lvStroke), 'stroke-width': isSel || pend ? '' : g.lvStrokeW }));
+      body += `<text class="lvname" x="${c.x}" y="${c.y + (r2 ? -font * 0.15 : font * 0.35)}" text-anchor="middle"${styleAttr({ fill: txt, 'font-size': font + 'px', 'font-weight': bold ? 600 : 400 })}>${esc(fit(c.name, 2 * d.rx - 10, font))}</text>`;
+      if (r2) body += `<text class="r2" x="${c.x}" y="${c.y + font * 1.15}" text-anchor="middle"${styleAttr({ fill: txt, 'font-size': (g.labelFont) + 'px' })}>${esc(r2)}</text>`;
+      if (c.mode === 'B') body += `<text class="modeb" x="${c.x + d.rx * 0.85}" y="${c.y - d.ry * 0.62}" text-anchor="middle">B</text>`;
+      body += `<title>${esc(c.name)}</title></g>`;
     });
-    s += '</g>';
-    this.svg.innerHTML = s;
+    let defs = '<defs>';
+    Object.entries(markers).forEach(([col, id]) => { defs += `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:${esc(col)}"/></marker>`; });
+    defs += '</defs>';
+    this.svg.style.fontFamily = FONTS[g.font] || FONTS.system;
+    this.svg.innerHTML = defs + `<g transform="translate(${this.view.x},${this.view.y}) scale(${this.view.k})"><rect class="bgcatch" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"/>${body}</g>`;
     if (this.hooks.render) this.hooks.render();
   };
 
@@ -186,8 +235,8 @@
     const r = this.svg.getBoundingClientRect(); if (!r.width || !this.model.constructs.length) return;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const take = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
-    this.model.constructs.forEach(c => { take(c.x - RX, c.y - RY); take(c.x + RX, c.y + RY); this.indPos(c).forEach(p => { take(p.x - IW / 2, p.y - IH / 2); take(p.x + IW / 2, p.y + IH / 2); }); });
-    this.model.interactions.forEach(i => { take(i.px - RX, i.py - RY); take(i.px + RX, i.py + RY); });
+    this.model.constructs.forEach(c => { const d = this.dims(c); take(c.x - d.rx, c.y - d.ry); take(c.x + d.rx, c.y + d.ry); this.indPos(c).forEach(p => { take(p.x - p.w / 2, p.y - p.h / 2); take(p.x + p.w / 2, p.y + p.h / 2); }); });
+    this.model.interactions.forEach(i => { take(i.px - 60, i.py - 30); take(i.px + 60, i.py + 30); });
     const pad = 30, k = Math.min(1.4, Math.min((r.width - 2 * pad) / (x1 - x0), (r.height - 2 * pad) / (y1 - y0)));
     this.view = { k, x: (r.width - (x1 - x0) * k) / 2 - x0 * k, y: (r.height - (y1 - y0) * k) / 2 - y0 * k };
     this.render();
@@ -202,7 +251,7 @@
     return { x: (ev.clientX - r.left - this.view.x) / this.view.k, y: (ev.clientY - r.top - this.view.y) / this.view.k };
   };
   P.hitConstruct = function (pt) {
-    return this.model.constructs.find(c => Math.pow((pt.x - c.x) / (RX + 8), 2) + Math.pow((pt.y - c.y) / (RY + 8), 2) <= 1);
+    return this.model.constructs.find(c => { const d = this.dims(c); return Math.pow((pt.x - c.x) / (d.rx + 8), 2) + Math.pow((pt.y - c.y) / (d.ry + 8), 2) <= 1; });
   };
 
   // --------------------------------------------------------------- events
@@ -268,6 +317,7 @@
   }
 
   Editor.commonPrefix = commonPrefix;
+  Editor.STYLE_DEFAULTS = STYLE_DEFAULTS; Editor.PRESETS = PRESETS; Editor.FONTS = FONTS;
   Editor.newId = newId;
   root.YPEditor = Editor;
 })(typeof self !== 'undefined' ? self : this);

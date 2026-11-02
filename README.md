@@ -19,6 +19,11 @@
   ثم افتح <http://127.0.0.1:8765>.
 - للنشر على استضافة أخرى: ارفع المستودع كما هو إلى أي استضافة ملفات ثابتة (GitHub Pages أو Netlify أو Cloudflare Pages…). لا يحتاج بناءً ولا مكتبات.
 
+## الجديد في 0.2
+
+- **المظهر:** قوالب جاهزة (كلاسيكي، أسود وأبيض للمجلات، باستيل، غابة، تباين عالٍ، صناديق)، وتحكّم كامل في الخطوط والألوان والأشكال (بيضاوي/مستطيل/مدوّر) والأحجام وأنماط الأسهم، لكل الرسم أو لعنصر واحد، ولوحات ألوان للرسوم البيانية منها لوحة ملائمة لعمى الألوان وأخرى رمادية، وتصدير النموذج SVG أو PNG بدقة عالية.
+- **الدليل والمصادر:** دليل مستخدم كامل بالعربية والإنجليزية، وصفحة «المنهجيات» فيها صيغة كل إحصاءة ومصادرها (45 مرجعاً بصيغة APA)، وزرّ 📖 بجانب كل جدول نتائج يفتح صيغته ومصدره، وصفحة «عن البرنامج» مع طريقة الاستشهاد به.
+
 ## خطوات العمل
 
 1. **البيانات:** استورد ملف CSV (الصف الأول أسماء المتغيرات؛ الفاصل `,` أو `;` أو Tab؛ الفاصلة العشرية `,` مقبولة؛ الخلايا الفارغة و`NA` و`-99` تُعدّ مفقودة؛ الأعمدة النصية تُعدّ فئوية للمقارنة بين المجموعات). تظهر الإحصاءات الوصفية ومصفوفة الارتباط وتوزيع كل متغير.
@@ -86,6 +91,8 @@ python3 tools/reference_pls.py > tests/fixtures/reference.json   # يحتاج nu
 > YouPls is an independent project and is not affiliated with SmartPLS GmbH. "SmartPLS" is mentioned for comparison only.
 
 **Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
+
+**New in 0.2:** appearance presets and full control of fonts, colours, shapes, sizes and arrow styles (whole diagram or single elements), chart palettes (incl. colour-blind safe and greyscale), high-resolution PNG/SVG model export; a bilingual user guide, a methods page with the formula and APA references for every statistic (45 sources), 📖 links from every results table, and an About page with citation info.
 
 **Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.youpls.json` (data + model).
 

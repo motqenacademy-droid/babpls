@@ -119,15 +119,15 @@ table.grid { border-collapse: collapse; width: max-content; min-width: 100%; fon
 .etools .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
 #canvas { flex: 1; width: 100%; min-height: 300px; background: var(--bg); background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 22px 22px; touch-action: none; user-select: none; direction: ltr; }
 #canvas[data-tool="construct"] { cursor: crosshair; } #canvas[data-tool="path"] { cursor: alias; }
-#canvas text { font: 12px system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; fill: var(--ink); pointer-events: none; }
-#canvas .lv ellipse { fill: var(--lv); stroke: var(--accent); stroke-width: 1.6; cursor: move; }
-#canvas .lv.empty ellipse { stroke-dasharray: 5 4; }
+#canvas text { font-size: 12px; fill: var(--ink); pointer-events: none; }
+#canvas .lv > ellipse, #canvas .lv > rect { fill: var(--lv); stroke: var(--accent); stroke-width: 1.6; cursor: move; }
+#canvas .lv.empty > * { stroke-dasharray: 5 4; }
 #canvas .lv text { fill: var(--lv-ink); }
 #canvas .lv .lvname { font-weight: 600; font-size: 12.5px; }
 #canvas .lv .r2 { font-size: 11px; }
 #canvas .lv .modeb { font-size: 10px; font-weight: 700; fill: var(--c2); }
-#canvas .lv.sel ellipse, #canvas .inter.sel ellipse { stroke: var(--sel); stroke-width: 3; }
-#canvas .lv.pend ellipse { stroke: var(--c3); stroke-width: 3; stroke-dasharray: 6 3; }
+#canvas .lv.sel > ellipse, #canvas .lv.sel > rect, #canvas .inter.sel ellipse { stroke: var(--sel); stroke-width: 3; }
+#canvas .lv.pend > ellipse, #canvas .lv.pend > rect { stroke: var(--c3); stroke-width: 3; stroke-dasharray: 6 3; }
 #canvas .ind rect { fill: var(--ind); stroke: var(--edge); stroke-width: 1; cursor: pointer; }
 #canvas .ind.sel rect { stroke: var(--sel); stroke-width: 2.5; }
 #canvas .ind text { font-size: 11px; }
@@ -189,3 +189,44 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   .top, .tabs, .secnav, .restabs, .cardtools, figcaption { display: none !important; }
   body { overflow: visible; height: auto; }
 }
+
+/* appearance dialog */
+dialog.wide { width: min(980px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.preset { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; font-size: 12px; background: var(--bg); }
+.preset svg { display: block; direction: ltr; }
+.stgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+.stgrid fieldset, .elstyle { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px 10px; margin: 0; }
+.stgrid legend { font-weight: 600; padding: 0 6px; }
+.stgrid label, .elstyle label { display: block; margin: 7px 0; font-size: 13px; color: var(--muted); }
+.stgrid select, .elstyle select { display: block; width: 100%; margin-top: 3px; }
+.stgrid input[type=range], .elstyle input[type=range] { display: block; width: 100%; accent-color: var(--accent); }
+.stgrid output, .elstyle output { color: var(--ink); font-variant-numeric: tabular-nums; }
+label.cf { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; }
+label.cf span { display: flex; gap: 4px; align-items: center; }
+label.cf input[type=color] { width: 40px; height: 26px; padding: 1px 2px; cursor: pointer; }
+label.check { color: var(--ink) !important; }
+.swatches { display: flex; gap: 4px; margin: -2px 0 6px; }
+.swatches i { width: 22px; height: 12px; border-radius: 3px; display: inline-block; }
+.elstyle { margin: 12px 0 6px; }
+.elstyle summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+
+/* help */
+#helpview { display: flex; flex-direction: column; }
+.helpout { max-width: 980px; line-height: 1.7; }
+.helpout h2 { margin-top: 0; }
+.guide li { margin: 4px 0; }
+.guide table.grid { width: auto; min-width: 0; margin: 8px 0; }
+.method p { margin: 6px 0; }
+.formula { direction: ltr; text-align: left; font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 15px; background: var(--bg2); border-radius: 6px; padding: 8px 12px; margin: 8px 0; overflow-x: auto; }
+.refs { font-size: 13px; color: var(--muted); }
+.refs a, .about a { color: var(--accent); }
+.biblio { direction: ltr; text-align: left; padding-left: 28px; }
+.biblio li { margin: 6px 0; padding-left: 26px; text-indent: -26px; list-style-position: outside; }
+.about { text-align: center; max-width: 720px; margin: 0 auto; }
+.about p { text-align: start; }
+.about code { display: block; direction: ltr; text-align: left; white-space: normal; background: var(--bg2); padding: 8px 10px; border-radius: 6px; margin-top: 4px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; background: var(--panel); }
+.flash { animation: flash 1.6s ease; }
+@keyframes flash { 0%, 60% { box-shadow: 0 0 0 3px var(--sel); } 100% { box-shadow: none; } }
+@media print { #helpview .secnav { display: none; } }

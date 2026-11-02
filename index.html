@@ -28,6 +28,7 @@
   <button data-view="data" class="on" data-i="tab_data"></button>
   <button data-view="model" data-i="tab_model"></button>
   <button data-view="results" data-i="tab_results"></button>
+  <button data-view="help" data-i="tab_help"></button>
   <span class="grow"></span>
   <div class="calc">
     <button id="calcbtn" class="primary" data-i="calculate"></button>
@@ -72,7 +73,9 @@
         <button class="icon" data-act="fit" data-it="fit">⤢</button>
         <span class="sep"></span>
         <button data-act="overlay" class="on" data-i="show_results"></button>
-        <button data-act="modelimg" data-i="export_svg"></button>
+        <button data-act="style">🎨 <span data-i="appearance"></span></button>
+        <button data-act="modelimg" data-it="export_svg">SVG</button>
+        <button data-act="modelpng" data-it="export_png">PNG</button>
       </div>
       <svg id="canvas" data-tool="select" aria-label="Path model"></svg>
     </div>
@@ -80,6 +83,8 @@
   </section>
 
   <section id="resultsview" class="view" hidden></section>
+
+  <section id="helpview" class="view" hidden></section>
 </main>
 
 <div id="busy" class="busy" hidden><span id="busytext"></span><div class="prog"><div id="busybar"></div></div><button id="cancelrun" data-i="cancel"></button></div>
@@ -94,6 +99,15 @@
   </form>
 </dialog>
 
+<dialog id="styledlg" class="wide">
+  <form method="dialog">
+    <h2 data-i="appearance_title"></h2>
+    <p class="note" data-i="appearance_note"></p>
+    <div id="stylebody"></div>
+    <menu><button type="button" class="danger" data-act="style-reset" data-i="reset_all"></button><span class="grow"></span><button class="primary" type="submit" data-i="close"></button></menu>
+  </form>
+</dialog>
+
 <input id="csvfile" type="file" accept=".csv,.txt,.tsv,text/csv" hidden>
 <input id="projfile" type="file" accept=".json,application/json" hidden>
 
@@ -101,6 +115,7 @@
 <script src="js/charts.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/docs.js"></script>
 <script src="js/example-data.js"></script>
 <script src="js/app.js"></script>
 </body>

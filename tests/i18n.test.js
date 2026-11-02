@@ -23,6 +23,9 @@ test('every key used by the UI is defined', () => {
   ['left', 'right', 'top', 'bottom'].forEach(k => used.add('side_' + k));
   ['auto', 'dark', 'light'].forEach(k => used.add('theme_' + k));
   ['g_final', 'g_quality', 'g_data', 'path_exists'].forEach(k => used.add(k));
+  ['theme', 'classic', 'journal', 'pastel', 'forest', 'contrast', 'boxes'].forEach(k => used.add('preset_' + k));
+  ['ellipse', 'rect', 'rounded', 'solid', 'dashed', 'dotted', 'system', 'sans', 'serif', 'georgia', 'tahoma', 'mono', 'naskh'].forEach(k => used.add('st_' + k));
+  ['theme', 'okabe', 'vivid', 'ocean', 'earth', 'gray'].forEach(k => used.add('pal_' + k));
   ['no_constructs', 'no_indicators', 'missing_column', 'non_numeric', 'bad_path', 'bad_interaction', 'cycle', 'no_paths', 'no_interactions', 'no_group', 'one_group', 'same_group', 'bad_regression', 'cancelled'].forEach(k => used.add('err_' + k));
   const missing = [...used].filter(k => !L.en[k] || !L.ar[k]);
   assert.deepStrictEqual(missing, []);

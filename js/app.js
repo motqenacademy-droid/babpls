@@ -9,7 +9,8 @@
   const S = {
     name: 'Untitled', csv: '', dataName: '', ds: null, desc: null,
     settings: Object.assign({}, E.DEFAULTS), results: {}, view: 'data', current: null, section: null,
-    selCols: [], lang: 'ar', theme: 'auto', showResults: true, dataSel: null
+    selCols: [], lang: 'ar', theme: 'auto', showResults: true, dataSel: null,
+    ap: { palette: 'theme', decimals: 3, uiFont: 'system', uiScale: 100 }, help: 'start'
   };
 
   // ---------------------------------------------------------------- i18n
@@ -27,14 +28,14 @@
   }
   function prefs(save) {
     try {
-      if (save) localStorage.setItem(PREF, JSON.stringify({ lang: S.lang, theme: S.theme }));
-      else { const p = JSON.parse(localStorage.getItem(PREF) || '{}'); if (p.lang) S.lang = p.lang; if (p.theme) S.theme = p.theme; }
+      if (save) localStorage.setItem(PREF, JSON.stringify({ lang: S.lang, theme: S.theme, uiFont: S.ap.uiFont, uiScale: S.ap.uiScale }));
+      else { const p = JSON.parse(localStorage.getItem(PREF) || '{}'); if (p.lang) S.lang = p.lang; if (p.theme) S.theme = p.theme; if (p.uiFont) S.ap.uiFont = p.uiFont; if (p.uiScale) S.ap.uiScale = +p.uiScale; }
     } catch (e) { /* storage unavailable */ }
   }
   function applyTheme() { if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme; }
 
   // ------------------------------------------------------------ utilities
-  const f = (v, d) => (v === null || v === undefined || !isFinite(v)) ? '–' : Number(v).toFixed(d === undefined ? 3 : d);
+  const f = (v, d) => (v === null || v === undefined || !isFinite(v)) ? '–' : Number(v).toFixed(d === undefined ? S.ap.decimals : d);
   const fp = v => (!isFinite(v)) ? '–' : (v < 0.001 ? '0.000' : v.toFixed(3));
   const stars = p => !isFinite(p) ? '' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : '';
   function toast(msg, kind) {
@@ -77,12 +78,13 @@
     opts = opts || {};
     const tbls = (body.match(/id="tb\d+"/g) || []).map(x => x.slice(4, -1));
     const btn = tbls.length ? `<span class="cardtools">${tbls.map(id => `<button class="mini" data-csv="${id}" title="${esc(t('csv'))}">CSV</button><button class="mini" data-copy="${id}">${esc(t('copy'))}</button>`).join('')}</span>` : '';
-    return `<section class="card"><header><h3>${esc(title)}</h3>${btn}</header>${opts.note ? `<p class="note">${opts.note}</p>` : ''}${body}</section>`;
+    const doc = opts.doc ? `<button class="mini" data-doc="${opts.doc}" title="${esc(t('method_ref'))}">📖</button>` : '';
+    return `<section class="card"><header><h3>${esc(title)}</h3>${doc}${btn}</header>${opts.note ? `<p class="note">${opts.note}</p>` : ''}${body}</section>`;
   }
 
   // ---------------------------------------------------------- persistence
   function projectJSON() {
-    return { format: 'youpls', version: 1, name: S.name, data: { name: S.dataName, csv: S.csv }, model: editor.model, settings: S.settings, view: editor.view };
+    return { format: 'youpls', version: 1, name: S.name, data: { name: S.dataName, csv: S.csv }, model: editor.model, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
   }
   let saveTimer = null;
   function autosave() {
@@ -97,6 +99,7 @@
     S.settings = Object.assign({}, E.DEFAULTS, p.settings || {});
     S.results = {}; S.current = null;
     if (p.data && p.data.csv) setData(p.data.csv, p.data.name, true); else { S.csv = ''; S.ds = null; S.dataName = ''; }
+    if (p.appearance) { S.ap.palette = p.appearance.palette || 'theme'; S.ap.decimals = isFinite(p.appearance.decimals) ? +p.appearance.decimals : 3; applyAppearance(); }
     editor.history = []; editor.setModel(p.model);
     if (p.view) editor.view = p.view;
     editor.render(); refreshAll();
@@ -116,7 +119,7 @@
     const ds = S.ds, d = S.desc;
     let h = `<div class="datahead"><h2>${esc(S.dataName)}</h2><span class="pill">${t('rows')}: ${ds.n}</span><span class="pill">${t('variables')}: ${ds.names.length}</span><span class="pill">${t('missing')}: ${d.reduce((a, x) => a + x.missing, 0)}</span></div>`;
     const descRows = d.map(x => [x.name, x.kind === 'cat' ? t('categorical') : t('numeric'), x.n, x.missing, f(x.mean), f(x.median), f(x.min), f(x.max), f(x.sd), f(x.kurtosis), f(x.skewness)]);
-    h += card(t('descriptives'), `<p class="note">${t('click_var')}</p>` + table([t('variable'), t('type'), 'N', t('missing'), t('mean'), t('median'), t('min'), t('max'), t('sd'), t('kurtosis'), t('skewness')], descRows, { title: 'descriptives', cls: 'clickable', rowAttr: i => `data-var="${i}"` }));
+    h += card(t('descriptives'), `<p class="note">${t('click_var')}</p>` + table([t('variable'), t('type'), 'N', t('missing'), t('mean'), t('median'), t('min'), t('max'), t('sd'), t('kurtosis'), t('skewness')], descRows, { title: 'descriptives', cls: 'clickable', rowAttr: i => `data-var="${i}"` }), { doc: 'descriptives' });
     if (S.dataSel !== null) {
       const j = S.dataSel, v = Array.from(ds.cols[j]).filter(x => !isNaN(x));
       let extra = '';
@@ -164,6 +167,7 @@
   // ------------------------------------------------------ properties panel
   function renderProps() {
     const el = $('#props'), s = editor.sel, m = editor.model;
+    editor._elSnap = false;
     if (!s) {
       const errs = S.ds ? E.validate(m, S.ds) : [];
       el.innerHTML = `<h3>${t('model')}</h3><p class="note">${t('model_summary', { c: m.constructs.length, p: m.paths.length, i: m.interactions.length })}</p>
@@ -180,6 +184,7 @@
         <h4>${t('indicators')} (${c.indicators.length})</h4>
         <ul class="chips">${c.indicators.map(n => `<li>${esc(n)}<button class="x" data-rmind="${esc(n)}" aria-label="${t('remove')}">×</button></li>`).join('') || `<li class="note">${t('drop_here')}</li>`}</ul>
         <button data-act="assign" ${S.selCols.length ? '' : 'disabled'}>${t('assign_selected', { n: S.selCols.length })}</button>
+        ${elStyleHTML(s)}
         <button class="danger" data-act="delete">${t('delete')}</button>`;
       $('#p_name').addEventListener('change', e => { const v = e.target.value.trim(); if (!v) return; if (m.constructs.some(o => o !== c && o.name === v)) { toast(t('name_taken'), 'bad'); e.target.value = c.name; return; } editor.snapshot(); c.name = v; editor.changed(); });
       $('#p_mode').addEventListener('change', e => { editor.snapshot(); c.mode = e.target.value; editor.changed(); });
@@ -192,6 +197,7 @@
         <h4>${t('moderation')}</h4><p class="note">${t('moderation_note')}</p>
         <label>${t('moderator')}<select id="p_mod">${mods.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
         <button data-act="addmod" ${mods.length ? '' : 'disabled'}>${t('add_moderator')}</button>
+        ${elStyleHTML(s)}
         <button class="danger" data-act="delete">${t('delete')}</button>`;
     } else if (s.type === 'inter') {
       const it = editor.byId(s.id); if (!it) return;
@@ -418,7 +424,7 @@
     switch (r.kind) {
       case 'pls': return plsSections(r);
       case 'bootstrap': return bootSections(r);
-      case 'blindfolding': return [sec('g_quality', 'q2', t('q2'), () => card(t('q2'), table([t('construct'), 'SSO', 'SSE', 'Q² (=1-SSE/SSO)', t('q2_com')], r.rows.map(x => [x.construct, f(x.sso, 1), f(x.sseRed, 1), cell(f(x.q2), x.q2 > 0 ? 'good' : 'bad', x.q2), f(x.q2com)]), { title: 'q2' }) + chart(C.bars(r.rows.map(x => ({ label: x.construct, value: x.q2 })), { title: 'Q²', thresholds: [{ value: 0, label: '0' }] }), 'Q2'), { note: t('q2_note', { d: r.distance }) }))];
+      case 'blindfolding': return [sec('g_quality', 'q2', t('q2'), () => card(t('q2'), table([t('construct'), 'SSO', 'SSE', 'Q² (=1-SSE/SSO)', t('q2_com')], r.rows.map(x => [x.construct, f(x.sso, 1), f(x.sseRed, 1), cell(f(x.q2), x.q2 > 0 ? 'good' : 'bad', x.q2), f(x.q2com)]), { title: 'q2' }) + chart(C.bars(r.rows.map(x => ({ label: x.construct, value: x.q2 })), { title: 'Q²', thresholds: [{ value: 0, label: '0' }] }), 'Q2'), { note: t('q2_note', { d: r.distance }), doc: 'blindfolding' }))];
       case 'predict': return predictSections(r);
       case 'ipma': return ipmaSections(r);
       case 'mga': return mgaSections(r);
@@ -437,61 +443,61 @@
     // path coefficients
     s.push(sec('g_final', 'paths', t('path_coefs'), () => {
       const items = []; N.forEach((n, j) => r.pred[j].forEach(i => items.push({ label: N[i] + ' → ' + n, value: r.paths[j][i] })));
-      return card(t('path_coefs'), matrixTable(N, N, N.map((_, i) => N.map((__, j) => r.paths[j][i])), { skip: (i, j) => !has(i, j), title: 'paths' }) + chart(C.bars(items, { title: t('path_coefs') }), 'paths'), { note: t('matrix_note') });
+      return card(t('path_coefs'), matrixTable(N, N, N.map((_, i) => N.map((__, j) => r.paths[j][i])), { skip: (i, j) => !has(i, j), title: 'paths' }) + chart(C.bars(items, { title: t('path_coefs') }), 'paths'), { note: t('matrix_note'), doc: 'pls' });
     }));
     s.push(sec('g_final', 'effects', t('total_effects'), () => {
       const rows = []; N.forEach((n, j) => N.forEach((m, i) => { const tot = r.total[j][i]; if (i !== j && Math.abs(tot) > 1e-12) rows.push([m + ' → ' + n, f(r.paths[j][i]), f(tot - r.paths[j][i]), f(tot)]); }));
-      let h = card(t('total_effects'), table([t('relationship'), t('direct'), t('indirect_total'), t('total')], rows, { title: 'effects' }));
+      let h = card(t('total_effects'), table([t('relationship'), t('direct'), t('indirect_total'), t('total')], rows, { title: 'effects' }), { doc: 'effects' });
       if (r.specific.length) h += card(t('specific_indirect'), table([t('path'), t('value')], r.specific.map(x => [x.path.join(' → '), f(x.value)]), { title: 'specific' }));
       return h;
     }));
     s.push(sec('g_final', 'outer', t('outer_loadings'), () => {
       const items = []; const rows = [];
       N.forEach((n, j) => r.indicators[j].forEach((ind, q) => { rows.push([ind, n, cell(f(r.loadings[j][q]), r.modes[j] === 'A' && r.loadings[j][q] < 0.708 ? (r.loadings[j][q] < 0.4 ? 'bad' : 'warn') : '', r.loadings[j][q]), f(r.weights[j][q]), f(r.outerVIF[j][q])]); if (!r.isInter[j]) items.push({ label: ind, value: r.loadings[j][q] }); }));
-      return card(t('outer_model'), table([t('indicator'), t('construct'), t('loading'), t('weight'), 'VIF'], rows, { title: 'outer' }) + chart(C.bars(items, { title: t('outer_loadings'), thresholds: [{ value: 0.708, label: '0.708' }] }), 'loadings'), { note: t('loading_note') });
+      return card(t('outer_model'), table([t('indicator'), t('construct'), t('loading'), t('weight'), 'VIF'], rows, { title: 'outer' }) + chart(C.bars(items, { title: t('outer_loadings'), thresholds: [{ value: 0.708, label: '0.708' }] }), 'loadings'), { note: t('loading_note'), doc: 'outer' });
     }));
-    s.push(sec('g_final', 'r2', t('r2'), () => card(t('r2'), table([t('construct'), 'R²', t('r2adj')], endo.map(j => [N[j], f(r.r2[j]), f(r.r2adj[j])]), { title: 'r2' }) + chart(C.bars(endo.map(j => ({ label: N[j], value: r.r2[j] })), { title: 'R²', max: 1, thresholds: [{ value: 0.25, label: '0.25' }, { value: 0.5, label: '0.50' }, { value: 0.75, label: '0.75' }] }), 'r2'), { note: t('r2_note') })));
+    s.push(sec('g_final', 'r2', t('r2'), () => card(t('r2'), table([t('construct'), 'R²', t('r2adj')], endo.map(j => [N[j], f(r.r2[j]), f(r.r2adj[j])]), { title: 'r2' }) + chart(C.bars(endo.map(j => ({ label: N[j], value: r.r2[j] })), { title: 'R²', max: 1, thresholds: [{ value: 0.25, label: '0.25' }, { value: 0.5, label: '0.50' }, { value: 0.75, label: '0.75' }] }), 'r2'), { note: t('r2_note'), doc: 'r2' })));
     s.push(sec('g_final', 'f2', t('f2'), () => {
       const items = []; N.forEach((n, j) => r.pred[j].forEach(i => items.push({ label: N[i] + ' → ' + n, value: r.f2[i][j] })));
-      return card(t('f2'), matrixTable(N, N, r.f2, { skip: (i, j) => !has(i, j), title: 'f2', cls: v => v >= 0.35 ? 'good' : v >= 0.02 ? '' : 'warn' }) + chart(C.bars(items, { title: 'f²', thresholds: [{ value: 0.02, label: '0.02' }, { value: 0.15, label: '0.15' }, { value: 0.35, label: '0.35' }] }), 'f2'), { note: t('f2_note') });
+      return card(t('f2'), matrixTable(N, N, r.f2, { skip: (i, j) => !has(i, j), title: 'f2', cls: v => v >= 0.35 ? 'good' : v >= 0.02 ? '' : 'warn' }) + chart(C.bars(items, { title: 'f²', thresholds: [{ value: 0.02, label: '0.02' }, { value: 0.15, label: '0.15' }, { value: 0.35, label: '0.35' }] }), 'f2'), { note: t('f2_note'), doc: 'f2' });
     }));
     s.push(sec('g_final', 'lvcorr', t('lv_corr'), () => card(t('lv_corr'), chart(C.heatmap(N, N, r.lvCorr, { lower: true }), 'lvcorr') + matrixTable(N, N, r.lvCorr, { title: 'lvcorr' }))));
     if (r.inter.length) s.push(sec('g_final', 'slopes', t('simple_slopes'), () => r.inter.map(it => {
       const b = k => r.stats['path|' + k] || 0;
       const bx = b(it.x + ' -> ' + it.y), bm = b(it.m + ' -> ' + it.y), bi = b(it.name + ' -> ' + it.y);
       const line = mv => ({ points: [-2, 2].map(x => [x, bx * x + bm * mv + bi * x * mv]), label: it.m + (mv > 0 ? ' +1 SD' : mv < 0 ? ' -1 SD' : ' ' + t('mean')) });
-      return card(t('simple_slopes') + ': ' + it.name, chart(C.scatter([], { lines: [line(-1), line(0), line(1)], xLabel: it.x, yLabel: it.y, title: it.name + ' → ' + it.y, xmin: -2, xmax: 2 }), 'slopes'), { note: t('slopes_note') });
+      return card(t('simple_slopes') + ': ' + it.name, chart(C.scatter([], { lines: [line(-1), line(0), line(1)], xLabel: it.x, yLabel: it.y, title: it.name + ' → ' + it.y, xmin: -2, xmax: 2 }), 'slopes'), { note: t('slopes_note'), doc: 'slopes' });
     }).join('')));
     // quality
     s.push(sec('g_quality', 'rel', t('reliability'), () => {
       const rows = real.map(j => { const b = r.reliability[j]; return [N[j], cell(f(b.alpha), b.alpha < 0.7 ? 'warn' : '', b.alpha), cell(f(b.rhoA), b.rhoA < 0.7 ? 'warn' : '', b.rhoA), cell(f(b.rhoC), b.rhoC < 0.7 ? 'warn' : b.rhoC > 0.95 ? 'warn' : '', b.rhoC), cell(f(b.ave), b.ave < 0.5 ? 'bad' : 'good', b.ave)]; });
       const bar = (key, title, thr) => chart(C.bars(real.map(j => ({ label: N[j], value: r.reliability[j][key] })), { title, width: 460, max: 1, thresholds: [{ value: thr, label: String(thr) }] }), title);
       return card(t('reliability'), table([t('construct'), "Cronbach's α", 'ρA (rho_a)', 'ρc (rho_c)', 'AVE'], rows, { title: 'reliability' }) +
-        `<div class="chartgrid">${bar('alpha', "Cronbach's α", 0.7)}${bar('rhoA', 'ρA', 0.7)}${bar('rhoC', 'ρc', 0.7)}${bar('ave', 'AVE', 0.5)}</div>`, { note: t('rel_note') + (r.settings.consistent ? ' ' + t('plsc_note') : '') });
+        `<div class="chartgrid">${bar('alpha', "Cronbach's α", 0.7)}${bar('rhoA', 'ρA', 0.7)}${bar('rhoC', 'ρc', 0.7)}${bar('ave', 'AVE', 0.5)}</div>`, { note: t('rel_note') + (r.settings.consistent ? ' ' + t('plsc_note') : ''), doc: 'rhoa' });
     }));
     s.push(sec('g_quality', 'htmt', 'HTMT', () => {
       const n = real.map(j => N[j]), M = real.map(i => real.map(j => r.htmt[i][j]));
-      return card(t('htmt'), chart(C.heatmap(n, n, M, { lower: true, hideDiag: true, threshold: 0.85, min: 0, max: 1 }), 'htmt') + matrixTable(n, n, M, { skip: (i, j) => j >= i, cls: v => v >= 0.9 ? 'bad' : v >= 0.85 ? 'warn' : 'good', title: 'htmt' }), { note: t('htmt_note') });
+      return card(t('htmt'), chart(C.heatmap(n, n, M, { lower: true, hideDiag: true, threshold: 0.85, min: 0, max: 1 }), 'htmt') + matrixTable(n, n, M, { skip: (i, j) => j >= i, cls: v => v >= 0.9 ? 'bad' : v >= 0.85 ? 'warn' : 'good', title: 'htmt' }), { note: t('htmt_note'), doc: 'htmt' });
     }));
     s.push(sec('g_quality', 'fl', t('fornell'), () => {
       const n = real.map(j => N[j]), M = real.map(i => real.map(j => r.fornell[i][j]));
-      return card(t('fornell'), matrixTable(n, n, M, { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(M[i][i], M[j][j]) ? 'bad' : ''), title: 'fornell' }), { note: t('fl_note') });
+      return card(t('fornell'), matrixTable(n, n, M, { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(M[i][i], M[j][j]) ? 'bad' : ''), title: 'fornell' }), { note: t('fl_note'), doc: 'fl' });
     }));
     s.push(sec('g_quality', 'cross', t('cross_loadings'), () => {
       const own = {}; N.forEach((n, j) => r.indicators[j].forEach(ind => { if (!r.isInter[j]) own[ind] = j; }));
       const rows = r.crossNames.map((ind, a) => [ind].concat(real.map(j => cell(f(r.cross[a][j]), own[ind] === j ? 'diag' : (Math.abs(r.cross[a][j]) > Math.abs(r.cross[a][own[ind]]) ? 'bad' : ''), r.cross[a][j]))));
-      return card(t('cross_loadings'), table([t('indicator')].concat(real.map(j => N[j])), rows, { title: 'cross' }), { note: t('cross_note') });
+      return card(t('cross_loadings'), table([t('indicator')].concat(real.map(j => N[j])), rows, { title: 'cross' }), { note: t('cross_note'), doc: 'cross' });
     }));
     s.push(sec('g_quality', 'vif', t('collinearity'), () => {
       const rows = []; N.forEach((n, j) => r.indicators[j].forEach((ind, q) => rows.push([ind, n, cell(f(r.outerVIF[j][q]), r.outerVIF[j][q] >= 5 ? 'bad' : r.outerVIF[j][q] >= 3 ? 'warn' : '', r.outerVIF[j][q])])));
       return card(t('outer_vif'), table([t('indicator'), t('construct'), 'VIF'], rows, { title: 'outer_vif' })) +
-        card(t('inner_vif'), matrixTable(N, N, r.innerVIF, { skip: (i, j) => !has(i, j), cls: v => v >= 5 ? 'bad' : v >= 3 ? 'warn' : '', title: 'inner_vif' }), { note: t('vif_note') });
+        card(t('inner_vif'), matrixTable(N, N, r.innerVIF, { skip: (i, j) => !has(i, j), cls: v => v >= 5 ? 'bad' : v >= 3 ? 'warn' : '', title: 'inner_vif' }), { note: t('vif_note'), doc: 'vif' });
     }));
     s.push(sec('g_quality', 'fit', t('model_fit'), () => {
       const a = r.fit.saturated, b = r.fit.estimated;
       const rows = [['SRMR', cell(f(a.srmr), a.srmr > 0.08 ? 'warn' : 'good', a.srmr), f(b.srmr)], ['d_ULS', f(a.dULS), f(b.dULS)], ['d_G', f(a.dG), f(b.dG)], ['Chi²', f(a.chi2), f(b.chi2)], ['NFI', f(a.nfi), f(b.nfi)]];
-      return card(t('model_fit'), table(['', t('saturated'), t('estimated')], rows, { title: 'fit' }), { note: t('fit_note') }) +
-        card(t('selection'), table([t('construct'), 'AIC', 'BIC', 'HQ'], r.selection.map(x => [x.construct, f(x.aic), f(x.bic), f(x.hq)]), { title: 'selection' }), { note: t('selection_note') });
+      return card(t('model_fit'), table(['', t('saturated'), t('estimated')], rows, { title: 'fit' }), { note: t('fit_note'), doc: 'fit' }) +
+        card(t('selection'), table([t('construct'), 'AIC', 'BIC', 'HQ'], r.selection.map(x => [x.construct, f(x.aic), f(x.bic), f(x.hq)]), { title: 'selection' }), { note: t('selection_note'), doc: 'ic' });
     }));
     // data
     s.push(sec('g_data', 'scores', t('lv_scores'), () => {
@@ -512,7 +518,7 @@
         const tbl = table([t('parameter'), t('original'), t('sample_mean'), t('std_dev'), 'T', 'P', `${hiLabel} ${lo}`, `${hiLabel} ${hi}`],
           rows.map(x => [x.label, f(x.original), f(x.mean), f(x.sd), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), g === 'htmt' ? '' : (x.p < r.alpha ? 'good' : ''), x.p), f(x.lo), cell(f(x.hi), g === 'htmt' && x.hi >= 1 ? 'bad' : g === 'htmt' && x.hi >= 0.85 ? 'warn' : '', x.hi)]),
           { title: 'boot_' + g, cls: 'clickable', rowAttr: i => `data-draw="${r.rows.indexOf(rows[i])}"` });
-        return card(t('bg_' + g), tbl + `<div id="drawbox" class="note">${t('click_row_hist')}</div>` + ciChart(rows, g), { note: (g === 'htmt' ? t('htmt_boot_note') : t('boot_note', { b: r.samples, f: r.failed, test: t('opt_' + r.test) })) });
+        return card(t('bg_' + g), tbl + `<div id="drawbox" class="note">${t('click_row_hist')}</div>` + ciChart(rows, g), { note: (g === 'htmt' ? t('htmt_boot_note') : t('boot_note', { b: r.samples, f: r.failed, test: t('opt_' + r.test) })), doc: r.ci === 'bca' ? 'bca' : 'bootstrap' });
       }));
     });
     s.push(sec('g_data', 'b_info', t('algorithm'), () => card(t('algorithm'), table([t('setting'), t('value')], [[t('f_samples'), r.samples], [t('failed_samples'), r.failed], [t('f_ci'), t('opt_' + r.ci)], [t('f_test'), t('opt_' + r.test)], [t('f_alpha'), r.alpha], [t('f_seed'), r.meta.opts.seed], ['PLSc', r.settings.consistent ? t('yes') : t('no')], ['N', r.n]], { title: 'bootstrap_settings' }))));
@@ -538,7 +544,7 @@
       sec('g_final', 'pp_ind', t('pp_indicators'), () => card(t('pp_indicators'), table([t('indicator'), t('construct'), 'Q²predict', 'PLS RMSE', 'PLS MAE', 'LM RMSE', 'LM MAE', 'LM Q²predict'],
         r.rows.map(x => [x.indicator, x.construct, cell(f(x.q2), x.q2 > 0 ? 'good' : 'bad', x.q2), cell(f(x.plsRMSE), x.plsRMSE < x.lmRMSE ? 'good' : 'warn', x.plsRMSE), cell(f(x.plsMAE), x.plsMAE < x.lmMAE ? 'good' : 'warn', x.plsMAE), f(x.lmRMSE), f(x.lmMAE), f(x.lmQ2)]), { title: 'plspredict' }) +
         chart(C.grouped(r.rows.map(x => ({ label: x.indicator, values: [x.plsRMSE, x.lmRMSE] })), ['PLS-SEM RMSE', 'LM RMSE'], { title: 'RMSE' }), 'rmse') +
-        chart(C.bars(r.rows.map(x => ({ label: x.indicator, value: x.q2 })), { title: 'Q²predict', thresholds: [{ value: 0, label: '0' }] }), 'q2predict'), { note: t('pp_note', { k: r.folds, r: r.reps }) })),
+        chart(C.bars(r.rows.map(x => ({ label: x.indicator, value: x.q2 })), { title: 'Q²predict', thresholds: [{ value: 0, label: '0' }] }), 'q2predict'), { note: t('pp_note', { k: r.folds, r: r.reps }), doc: 'predict' })),
       sec('g_final', 'pp_lv', t('pp_constructs'), () => card(t('pp_constructs'), table([t('construct'), 'Q²predict', 'RMSE', 'MAE'], r.lvRows.map(x => [x.construct, f(x.q2), f(x.rmse), f(x.mae)]), { title: 'plspredict_lv' }))),
       sec('g_data', 'pp_err', t('pp_errors'), () => card(t('pp_errors'), `<div class="chartgrid">${r.rows.map(x => chart(C.histogram(x.errors, { title: x.indicator + ' (skew ' + f(x.errSkew, 2) + ')', width: 360, height: 200, marks: [{ value: 0, label: '0' }] }), x.indicator)).join('')}</div>`, { note: t('pp_err_note') }))
     ];
@@ -549,7 +555,7 @@
     const mi = a => a.reduce((s, x) => s + x.importance, 0) / a.length, mp = a => a.reduce((s, x) => s + x.performance, 0) / a.length;
     return [
       sec('g_final', 'ip_lv', t('ipma_constructs'), () => card(t('ipma_constructs') + ' – ' + r.target, chart(C.scatter(lv.map(x => ({ x: x.importance, y: x.performance, label: x.construct })), { title: t('ipma_map'), xLabel: t('importance'), yLabel: t('performance'), quadrants: { x: mi(lv), y: mp(lv) } }), 'ipma') +
-        table([t('construct'), t('importance'), t('performance')], lv.map(x => [x.construct, f(x.importance), f(x.performance, 2)]), { title: 'ipma_lv' }), { note: t('ipma_note', { p: f(r.targetPerformance, 2) }) })),
+        table([t('construct'), t('importance'), t('performance')], lv.map(x => [x.construct, f(x.importance), f(x.performance, 2)]), { title: 'ipma_lv' }), { note: t('ipma_note', { p: f(r.targetPerformance, 2) }), doc: 'ipma' })),
       sec('g_final', 'ip_ind', t('ipma_indicators'), () => card(t('ipma_indicators'), chart(C.scatter(ind.map(x => ({ x: x.importance, y: x.performance, label: x.indicator })), { title: t('ipma_map'), xLabel: t('importance'), yLabel: t('performance'), quadrants: { x: mi(ind), y: mp(ind) } }), 'ipma_ind') +
         table([t('indicator'), t('construct'), t('importance'), t('performance')], ind.map(x => [x.indicator, x.construct, f(x.importance), f(x.performance, 2)]), { title: 'ipma_ind' }))),
       sec('g_data', 'ip_w', t('rescaled_weights'), () => card(t('rescaled_weights'), table([t('construct'), t('indicator'), t('weight')], r.rescaledWeights.flatMap(w => w.indicators.map((n, q) => [w.construct, n, f(w.weights[q])])), { title: 'ipma_weights' })))
@@ -564,16 +570,16 @@
         const rows = res.rows.filter(x => x.group === g); if (!rows.length) return;
         out.push(sec('g_final', 'm' + k + g, t('bg_' + g), () => card(t('bg_' + g) + ' – ' + lab, table([t('parameter'), res.g1 + ` (n=${res.n1})`, res.g2 + ` (n=${res.n2})`, t('difference'), t('perm_p')],
           rows.map(x => [x.label, f(x.g1), f(x.g2), f(x.diff), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p)]), { title: 'mga_' + g }) +
-          (g === 'path' ? chart(C.grouped(rows.map(x => ({ label: x.label, values: [x.g1, x.g2] })), [res.g1, res.g2], { title: t('path_coefs') }), 'mga') : ''), { note: t('mga_note', { p: res.permutations }) })));
+          (g === 'path' ? chart(C.grouped(rows.map(x => ({ label: x.label, values: [x.g1, x.g2] })), [res.g1, res.g2], { title: t('path_coefs') }), 'mga') : ''), { note: t('mga_note', { p: res.permutations }), doc: 'mga' })));
       });
-      out.push(sec('g_quality', 'micom' + k, 'MICOM', () => card(t('micom2'), table([t('construct'), 'c', '5% quantile', t('perm_p'), t('result')], res.micom.map(x => [x.construct, f(x.c, 4), f(x.c5, 4), fp(x.pc), cell(x.c >= x.c5 ? t('established') : t('not_established'), x.c >= x.c5 ? 'good' : 'bad')]), { title: 'micom2' }), { note: t('micom2_note') }) +
+      out.push(sec('g_quality', 'micom' + k, 'MICOM', () => card(t('micom2'), table([t('construct'), 'c', '5% quantile', t('perm_p'), t('result')], res.micom.map(x => [x.construct, f(x.c, 4), f(x.c5, 4), fp(x.pc), cell(x.c >= x.c5 ? t('established') : t('not_established'), x.c >= x.c5 ? 'good' : 'bad')]), { title: 'micom2' }), { note: t('micom2_note'), doc: 'micom' }) +
         card(t('micom3'), table([t('construct'), t('mean_diff'), '2.5%', '97.5%', t('perm_p'), t('logvar_ratio'), '2.5%', '97.5%', t('perm_p')], res.micom.map(x => [x.construct, f(x.meanDiff), f(x.meanLo), f(x.meanHi), cell(fp(x.pMean), x.pMean < 0.05 ? 'warn' : 'good', x.pMean), f(x.varDiff), f(x.varLo), f(x.varHi), cell(fp(x.pVar), x.pVar < 0.05 ? 'warn' : 'good', x.pVar)]), { title: 'micom3' }), { note: t('micom3_note') })));
     });
     return out;
   }
 
   function ncaSections(r) {
-    return [sec('g_final', 'nca_d', t('nca_effects'), () => card(t('nca_effects'), table([t('relationship'), t('effect_size_d'), t('perm_p'), t('result')], r.rows.map(x => [x.x + ' → ' + x.y, f(x.d), fp(x.p), cell(x.d >= 0.1 && x.p < 0.05 ? t('necessary') : t('not_necessary'), x.d >= 0.1 && x.p < 0.05 ? 'good' : '')]), { title: 'nca' }), { note: t('nca_note') })),
+    return [sec('g_final', 'nca_d', t('nca_effects'), () => card(t('nca_effects'), table([t('relationship'), t('effect_size_d'), t('perm_p'), t('result')], r.rows.map(x => [x.x + ' → ' + x.y, f(x.d), fp(x.p), cell(x.d >= 0.1 && x.p < 0.05 ? t('necessary') : t('not_necessary'), x.d >= 0.1 && x.p < 0.05 ? 'good' : '')]), { title: 'nca' }), { note: t('nca_note'), doc: 'nca' })),
       sec('g_final', 'nca_plot', t('nca_plots'), () => r.rows.map(x => card(x.x + ' → ' + x.y, `<div class="chartgrid">${chart(C.scatter(x.points.map(p => ({ x: p[0], y: p[1] })), { step: x.steps, title: 'CE-FDH  d = ' + f(x.d), xLabel: x.x, yLabel: x.y }), 'nca')}${table([x.y + ' %', x.x + ' % ' + t('required')], x.bottleneck.map(b => [String(b.y), b.x === null ? 'NA' : f(b.x, 1)]), { title: 'bottleneck' })}</div>`)).join(''))];
   }
 
@@ -581,7 +587,7 @@
     return [sec('g_final', 'reg', t('an_regression'), () => card(r.y + ' ~ ' + r.terms.slice(1).map(x => x.name).join(' + '),
       `<p class="meta">N = ${r.n} · R² = ${f(r.r2)} · ${t('r2adj')} = ${f(r.r2adj)} · F(${r.df1}, ${r.df2}) = ${f(r.F, 2)} · p = ${fp(r.pF)}</p>` +
       table([t('term'), 'B', 'β', 'SE', 't', 'p', 'VIF'], r.terms.map(x => [x.name, f(x.b), f(x.beta), f(x.se), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.vif)]), { title: 'regression' }) +
-      chart(C.scatter(r.residuals.map(p => ({ x: p[0], y: p[1] })), { title: t('residual_plot'), xLabel: t('fitted'), yLabel: t('residual') }), 'residuals')))];
+      chart(C.scatter(r.residuals.map(p => ({ x: p[0], y: p[1] })), { title: t('residual_plot'), xLabel: t('fitted'), yLabel: t('residual') }), 'residuals'), { doc: 'regression' }))];
   }
 
   // ------------------------------------------------------------- report
@@ -612,14 +618,190 @@
     };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
   }
-  function exportModelImage() {
-    const svg = $('#canvas'), r = svg.getBoundingClientRect(), clone = svg.cloneNode(true);
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); clone.setAttribute('width', r.width); clone.setAttribute('height', r.height); clone.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
-    const css = Array.from(document.styleSheets).map(ss => { try { return Array.from(ss.cssRules).map(x => x.cssText).filter(x => /#canvas|:root/.test(x)).join('\n'); } catch (e) { return ''; } }).join('\n');
+  function exportModelImage(kind) {
+    const svg = $('#canvas'), g = svg.querySelector('g');
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    Array.from(g.children).forEach(ch => { if (ch.classList.contains('bgcatch')) return; const b = ch.getBBox(); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height); });
+    if (!isFinite(x0)) return;
+    const pad = 20, w = Math.ceil(x1 - x0 + 2 * pad), h = Math.ceil(y1 - y0 + 2 * pad);
+    const clone = svg.cloneNode(true), cg = clone.querySelector('g');
+    cg.removeAttribute('transform'); cg.querySelector('.bgcatch').remove();
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); clone.setAttribute('width', w); clone.setAttribute('height', h); clone.setAttribute('viewBox', `${x0 - pad} ${y0 - pad} ${w} ${h}`);
+    clone.querySelectorAll('.sel, .pend').forEach(n => n.classList.remove('sel', 'pend'));
+    const css = Array.from(document.styleSheets).map(ss => { try { return Array.from(ss.cssRules).map(x => x.cssText).filter(x => /#canvas/.test(x)).join('\n'); } catch (e) { return ''; } }).join('\n');
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style'); style.textContent = css; clone.insertBefore(style, clone.firstChild);
     const cs = getComputedStyle(document.documentElement);
-    clone.setAttribute('style', ['--ink', '--line', '--edge', '--accent', '--c1', '--c2', '--c3', '--lv', '--lv-ink', '--ind', '--bg', '--panel', '--muted', '--sel'].map(v => `${v}:${cs.getPropertyValue(v)}`).join(';') + ';background:' + cs.getPropertyValue('--bg'));
-    download(slug(S.name) + '_model.svg', new XMLSerializer().serializeToString(clone), 'image/svg+xml');
+    clone.setAttribute('style', ['--ink', '--line', '--edge', '--accent', '--c1', '--c2', '--c3', '--lv', '--lv-ink', '--ind', '--bg', '--panel', '--muted', '--sel', '--good-bg', '--grid'].map(v => `${v}:${cs.getPropertyValue(v)}`).join(';') + `;background:${cs.getPropertyValue('--bg')};font-family:${svg.style.fontFamily}`);
+    clone.removeAttribute('data-tool'); clone.removeAttribute('id'); clone.setAttribute('id', 'canvas');
+    const src = new XMLSerializer().serializeToString(clone), name = slug(S.name) + '_model';
+    if (kind === 'svg') { download(name + '.svg', src, 'image/svg+xml'); return; }
+    const img = new Image();
+    img.onload = () => { const c = document.createElement('canvas'), k = 3; c.width = w * k; c.height = h * k; const x = c.getContext('2d'); x.fillStyle = cs.getPropertyValue('--bg'); x.fillRect(0, 0, c.width, c.height); x.scale(k, k); x.drawImage(img, 0, 0); c.toBlob(bl => download(name + '.png', bl)); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
+  }
+
+  // ------------------------------------------------------------ appearance
+  const PALETTES = {
+    theme: null,
+    okabe: ['#0072B2', '#D55E00', '#009E73', '#E69F00', '#CC79A7', '#56B4E9'],
+    vivid: ['#e11d48', '#2563eb', '#16a34a', '#f59e0b', '#9333ea', '#0891b2'],
+    ocean: ['#0c4a6e', '#0284c7', '#0f766e', '#38bdf8', '#14b8a6', '#6366f1'],
+    earth: ['#8c510a', '#01665e', '#bf812d', '#35978f', '#543005', '#80cdc1'],
+    gray: ['#262626', '#737373', '#a3a3a3', '#404040', '#8a8a8a', '#c4c4c4']
+  };
+  const FONTS = window.YPEditor.FONTS;
+  // theme colour that an "auto" colour field currently shows
+  const AUTO = { lvFill: '--lv', lvStroke: '--accent', lvText: '--lv-ink', indFill: '--ind', indStroke: '--edge', indText: '--ink', pathColor: '--edge', outerColor: '--edge', interFill: '--good-bg', interStroke: '--c3', color: '--edge' };
+  function applyAppearance() {
+    const root = document.documentElement, pal = PALETTES[S.ap.palette];
+    ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].forEach((v, i) => { if (pal) root.style.setProperty(v, pal[i]); else root.style.removeProperty(v); });
+    document.body.style.fontFamily = S.ap.uiFont !== 'system' ? FONTS[S.ap.uiFont] : '';
+    root.style.fontSize = ''; document.body.style.fontSize = S.ap.uiScale !== 100 ? (14 * S.ap.uiScale / 100) + 'px' : '';
+  }
+  function hex(v) { v = (v || '').trim(); if (/^#[0-9a-f]{6}$/i.test(v)) return v; if (/^#[0-9a-f]{3}$/i.test(v)) return '#' + v.slice(1).split('').map(c => c + c).join(''); const m = v.match(/\d+/g); return m && m.length >= 3 ? '#' + m.slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('') : '#000000'; }
+  function colorField(scope, key, val, label) {
+    const shown = val || hex(getComputedStyle(document.documentElement).getPropertyValue(AUTO[key] || '--ink'));
+    return `<label class="cf">${esc(label)}<span><input type="color" data-${scope}="${key}" value="${shown}"><button type="button" class="mini${val ? '' : ' on'}" data-auto-${scope}="${key}">${t('auto_color')}</button></span></label>`;
+  }
+  const numField = (scope, key, val, label, min, max, step) => `<label>${esc(label)} <output>${val}</output><input type="range" data-${scope}="${key}" min="${min}" max="${max}" step="${step || 1}" value="${val}"></label>`;
+  const selField = (scope, key, val, label, opts) => `<label>${esc(label)}<select data-${scope}="${key}">${opts.map(o => `<option value="${o}"${String(val) === String(o) ? ' selected' : ''}>${esc(t('st_' + o))}</option>`).join('')}</select></label>`;
+  const chkField = (scope, key, val, label) => `<label class="check"><input type="checkbox" data-${scope}="${key}"${val ? ' checked' : ''}> ${esc(label)}</label>`;
+
+  function presetPreview(p) {
+    const D = window.YPEditor.STYLE_DEFAULTS, st = Object.assign({}, D, p), v = k => st[k] || `var(${AUTO[k]})`;
+    const lv = st.lvShape === 'ellipse' ? `<ellipse cx="46" cy="22" rx="24" ry="14" style="fill:${v('lvFill')};stroke:${v('lvStroke')}"/>` : `<rect x="22" y="9" width="48" height="26" rx="${st.lvShape === 'rounded' ? 8 : 2}" style="fill:${v('lvFill')};stroke:${v('lvStroke')}"/>`;
+    return `<svg viewBox="0 0 120 44" width="120" height="44">${lv}<rect x="86" y="14" width="28" height="16" rx="${st.indShape === 'rounded' ? 5 : 1}" style="fill:${v('indFill')};stroke:${v('indStroke')}"/><line x1="70" y1="22" x2="85" y2="22" style="stroke:${v('pathColor')};stroke-width:1.5"/><rect x="2" y="14" width="10" height="16" style="fill:${v('indFill')};stroke:${v('indStroke')}"/><line x1="12" y1="22" x2="22" y2="22" style="stroke:${v('pathColor')};stroke-width:1.5"/><text x="46" y="25" text-anchor="middle" style="font-size:9px;fill:${v('lvText')};font-family:${FONTS[st.font]}">Aa</text></svg>`;
+  }
+  function styleBody() {
+    const g = editor.style(), P = window.YPEditor.PRESETS;
+    return `<div class="presets">${Object.keys(P).map(k => `<button type="button" class="preset" data-preset="${k}">${presetPreview(P[k])}<span>${esc(t('preset_' + k))}</span></button>`).join('')}</div>
+      <div class="stgrid">
+      <fieldset><legend>${t('st_diagram')}</legend>
+        ${selField('g', 'font', g.font, t('st_font'), Object.keys(FONTS))}
+        ${numField('g', 'labelFont', g.labelFont, t('st_label_size'), 8, 18, 0.5)}
+        ${chkField('g', 'showOuter', g.showOuter, t('st_show_outer'))}${chkField('g', 'showR2', g.showR2, t('st_show_r2'))}
+        <label>${t('st_decimals')}<select data-ap="decimals">${[2, 3, 4].map(d => `<option${S.ap.decimals === d ? ' selected' : ''}>${d}</option>`).join('')}</select></label>
+      </fieldset>
+      <fieldset><legend>${t('st_constructs')}</legend>
+        ${selField('g', 'lvShape', g.lvShape, t('st_shape'), ['ellipse', 'rect', 'rounded'])}
+        ${numField('g', 'lvW', g.lvW, t('st_width'), 60, 220, 2)}${numField('g', 'lvH', g.lvH, t('st_height'), 30, 120, 2)}
+        ${colorField('g', 'lvFill', g.lvFill, t('st_fill'))}${colorField('g', 'lvStroke', g.lvStroke, t('st_border'))}${colorField('g', 'lvText', g.lvText, t('st_text'))}
+        ${numField('g', 'lvFont', g.lvFont, t('st_font_size'), 8, 24, 0.5)}${numField('g', 'lvStrokeW', g.lvStrokeW, t('st_border_w'), 0, 5, 0.2)}
+        ${chkField('g', 'lvBold', g.lvBold, t('st_bold'))}
+      </fieldset>
+      <fieldset><legend>${t('st_indicators')}</legend>
+        ${selField('g', 'indShape', g.indShape, t('st_shape'), ['rect', 'rounded'])}
+        ${numField('g', 'indW', g.indW, t('st_width'), 40, 160, 2)}${numField('g', 'indH', g.indH, t('st_height'), 16, 44, 1)}
+        ${colorField('g', 'indFill', g.indFill, t('st_fill'))}${colorField('g', 'indStroke', g.indStroke, t('st_border'))}${colorField('g', 'indText', g.indText, t('st_text'))}
+        ${numField('g', 'indFont', g.indFont, t('st_font_size'), 7, 20, 0.5)}
+      </fieldset>
+      <fieldset><legend>${t('st_arrows')}</legend>
+        ${colorField('g', 'pathColor', g.pathColor, t('st_path_color'))}${numField('g', 'pathW', g.pathW, t('st_path_w'), 0.5, 6, 0.1)}
+        ${selField('g', 'pathStyle', g.pathStyle, t('st_line_style'), ['solid', 'dashed', 'dotted'])}
+        ${colorField('g', 'outerColor', g.outerColor, t('st_outer_color'))}${numField('g', 'outerW', g.outerW, t('st_outer_w'), 0.5, 4, 0.1)}
+        ${colorField('g', 'interFill', g.interFill, t('st_inter_fill'))}${colorField('g', 'interStroke', g.interStroke, t('st_inter_stroke'))}
+      </fieldset>
+      <fieldset><legend>${t('st_app')}</legend>
+        <label>${t('st_palette')}<select data-ap="palette">${Object.keys(PALETTES).map(k => `<option value="${k}"${S.ap.palette === k ? ' selected' : ''}>${esc(t('pal_' + k))}</option>`).join('')}</select></label>
+        <div class="swatches">${(PALETTES[S.ap.palette] || ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].map(v => `var(${v})`)).map(c => `<i style="background:${c}"></i>`).join('')}</div>
+        <label>${t('st_ui_font')}<select data-ap="uiFont">${Object.keys(FONTS).map(k => `<option value="${k}"${S.ap.uiFont === k ? ' selected' : ''}>${esc(t('st_' + k))}</option>`).join('')}</select></label>
+        <label>${t('st_ui_scale')} <output>${S.ap.uiScale}%</output><input type="range" data-ap="uiScale" min="85" max="130" step="5" value="${S.ap.uiScale}"></label>
+      </fieldset></div>`;
+  }
+  function openStyle() {
+    editor.snapshot(); $('#stylebody').innerHTML = styleBody(); $('#styledlg').showModal();
+  }
+  function resetStyle() {
+    editor.snapshot(); editor.model.style = { global: {}, el: {} };
+    S.ap.palette = 'theme'; S.ap.decimals = 3; applyAppearance(); afterStyle(true);
+  }
+  function afterStyle(redraw) {
+    if (S.results && S.current && ['pls', 'plsc', 'bootstrap'].includes(S.current)) applyOverlay(S.current); else editor.render();
+    if (redraw && $('#styledlg').open) $('#stylebody').innerHTML = styleBody();
+    autosave();
+  }
+  function setStyle(scope, key, value) {
+    const st = editor.model.style;
+    if (scope === 'g') { if (value === '' || value === null) delete st.global[key]; else st.global[key] = value; }
+    else if (scope === 'el') {
+      const id = editor.sel && (editor.sel.id); if (!id) return;
+      const e = st.el[id] = st.el[id] || {};
+      if (value === '' || value === null) delete e[key]; else e[key] = value;
+      if (!Object.keys(e).length) delete st.el[id];
+    } else if (scope === 'ap') {
+      S.ap[key] = ['decimals', 'uiScale'].includes(key) ? +value : value; applyAppearance();
+      if (key === 'uiFont' || key === 'uiScale') prefs(true);
+      if (key === 'decimals' && S.view === 'results') renderResults();
+    }
+  }
+  function inputValue(el) { return el.type === 'checkbox' ? el.checked : (el.type === 'range' || el.type === 'number') ? +el.value : el.value; }
+  function bindStyle() {
+    const handle = (ev, commit) => {
+      const el = ev.target; const scope = ['g', 'el', 'ap'].find(s => el.dataset && el.dataset[s] !== undefined); if (!scope) return;
+      if (scope === 'el' && !editor._elSnap) { editor.snapshot(); editor._elSnap = true; }
+      setStyle(scope, el.dataset[scope], inputValue(el));
+      const out = el.parentElement.querySelector('output'); if (out) out.textContent = el.value + (el.dataset.ap === 'uiScale' ? '%' : '');
+      const auto = el.closest('.cf'); if (auto) auto.querySelector('button').classList.remove('on');
+      afterStyle(false);
+      if (commit && scope === 'ap' && el.dataset.ap === 'palette' && $('#styledlg').open) $('#stylebody').innerHTML = styleBody();
+    };
+    document.addEventListener('input', e => handle(e, false));
+    document.addEventListener('change', e => handle(e, true));
+    document.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.preset) { editor.model.style.global = JSON.parse(JSON.stringify(window.YPEditor.PRESETS[b.dataset.preset])); afterStyle(true); }
+      if (b.dataset.autoG) { setStyle('g', b.dataset.autoG, ''); afterStyle(true); }
+      if (b.dataset.autoEl) { setStyle('el', b.dataset.autoEl, ''); afterStyle(false); renderProps(); }
+      if (b.dataset.elact === 'reset' && editor.sel) { editor.snapshot(); delete editor.model.style.el[editor.sel.id]; afterStyle(false); renderProps(); }
+      if (b.dataset.elact === 'all' && editor.sel) {
+        editor.snapshot(); const st = editor.model.style, e = st.el[editor.sel.id] || {};
+        const isPath = editor.sel.type === 'path';
+        Object.entries(e).forEach(([k, v]) => { st.global[isPath ? { color: 'pathColor', width: 'pathW', style: 'pathStyle' }[k] : k] = v; });
+        const ids = isPath ? editor.model.paths.map(p => p.id) : editor.model.constructs.map(c => c.id);
+        ids.forEach(id => { delete st.el[id]; });
+        afterStyle(false); renderProps(); toast(t('applied_all'), 'good');
+      }
+    });
+  }
+  function elStyleHTML(sel) {
+    const e = editor.model.style.el[sel.id] || {}, g = editor.style();
+    if (sel.type === 'construct') return `<details class="elstyle"><summary>🎨 ${t('appearance')}</summary>
+      ${colorField('el', 'lvFill', e.lvFill || '', t('st_fill'))}${colorField('el', 'lvStroke', e.lvStroke || '', t('st_border'))}${colorField('el', 'lvText', e.lvText || '', t('st_text'))}
+      ${selField('el', 'lvShape', e.lvShape || g.lvShape, t('st_shape'), ['ellipse', 'rect', 'rounded'])}
+      ${numField('el', 'lvW', e.lvW || g.lvW, t('st_width'), 60, 220, 2)}${numField('el', 'lvFont', e.lvFont || g.lvFont, t('st_font_size'), 8, 24, 0.5)}
+      ${colorField('el', 'indFill', e.indFill || '', t('st_ind_fill'))}${colorField('el', 'indStroke', e.indStroke || '', t('st_ind_border'))}${colorField('el', 'indText', e.indText || '', t('st_ind_text'))}
+      ${colorField('el', 'outerColor', e.outerColor || '', t('st_outer_color'))}
+      <div><button data-elact="all">${t('apply_all')}</button><button data-elact="reset">${t('reset')}</button></div></details>`;
+    if (sel.type === 'path') return `<details class="elstyle"><summary>🎨 ${t('appearance')}</summary>
+      ${colorField('el', 'color', e.color || '', t('st_path_color'))}${numField('el', 'width', e.width || g.pathW, t('st_path_w'), 0.5, 6, 0.1)}
+      ${selField('el', 'style', e.style || g.pathStyle, t('st_line_style'), ['solid', 'dashed', 'dotted'])}
+      <div><button data-elact="all">${t('apply_all')}</button><button data-elact="reset">${t('reset')}</button></div></details>`;
+    return '';
+  }
+
+  // ------------------------------------------------------------ help & references
+  function renderHelp() {
+    const D = window.YPDocs, L = S.lang, el = $('#helpview');
+    const nav = `<nav class="secnav"><h4>${t('user_guide')}</h4>${D.guide.map(g => `<button data-help="${g.id}" class="${S.help === g.id ? 'on' : ''}">${esc(g[L].title)}</button>`).join('')}
+      <h4>${t('methods_refs')}</h4><button data-help="methods" class="${S.help === 'methods' ? 'on' : ''}">${t('methods')}</button><button data-help="biblio" class="${S.help === 'biblio' ? 'on' : ''}">${t('bibliography')}</button>
+      <h4>YouPls</h4><button data-help="about" class="${S.help === 'about' ? 'on' : ''}">${t('about')}</button></nav>`;
+    // short author-year label from an APA entry: "Hair et al., 2022"
+    const cite = k => {
+      const r = D.refs[k].replace(/<[^>]+>/g, ''), yr = (r.match(/\((\d{4}[a-z]?)\)/) || [])[1] || '';
+      const names = r.split(/\(\d{4}[a-z]?\)/)[0].split(/,\s*/).map(x => x.replace(/^&\s*/, '').trim()).filter(x => x && !/^([A-Z]\.\s?-?)+|\(Eds?\.\)/.test(x));
+      const who = names.length > 2 ? names[0] + ' et al.' : names.join(' & ');
+      return `<a href="#ref-${k}" data-ref="${k}">${esc(who + ', ' + yr)}</a>`;
+    };
+    let body;
+    if (S.help === 'methods') body = `<h2>${t('methods')}</h2><p class="note">${t('methods_note')}</p>` + D.methods.map(m => `<section class="card method" id="m-${m.id}"><header><h3>${esc(m[L].title)}</h3></header><p>${esc(m[L].text)}</p><div class="formula">${m.formula}</div><p class="refs">${t('sources')}: ${m.refs.map(cite).join(L === 'ar' ? '؛ ' : '; ')}</p></section>`).join('');
+    else if (S.help === 'biblio') body = `<h2>${t('bibliography')}</h2><ol class="biblio">${Object.keys(D.refs).sort().map(k => `<li id="ref-${k}" dir="ltr">${D.refs[k]}</li>`).join('')}</ol>`;
+    else if (S.help === 'about') body = `<div class="about"><img src="assets/logo.svg" alt="" width="64" height="64"><h2>YouPls ${D.version}</h2>${D.about[L].split('{v}').join(D.version)}</div>`;
+    else { const g = D.guide.find(x => x.id === S.help) || D.guide[0]; body = `<h2>${esc(g[L].title)}</h2><div class="guide">${g[L].html}</div>`; }
+    el.innerHTML = `<div class="resbody">${nav}<div class="secout helpout" id="helpout">${body}</div></div>`;
+  }
+  function openDoc(id) {
+    S.help = 'methods'; setView('help');
+    requestAnimationFrame(() => { const m = document.getElementById('m-' + id); if (m) { m.scrollIntoView({ block: 'start' }); m.classList.add('flash'); setTimeout(() => m.classList.remove('flash'), 1600); } });
   }
 
   // ------------------------------------------------------------ views
@@ -630,12 +812,14 @@
     if (v === 'data') renderData();
     if (v === 'model') { renderIndicators(); renderProps(); requestAnimationFrame(() => { if (!editor._fitted && editor.model.constructs.length) { editor.fit(); editor._fitted = true; } }); }
     if (v === 'results') renderResults();
+    if (v === 'help') renderHelp();
   }
   function refreshAll() { applyLang(); setView(S.view); }
 
   // ------------------------------------------------------------ editor
   const editor = new window.YPEditor($('#canvas'), {
-    change: () => { renderProps(); renderIndicators(); autosave(); },
+    // re-apply results to the diagram if the structure still matches them (e.g. after undoing a colour change)
+    change: () => { renderProps(); renderIndicators(); autosave(); if (['pls', 'plsc', 'bootstrap'].includes(S.current) && S.results[S.current]) applyOverlay(S.current); },
     select: () => renderProps(),
     render: () => { },
     tool: tl => $$('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === tl)),
@@ -709,6 +893,8 @@
       if (b.dataset.tool) editor.setTool(b.dataset.tool);
       if (b.dataset.run) { $('#calcmenu').hidden = true; openRun(b.dataset.run); }
       if (b.dataset.kind) { S.current = b.dataset.kind; S.section = null; renderResults(); if (['pls', 'plsc', 'bootstrap'].includes(S.current)) applyOverlay(S.current); }
+      if (b.dataset.help) { S.help = b.dataset.help; renderHelp(); $('#helpout').scrollTop = 0; }
+      if (b.dataset.doc) openDoc(b.dataset.doc);
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
       if (b.dataset.csv) { const tb = TABLES.get(b.dataset.csv); if (tb) download(slug(S.name) + '_' + slug(tb.title) + '.csv', tb.csv, 'text/csv;charset=utf-8'); }
       if (b.dataset.copy) { const tb = TABLES.get(b.dataset.copy); if (tb) { const tsv = tb.csv.replace(/^﻿/, '').split('\n').map(l => l.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\t')).join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => toast(t('copied'), 'good'), () => toast(t('copy_failed'), 'bad')); } }
@@ -731,13 +917,18 @@
         case 'assign': if (editor.sel && editor.sel.type === 'construct') { editor.assign(editor.sel.id, S.selCols); S.selCols = []; renderIndicators(); renderProps(); } break;
         case 'addmod': editor.addModerator(editor.sel.id, $('#p_mod').value); break;
         case 'overlay': S.showResults = !S.showResults; b.classList.toggle('on', S.showResults); editor.overlay = S.showResults ? editor._lastOverlay || null : null; editor.render(); break;
-        case 'modelimg': exportModelImage(); break;
+        case 'modelimg': exportModelImage('svg'); break;
+        case 'modelpng': exportModelImage('png'); break;
+        case 'style': openStyle(); break;
+        case 'style-reset': resetStyle(); break;
         case 'report': exportReport(); break;
         case 'rerun': openRun(S.current); break;
       }
     });
     // clickable rows
     document.addEventListener('click', e => {
+      const ra = e.target.closest('a[data-ref]');
+      if (ra) { e.preventDefault(); S.help = 'biblio'; renderHelp(); const li = document.getElementById('ref-' + ra.dataset.ref); if (li) { li.scrollIntoView({ block: 'center' }); li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 1600); } return; }
       const tr = e.target.closest('tr[data-var]');
       if (tr) { S.dataSel = +tr.dataset.var; renderData(); const c = $$('#dataview .card')[1]; if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const dr = e.target.closest('tr[data-draw]');
@@ -759,7 +950,7 @@
   }
 
   // ------------------------------------------------------------- start
-  prefs(false); applyTheme(); bind();
+  prefs(false); applyTheme(); applyAppearance(); bind(); bindStyle();
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
   if (!restored) { editor.setModel(null); refreshAll(); }
