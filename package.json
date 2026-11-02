@@ -1,0 +1,12 @@
+{
+  "name": "youpls",
+  "version": "0.1.0",
+  "description": "Free, open-source PLS-SEM software that runs in the browser",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/engine.test.js tests/i18n.test.js",
+    "serve": "python3 -m http.server 8765",
+    "example": "node tools/make_example.js"
+  }
+}

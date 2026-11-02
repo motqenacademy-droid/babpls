@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouPls – PLS-SEM</title>
+<meta name="description" content="YouPls: free, open-source PLS-SEM software that runs in your browser.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="assets/logo.svg" alt="" width="28" height="28"><b>YouPls</b></div>
+  <input id="pname" class="pname" value="Untitled" aria-label="Project name">
+  <div class="tbar">
+    <button data-act="new" data-i="new"></button>
+    <button data-act="open" data-i="open"></button>
+    <button data-act="save" data-i="save"></button>
+    <button data-act="import" data-i="import_csv"></button>
+    <button data-act="example" data-i="example"></button>
+  </div>
+  <span class="grow"></span>
+  <button id="theme" class="icon" data-it="theme">◐</button>
+  <button id="lang"></button>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button data-view="data" class="on" data-i="tab_data"></button>
+  <button data-view="model" data-i="tab_model"></button>
+  <button data-view="results" data-i="tab_results"></button>
+  <span class="grow"></span>
+  <div class="calc">
+    <button id="calcbtn" class="primary" data-i="calculate"></button>
+    <div id="calcmenu" class="menu" hidden>
+      <button data-run="pls" data-i="an_pls"></button>
+      <button data-run="plsc" data-i="an_plsc"></button>
+      <button data-run="bootstrap" data-i="an_bootstrap"></button>
+      <button data-run="blindfolding" data-i="an_blindfolding"></button>
+      <button data-run="predict" data-i="an_predict"></button>
+      <button data-run="ipma" data-i="an_ipma"></button>
+      <button data-run="mga" data-i="an_mga"></button>
+      <button data-run="nca" data-i="an_nca"></button>
+      <hr>
+      <button data-run="regression" data-i="an_regression"></button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <section id="dataview" class="view scroll"></section>
+
+  <section id="modelview" class="view" hidden>
+    <aside class="side">
+      <h3 data-i="indicators"></h3>
+      <input id="indsearch" type="search" data-ip="search">
+      <p class="note" data-i="drag_hint"></p>
+      <ul id="indlist" class="indlist"></ul>
+    </aside>
+    <div class="stage">
+      <div class="etools">
+        <button data-tool="select" class="on" data-it="tool_select">⬚ <span data-i="select"></span></button>
+        <button data-tool="construct" data-it="tool_construct">◯ <span data-i="construct"></span></button>
+        <button data-tool="path" data-it="tool_path">→ <span data-i="path"></span></button>
+        <span class="sep"></span>
+        <button class="icon" data-act="undo" data-it="undo">↶</button>
+        <button class="icon" data-act="redo" data-it="redo">↷</button>
+        <button class="icon" data-act="delete" data-it="delete">🗑</button>
+        <span class="sep"></span>
+        <button data-act="layout" data-i="layout"></button>
+        <button class="icon" data-act="zout" data-it="zoom_out">−</button>
+        <button class="icon" data-act="zin" data-it="zoom_in">+</button>
+        <button class="icon" data-act="fit" data-it="fit">⤢</button>
+        <span class="sep"></span>
+        <button data-act="overlay" class="on" data-i="show_results"></button>
+        <button data-act="modelimg" data-i="export_svg"></button>
+      </div>
+      <svg id="canvas" data-tool="select" aria-label="Path model"></svg>
+    </div>
+    <aside id="props" class="side props"></aside>
+  </section>
+
+  <section id="resultsview" class="view" hidden></section>
+</main>
+
+<div id="busy" class="busy" hidden><span id="busytext"></span><div class="prog"><div id="busybar"></div></div><button id="cancelrun" data-i="cancel"></button></div>
+<div id="toasts" aria-live="polite"></div>
+
+<dialog id="rundlg">
+  <form method="dialog">
+    <h2 id="runtitle"></h2>
+    <p id="rundesc" class="note"></p>
+    <div id="runfields" class="fields"></div>
+    <menu><button type="button" id="runcancel" data-i="cancel"></button><button class="primary" type="submit" data-i="start"></button></menu>
+  </form>
+</dialog>
+
+<input id="csvfile" type="file" accept=".csv,.txt,.tsv,text/csv" hidden>
+<input id="projfile" type="file" accept=".json,application/json" hidden>
+
+<script src="js/engine.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/example-data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+{
+ "constructs": [
+  {
+   "id": "c1",
+   "name": "Image",
+   "mode": "A",
+   "indicators": [
+    "imag_1",
+    "imag_2",
+    "imag_3",
+    "imag_4",
+    "imag_5"
+   ],
+   "x": 150,
+   "y": 330,
+   "side": "left"
+  },
+  {
+   "id": "c2",
+   "name": "Expectation",
+   "mode": "A",
+   "indicators": [
+    "expe_1",
+    "expe_2",
+    "expe_3"
+   ],
+   "x": 420,
+   "y": 140,
+   "side": "top"
+  },
+  {
+   "id": "c3",
+   "name": "Quality",
+   "mode": "A",
+   "indicators": [
+    "qual_1",
+    "qual_2",
+    "qual_3",
+    "qual_4"
+   ],
+   "x": 420,
+   "y": 600,
+   "side": "bottom"
+  },
+  {
+   "id": "c4",
+   "name": "Value",
+   "mode": "A",
+   "indicators": [
+    "val_1",
+    "val_2",
+    "val_3"
+   ],
+   "x": 720,
+   "y": 600,
+   "side": "bottom"
+  },
+  {
+   "id": "c5",
+   "name": "Satisfaction",
+   "mode": "A",
+   "indicators": [
+    "sat_1",
+    "sat_2",
+    "sat_3"
+   ],
+   "x": 760,
+   "y": 250,
+   "side": "top"
+  },
+  {
+   "id": "c6",
+   "name": "Loyalty",
+   "mode": "A",
+   "indicators": [
+    "loy_1",
+    "loy_2",
+    "loy_3"
+   ],
+   "x": 1040,
+   "y": 330,
+   "side": "right"
+  }
+ ],
+ "paths": [
+  {
+   "from": "c1",
+   "to": "c2"
+  },
+  {
+   "from": "c1",
+   "to": "c5"
+  },
+  {
+   "from": "c1",
+   "to": "c6"
+  },
+  {
+   "from": "c2",
+   "to": "c3"
+  },
+  {
+   "from": "c2",
+   "to": "c4"
+  },
+  {
+   "from": "c2",
+   "to": "c5"
+  },
+  {
+   "from": "c3",
+   "to": "c4"
+  },
+  {
+   "from": "c3",
+   "to": "c5"
+  },
+  {
+   "from": "c4",
+   "to": "c5"
+  },
+  {
+   "from": "c5",
+   "to": "c6"
+  }
+ ],
+ "interactions": []
+}

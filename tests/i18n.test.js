@@ -1,0 +1,29 @@
+// Every UI key used in app.js / index.html must exist in both languages.
+'use strict';
+const test = require('node:test'), assert = require('node:assert'), fs = require('fs'), path = require('path');
+const root = path.join(__dirname, '..');
+global.window = {};
+require(path.join(root, 'js/i18n.js'));
+const L = global.window.YPI18N;
+test('both languages define the same keys', () => {
+  const en = Object.keys(L.en).sort(), ar = Object.keys(L.ar).sort();
+  assert.deepStrictEqual(ar.filter(k => !L.en[k]), [], 'only in ar');
+  assert.deepStrictEqual(en.filter(k => !L.ar[k]), [], 'only in en');
+});
+test('every key used by the UI is defined', () => {
+  const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const used = new Set();
+  for (const m of app.matchAll(/\bt\('([a-z0-9_]+)'/gi)) if (!m[1].endsWith('_')) used.add(m[1]);
+  for (const m of html.matchAll(/data-i[tp]?="([a-z0-9_]+)"/g)) used.add(m[1]);
+  for (const m of app.matchAll(/title: '(an_[a-z_]+)'/g)) { used.add(m[1]); used.add(m[1] + '_d'); }
+  // dynamic families
+  ['path', 'factor', 'centroid', 'mean', 'casewise', 'percentile', 'bca', 'two', 'one'].forEach(k => used.add('opt_' + k));
+  ['scheme', 'missing', 'maxIter', 'samples', 'ci', 'test', 'alpha', 'seed', 'distance', 'folds', 'reps', 'permutations', 'scaleMin', 'scaleMax', 'target', 'regY', 'regX'].forEach(k => used.add('f_' + k));
+  ['path', 'total', 'indirect', 'specific', 'loading', 'weight', 'r2', 'r2adj', 'f2', 'htmt', 'alpha', 'rhoA', 'rhoC', 'ave', 'fit'].forEach(k => used.add('bg_' + k));
+  ['left', 'right', 'top', 'bottom'].forEach(k => used.add('side_' + k));
+  ['auto', 'dark', 'light'].forEach(k => used.add('theme_' + k));
+  ['g_final', 'g_quality', 'g_data', 'path_exists'].forEach(k => used.add(k));
+  ['no_constructs', 'no_indicators', 'missing_column', 'non_numeric', 'bad_path', 'bad_interaction', 'cycle', 'no_paths', 'no_interactions', 'no_group', 'one_group', 'same_group', 'bad_regression', 'cancelled'].forEach(k => used.add('err_' + k));
+  const missing = [...used].filter(k => !L.en[k] || !L.ar[k]);
+  assert.deepStrictEqual(missing, []);
+});
