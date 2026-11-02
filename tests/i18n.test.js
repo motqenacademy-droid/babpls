@@ -26,6 +26,10 @@ test('every key used by the UI is defined', () => {
   ['theme', 'classic', 'journal', 'pastel', 'forest', 'contrast', 'boxes'].forEach(k => used.add('preset_' + k));
   ['ellipse', 'rect', 'rounded', 'solid', 'dashed', 'dotted', 'system', 'sans', 'serif', 'georgia', 'tahoma', 'mono', 'naskh'].forEach(k => used.add('st_' + k));
   ['theme', 'okabe', 'vivid', 'ocean', 'earth', 'gray'].forEach(k => used.add('pal_' + k));
+  [1, 4, 6, 7, 14].forEach(k => used.add('pm_' + k));
+  ['var', 'cov', 'resid', 'error'].forEach(k => used.add('cbk_' + k));
+  ['maxK', 'K', 'starts', 'center', 'weightVar', 'pmodel', 'procX', 'procY', 'procM', 'procW'].forEach(k => used.add('f_' + k));
+  ['cbsem_formative', 'cbsem_interactions', 'cbsem_unidentified', 'cbsem_start', 'pos_too_small', 'pos_failed', 'cta_no_block', 'process_vars', 'no_weight'].forEach(k => used.add('err_' + k));
   ['no_constructs', 'no_indicators', 'missing_column', 'non_numeric', 'bad_path', 'bad_interaction', 'cycle', 'no_paths', 'no_interactions', 'no_group', 'one_group', 'same_group', 'bad_regression', 'cancelled'].forEach(k => used.add('err_' + k));
   const missing = [...used].filter(k => !L.en[k] || !L.ar[k]);
   assert.deepStrictEqual(missing, []);

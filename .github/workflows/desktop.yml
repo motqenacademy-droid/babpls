@@ -1,0 +1,74 @@
+# Builds the desktop apps (Windows installer + portable .exe, macOS .dmg, Linux .AppImage), smoke-tests each
+# packaged app, and attaches them to a GitHub Release when a version tag (v*) is pushed.
+name: desktop
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run dist
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Smoke test (Linux)
+        if: runner.os == 'Linux'
+        working-directory: desktop
+        run: xvfb-run --auto-servernum ./dist/*.AppImage --appimage-extract-and-run --smoke --no-sandbox
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist/win-unpacked/YouPls.exe" -ArgumentList "--smoke" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "smoke test failed: $($p.ExitCode)" }
+      - name: Smoke test (macOS)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          app=$(ls -d dist/mac*/YouPls.app | head -1)
+          "$app/Contents/MacOS/YouPls" --smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: youpls-${{ runner.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+          if-no-files-found: error
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls -la out
+          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "YouPls $GITHUB_REF_NAME" --notes "YouPls desktop apps.
+
+          - **Windows:** \`YouPls-Setup-*.exe\` (installer) or \`YouPls-Portable-*.exe\` (no installation).
+          - **macOS:** \`YouPls-*-mac-arm64.dmg\` (Apple silicon) or \`-x64.dmg\` (Intel).
+          - **Linux:** \`YouPls-*-linux-x64.AppImage\` (chmod +x, then run).
+
+          The apps are not code-signed yet: Windows SmartScreen may show *More info → Run anyway*; on macOS right-click the app → Open the first time."

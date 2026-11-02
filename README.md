@@ -1,5 +1,7 @@
 # YouPls
 
+<img src="assets/logo.svg" alt="YouPls" width="96" align="right">
+
 **برنامج مجاني مفتوح المصدر (MIT) لنمذجة المعادلات الهيكلية بالمربعات الصغرى الجزئية (PLS-SEM)، يعمل في المتصفح بلا تثبيت ولا خادم، وبياناتك لا تغادر جهازك.**
 واجهته بالعربية والإنجليزية، وفيه تحليلات PLS-SEM الشائعة ورسوماتها.
 
@@ -18,6 +20,15 @@
   ```
   ثم افتح <http://127.0.0.1:8765>.
 - للنشر على استضافة أخرى: ارفع المستودع كما هو إلى أي استضافة ملفات ثابتة (GitHub Pages أو Netlify أو Cloudflare Pages…). لا يحتاج بناءً ولا مكتبات.
+
+**تصميم: د. أحمد يوسف** · [تنزيل تطبيق سطح المكتب (Windows / macOS / Linux)](https://github.com/motqenacademy-droid/youpls/releases/latest)
+
+## الجديد في 0.3
+
+- **CB-SEM** بالإمكان الأعظم (تحليل عاملي توكيدي ونموذج هيكلي) مع χ² وCFI وTLI وRMSEA وفترتها وSRMR وGFI وAIC/BIC والحل المعياري؛ مطابق لحزمة semopy (التقديرات حتى 10⁻³، والأخطاء المعيارية حتى 1%).
+- **FIMIX-PLS** و**POS** للتجزئة وكشف التباين غير المشاهد، و**CTA-PLS** لاختبار القياس الانعكاسي، و**الكوبولا الغاوسية** لاختبار الداخلية، و**PROCESS** (النماذج 1 و4 و6 و7 و14)، و**PLS الموزونة**.
+- **تطبيق سطح مكتب** يعمل دون إنترنت: مثبِّت Windows وملف EXE محمول، وDMG لـ macOS، وAppImage لـ Linux، يُبنى ويُختبر آلياً على أنظمة GitHub مع كل إصدار.
+- شعار جديد، وصفحة «عن البرنامج» بنبذة عن المصمم والاستشهاد باسمه.
 
 ## الجديد في 0.2
 
@@ -49,9 +60,21 @@
 | **الانحدار (OLS)** | المعاملات المعيارية وغير المعيارية والأخطاء المعيارية وt وp وVIF وR² وF ومخطط البواقي |
 | **النماذج الهرمية** | بطريقة «المؤشرات المكرّرة»: أسند المؤشرات نفسها إلى المتغير الأعلى رتبة |
 
-### غير متاح بعد (خارطة الطريق)
+### متاح أيضاً منذ 0.3
 
-CB-SEM (نمذجة التغاير)، تحليل التصنيف الكامن (FIMIX-PLS وPOS)، تحليل CTA-PLS، الانحدار بطريقة PROCESS، الترجيح الموزون (Weighted PLS)، اختبار التماثل الداخلي بطريقة Gaussian copula، المتغيرات الكامنة التكرارية غير الخطية. المساهمات مرحّب بها.
+| التحليل | ما يُحسب |
+|---|---|
+| **CB-SEM** | الإمكان الأعظم، الأخطاء المعيارية من مصفوفة المعلومات المتوقعة، χ² وCFI وTLI وRMSEA (فترة 90%) وSRMR وGFI وAGFI وNFI وAIC وBIC، الحل المعياري الكامل، الثبات المركب وAVE، ارتباطات البواقي |
+| **FIMIX-PLS** | خوارزمية EM على درجات المتغيرات، معايير AIC وAIC3 وAIC4 وBIC وCAIC وHQ وMDL5 وEN، معاملات كل قطاع وانتماء الحالات |
+| **POS** | تجزئة موجَّهة بالتنبؤ تعظّم التباين المفسَّر (صيغة مبسّطة قائمة على المسافة) |
+| **CTA-PLS** | الرباعيات غير المكرّرة وفترات الإقلاع المصحَّحة للتحيّز بتصحيح Bonferroni |
+| **الكوبولا الغاوسية** | حدود الكوبولا لكل متغير مستقل منفرداً ومجتمعاً مع الإقلاع الذاتي واختبار عدم الطبيعية |
+| **PROCESS** | النماذج 1 و4 و6 و7 و14 على متغيرات مشاهدة أو درجات كامنة، مع الآثار المشروطة ومؤشر الوساطة المعدَّلة |
+| **PLS الموزونة** | أوزان المعاينة في PLS-SEM وPLSc والإقلاع الذاتي |
+
+### خارطة الطريق
+
+مؤشرات التعديل في CB-SEM، وCB-SEM للبيانات الترتيبية (WLSMV)، وMGA بالإقلاع الذاتي (Henseler)، وREBUS-PLS، وGSCA، وتوقيع تطبيقات سطح المكتب رقمياً. المساهمات مرحّب بها.
 
 ## الدقة والتحقق
 
@@ -63,14 +86,20 @@ CB-SEM (نمذجة التغاير)، تحليل التصنيف الكامن (FIM
 ## للمطوّرين
 
 ```bash
-npm test                      # اختبارات المحرّك والترجمة (Node 18+، بلا تبعيات)
+npm test                      # اختبارات المحرّك والتحليلات المتقدمة والترجمة والدليل (Node 18+، بلا تبعيات)
+cd desktop && npm ci && npm run smoke   # اختبار تطبيق سطح المكتب
+cd desktop && npm run dist    # بناء المثبِّت لنظامك
 node tests/browser_smoke.js   # اختياري: يحتاج Playwright وخادماً على 8765
 node tools/make_example.js    # يعيد توليد بيانات المثال
 python3 tools/reference_pls.py > tests/fixtures/reference.json   # يحتاج numpy
+python3 tools/reference_cbsem.py > tests/fixtures/semopy.json     # يحتاج semopy
 ```
 
 | الملف | المسؤولية |
 |---|---|
+| `js/advanced.js` | CB-SEM وFIMIX-PLS وPOS وCTA-PLS والكوبولا وPROCESS |
+| `js/docs.js` | الدليل والمنهجيات والمراجع وصفحة «عن البرنامج» |
+| `desktop/` | تطبيق سطح المكتب (Electron)؛ يُبنى بـ `.github/workflows/desktop.yml` عند وسم `v*` |
 | `js/engine.js` | كل الحسابات (يعمل في المتصفح وفي Node): قراءة CSV، PLS/PLSc، معايير الجودة، الإقلاع الذاتي، الطيّ الأعمى، PLSpredict، IPMA، MGA/MICOM، NCA، الانحدار |
 | `js/worker.js` | يشغّل المحرّك في الخلفية |
 | `js/editor.js` | لوحة رسم النموذج (SVG) |
@@ -92,12 +121,16 @@ python3 tools/reference_pls.py > tests/fixtures/reference.json   # يحتاج nu
 
 **Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
 
+**Designed by Dr. Ahmed Youssef.** **Desktop apps** (Windows installer and portable EXE, macOS DMG, Linux AppImage): [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest).
+
+**New in 0.3:** CB-SEM by maximum likelihood (validated against semopy), FIMIX-PLS, POS, CTA-PLS, Gaussian-copula endogeneity tests, PROCESS models 1/4/6/7/14, weighted PLS, offline desktop apps built and smoke-tested by CI, new logo, designer profile.
+
 **New in 0.2:** appearance presets and full control of fonts, colours, shapes, sizes and arrow styles (whole diagram or single elements), chart palettes (incl. colour-blind safe and greyscale), high-resolution PNG/SVG model export; a bilingual user guide, a methods page with the formula and APA references for every statistic (45 sources), 📖 links from every results table, and an About page with citation info.
 
 **Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.youpls.json` (data + model).
 
 **Analyses:** PLS-SEM (path/factor/centroid weighting; loadings, weights, path coefficients, total/indirect/specific indirect effects, R², adjusted R², f², LV scores) · quality criteria (Cronbach's α, ρA, ρc, AVE, Fornell-Larcker, HTMT, cross-loadings, outer/inner VIF, SRMR, d_ULS, d_G, χ², NFI for saturated and estimated model, AIC/BIC/HQ) · consistent PLS (PLSc) · bootstrapping (percentile or BCa CIs, one/two-tailed, distribution histograms, CI plots) · blindfolding Q² · PLSpredict (Q²predict, RMSE, MAE vs LM benchmark) · IPMA (constructs and indicators) · MGA permutation test with MICOM steps 2–3 · two-stage moderation with simple-slope plots · NCA (CE-FDH, permutation test, bottleneck tables) · OLS regression · higher-order constructs via repeated indicators.
 
-**Not yet:** CB-SEM, FIMIX-PLS/POS segmentation, CTA-PLS, PROCESS, weighted PLS, Gaussian-copula endogeneity tests. Contributions welcome.
+**Roadmap:** CB-SEM modification indices and ordinal estimation (WLSMV), bootstrap MGA (Henseler), REBUS-PLS, GSCA, code-signed desktop apps. Contributions welcome.
 
 **Validation:** the PLS-SEM algorithm matches an independent NumPy implementation (`tools/reference_pls.py`) to 1e-6 for weights, loadings, paths and R² under path, factor and centroid schemes and Mode B. Tests (`npm test`) also cover reliability/HTMT formulas, effect decomposition, distribution functions, seeded bootstrap reproducibility, PLSc, moderation and every other analysis. HTMT uses absolute correlations; bootstrap p-values use the t-distribution with B−1 degrees of freedom.

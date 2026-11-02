@@ -1,5 +1,5 @@
 /* Runs heavy YouPls analyses off the main thread. */
-importScripts('engine.js');
+importScripts('engine.js', 'advanced.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;
   const E = self.YPEngine;
@@ -15,6 +15,12 @@ self.onmessage = function (ev) {
       case 'mga': result = E.mga(ds, model, settings, opts, progress); break;
       case 'nca': result = E.nca(ds, model, settings, opts, progress); break;
       case 'regression': result = E.regression(ds, opts); break;
+      case 'cbsem': result = E.cbsem(ds, model, settings, opts, progress); break;
+      case 'fimix': result = E.fimix(ds, model, settings, opts, progress); break;
+      case 'pos': result = E.pos(ds, model, settings, opts, progress); break;
+      case 'cta': result = E.cta(ds, model, settings, opts, progress); break;
+      case 'copula': result = E.copula(ds, model, settings, opts, progress); break;
+      case 'process': result = E.processModel(ds, model, settings, opts, progress); break;
       default: throw new Error('unknown task ' + task);
     }
     self.postMessage({ id, result });

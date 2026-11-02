@@ -1,0 +1,99 @@
+{
+  "name": "youpls-desktop",
+  "productName": "YouPls",
+  "version": "0.3.0",
+  "description": "YouPls: free, open-source PLS-SEM and CB-SEM software",
+  "author": "Dr. Ahmed Youssef",
+  "license": "MIT",
+  "homepage": "https://github.com/motqenacademy-droid/youpls",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "prepare-app": "node prepare.js",
+    "start": "node prepare.js && electron .",
+    "smoke": "node prepare.js && electron . --smoke",
+    "dist": "node prepare.js && electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "com.youpls.desktop",
+    "productName": "YouPls",
+    "copyright": "© 2026 Dr. Ahmed Youssef and YouPls contributors",
+    "files": [
+      "main.js",
+      "app/**/*",
+      "build/icon.png"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "YouPls",
+      "artifactName": "YouPls-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "YouPls-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "build/icon.png",
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "YouPls-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Education",
+      "icon": "build/icon.png",
+      "artifactName": "YouPls-${version}-linux-x64.${ext}"
+    },
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/motqenacademy-droid/youpls.git"
+  }
+}

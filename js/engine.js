@@ -299,8 +299,12 @@
     let rows = [];
     const N = ds.cols[0].length;
     const rowFilter = opts.rows ? new Set(opts.rows) : null;
+    // weighted PLS: optional sampling-weight column (cases with missing or non-positive weight are dropped)
+    const wj = opts.weightVar ? ds.names.indexOf(opts.weightVar) : -1;
+    if (opts.weightVar && wj < 0) throw new Error('no_weight');
     for (let i = 0; i < N; i++) {
       if (rowFilter && !rowFilter.has(i)) continue;
+      if (wj >= 0 && !(ds.cols[wj][i] > 0)) continue;
       if ((opts.missing || 'mean') === 'casewise' && colIdx.some(j => isNaN(ds.cols[j][i]))) continue;
       rows.push(i);
     }
@@ -313,7 +317,8 @@
       return v;
     });
     const spec = compileSpec(model, used);
-    return { raw, names: used, rows, spec, model };
+    const weights = wj >= 0 ? Float64Array.from(rows, r => ds.cols[wj][r]) : null;
+    return { raw, names: used, rows, spec, model, weights };
   }
 
   function compileSpec(model, used) {
@@ -456,22 +461,37 @@
     fit.T = T;
   }
 
+  // Weighted standardisation (Becker & Ismail, 2016): z_t = sqrt(c w_t)(x_t - m_w)/s_w with c = n/Σw, so that
+  // every dot(z_a, z_b)/(n-1) used by the algorithm is a weighted correlation and fitCore needs no change.
+  function weightRoot(w) { const n = w.length; let sw = 0; for (let t = 0; t < n; t++) sw += w[t]; return Float64Array.from(w, x => Math.sqrt(x * n / sw)); }
+  function wstandardize(v, sq) {
+    const n = v.length; let sw = 0, sm = 0;
+    for (let t = 0; t < n; t++) { const c = sq[t] * sq[t]; sw += c; sm += c * v[t]; }
+    const m = sm / sw; let ss = 0;
+    for (let t = 0; t < n; t++) { const d = v[t] - m; ss += sq[t] * sq[t] * d * d; }
+    const s = Math.sqrt(ss / (n - 1)) || 1, out = new Float64Array(n);
+    for (let t = 0; t < n; t++) out[t] = sq[t] * (v[t] - m) / s;
+    return out;
+  }
+
   // Standardise, run two-stage interactions, estimate.
-  function fitFull(raw, spec, settings, init) {
+  function fitFull(raw, spec, settings, init, weights) {
     settings = Object.assign({}, DEFAULTS, settings || {});
-    const Z = raw.map(standardize);
+    const sq = weights ? weightRoot(weights) : null;
+    const stdz = v => (sq ? wstandardize(v, sq) : standardize(v));
+    const Z = raw.map(stdz);
     if (spec.inter.length) {
       const s1 = fitCore(Z, spec.base, Object.assign({}, settings, { consistent: false }), init && init.base);
       spec.inter.forEach(it => {
         const x = s1.Y[it.x], m = s1.Y[it.m], p = new Float64Array(x.length);
-        for (let t = 0; t < x.length; t++) p[t] = x[t] * m[t];
-        Z.push(standardize(p));
+        for (let t = 0; t < x.length; t++) p[t] = sq ? (x[t] / sq[t]) * (m[t] / sq[t]) : x[t] * m[t];
+        Z.push(stdz(p));
       });
       const f = fitCore(Z, spec, settings, init && init.full);
-      f.stage1W = s1.w; f.Z = Z; return f;
+      f.stage1W = s1.w; f.Z = Z; f.sq = sq; return f;
     }
     const f = fitCore(Z, spec, settings, init && init.full);
-    f.Z = Z; return f;
+    f.Z = Z; f.sq = sq; return f;
   }
   function initFrom(fit) { return { full: fit.w, base: fit.stage1W }; }
 
@@ -649,7 +669,7 @@
   function runPLS(ds, model, settings) {
     settings = Object.assign({}, DEFAULTS, settings || {});
     const prep = prepare(ds, model, settings);
-    const fit = fitFull(prep.raw, prep.spec, settings);
+    const fit = fitFull(prep.raw, prep.spec, settings, undefined, prep.weights);
     return report(prep, fit, settings);
   }
 
@@ -688,7 +708,8 @@
       fit: { saturated: fitSat, estimated: fitEst },
       selection: sel,
       specific: specificIndirect(fit, spec).map(s => ({ path: s.path.map(j => names[j]), value: s.value })),
-      scores: fit.Y.map(y => Array.from(y)),
+      scores: fit.Y.map(y => (fit.sq ? Array.from(y, (v, t) => v / fit.sq[t]) : Array.from(y))),
+      weighted: !!fit.sq,
       rows: prep.rows,
       stats: collectStats(fit, spec, { indNames }),
       inter: spec.inter.map(it => ({ name: it.name, x: names[it.x], m: names[it.m], y: names[it.y] }))
@@ -700,7 +721,7 @@
     settings = Object.assign({}, DEFAULTS, settings || {});
     opts = Object.assign({ samples: 1000, seed: 1, alpha: 0.05, ci: 'percentile', test: 'two' }, opts || {});
     const prep = prepare(ds, model, settings);
-    const fit0 = fitFull(prep.raw, prep.spec, settings);
+    const fit0 = fitFull(prep.raw, prep.spec, settings, undefined, prep.weights);
     const indNames = prep.names.concat(prep.spec.inter.map(it => it.name));
     const orig = collectStats(fit0, prep.spec, { indNames });
     const keys = Object.keys(orig), K = keys.length;
@@ -711,8 +732,9 @@
     for (let b = 0; b < B; b++) {
       const idx = new Int32Array(n); for (let t = 0; t < n; t++) idx[t] = Math.floor(rand() * n);
       const raw = prep.raw.map(c => { const v = new Float64Array(n); for (let t = 0; t < n; t++) v[t] = c[idx[t]]; return v; });
+      const wb = prep.weights ? Float64Array.from(idx, t => prep.weights[t]) : undefined;
       try {
-        const f = fitFull(raw, prep.spec, settings, init);
+        const f = fitFull(raw, prep.spec, settings, init, wb);
         const s = collectStats(f, prep.spec, { indNames });
         for (let q = 0; q < K; q++) draws[q].push(s[keys[q]]);
       } catch (e) { failed++; }
@@ -724,7 +746,8 @@
       jack = keys.map(() => []);
       for (let d = 0; d < n; d++) {
         const raw = prep.raw.map(c => { const v = new Float64Array(n - 1); let q = 0; for (let t = 0; t < n; t++) if (t !== d) v[q++] = c[t]; return v; });
-        try { const s = collectStats(fitFull(raw, prep.spec, settings, init), prep.spec, { indNames }); keys.forEach((k, q) => jack[q].push(s[k])); } catch (e) { /* skip */ }
+        const wj = prep.weights ? prep.weights.filter((_, t) => t !== d) : undefined;
+        try { const s = collectStats(fitFull(raw, prep.spec, settings, init, wj), prep.spec, { indNames }); keys.forEach((k, q) => jack[q].push(s[k])); } catch (e) { /* skip */ }
       }
     }
     const a = opts.alpha;
@@ -1044,7 +1067,7 @@
   }
 
   const api = {
-    rng, mean, sd, standardize, corr, corrMatrix, quantile, median, inverse, solve, jacobiEigen, cholesky,
+    rng, mean, sd, standardize, corr, corrMatrix, quantile, median, inverse, solve, jacobiEigen, cholesky, logdet, lgamma, matmul, transpose, zeros, eye, dot, olsFit, r2From,
     tTwoTailedP, fP, pnorm, qnorm, ibeta, parseCSV, describe, validate, prepare, fitFull, collectStats,
     runPLS, bootstrap, blindfolding, plspredict, ipma, mga, nca, ncaPair, regression, splitKey, DEFAULTS
   };

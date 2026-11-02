@@ -6,6 +6,8 @@
 <title>YouPls – PLS-SEM</title>
 <meta name="description" content="YouPls: free, open-source PLS-SEM software that runs in your browser.">
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon-512.png">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -20,6 +22,7 @@
     <button data-act="example" data-i="example"></button>
   </div>
   <span class="grow"></span>
+  <a id="dlapp" class="btn" href="https://github.com/motqenacademy-droid/youpls/releases/latest" target="_blank" rel="noopener">⬇ <span data-i="desktop_app"></span></a>
   <button id="theme" class="icon" data-it="theme">◐</button>
   <button id="lang"></button>
 </header>
@@ -41,7 +44,14 @@
       <button data-run="ipma" data-i="an_ipma"></button>
       <button data-run="mga" data-i="an_mga"></button>
       <button data-run="nca" data-i="an_nca"></button>
-      <hr>
+      <h5 data-i="menu_more"></h5>
+      <button data-run="cta" data-i="an_cta"></button>
+      <button data-run="copula" data-i="an_copula"></button>
+      <button data-run="fimix" data-i="an_fimix"></button>
+      <button data-run="pos" data-i="an_pos"></button>
+      <h5 data-i="menu_cb"></h5>
+      <button data-run="cbsem" data-i="an_cbsem"></button>
+      <button data-run="process" data-i="an_process"></button>
       <button data-run="regression" data-i="an_regression"></button>
     </div>
   </div>
@@ -112,6 +122,7 @@
 <input id="projfile" type="file" accept=".json,application/json" hidden>
 
 <script src="js/engine.js"></script>
+<script src="js/advanced.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/i18n.js"></script>

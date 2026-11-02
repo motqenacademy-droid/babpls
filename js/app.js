@@ -212,17 +212,23 @@
 
   // ------------------------------------------------------------- analyses
   const TASKS = {
-    pls: { title: 'an_pls', fields: ['scheme', 'missing', 'maxIter', 'consistent'] },
-    plsc: { title: 'an_plsc', task: 'pls', fields: ['scheme', 'missing', 'maxIter'], preset: { consistent: true } },
-    bootstrap: { title: 'an_bootstrap', fields: ['samples', 'ci', 'test', 'alpha', 'seed', 'scheme', 'missing', 'consistent'] },
+    pls: { title: 'an_pls', fields: ['scheme', 'missing', 'maxIter', 'consistent', 'weightVar'] },
+    plsc: { title: 'an_plsc', task: 'pls', fields: ['scheme', 'missing', 'maxIter', 'weightVar'], preset: { consistent: true } },
+    bootstrap: { title: 'an_bootstrap', fields: ['samples', 'ci', 'test', 'alpha', 'seed', 'scheme', 'missing', 'consistent', 'weightVar'] },
     blindfolding: { title: 'an_blindfolding', fields: ['distance', 'scheme', 'missing'] },
     predict: { title: 'an_predict', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
     ipma: { title: 'an_ipma', fields: ['target', 'scaleMin', 'scaleMax', 'scheme', 'missing'] },
     mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'seed', 'scheme', 'missing'] },
     nca: { title: 'an_nca', fields: ['permutations', 'scheme', 'missing'] },
-    regression: { title: 'an_regression', fields: ['regY', 'regX'], noModel: true }
+    regression: { title: 'an_regression', fields: ['regY', 'regX'], noModel: true },
+    cbsem: { title: 'an_cbsem', fields: ['missing'] },
+    fimix: { title: 'an_fimix', fields: ['maxK', 'K', 'starts', 'seed', 'scheme', 'missing'] },
+    pos: { title: 'an_pos', fields: ['K', 'starts', 'seed', 'scheme', 'missing'] },
+    cta: { title: 'an_cta', fields: ['samples', 'alpha', 'seed', 'missing'] },
+    copula: { title: 'an_copula', fields: ['samples', 'seed', 'scheme', 'missing'] },
+    process: { title: 'an_process', fields: ['pmodel', 'procX', 'procM', 'procW', 'procY', 'samples', 'seed', 'center'], noModel: true }
   };
-  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '' };
+  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '' };
   function fieldHTML(k, task) {
     const st = Object.assign({}, S.settings, DEF, S['last_' + task] || {});
     const num = (min, max, step) => `<input type="number" name="${k}" value="${esc(st[k])}" min="${min}" max="${max}" step="${step || 1}">`;
@@ -254,6 +260,16 @@
         const cats = S.ds.names.filter((n, j) => { const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; });
         ctrl = `<select name="groupVar">${cats.map(n => `<option>${esc(n)}</option>`).join('')}</select>`;
         return `<label>${t('f_groupVar')}${ctrl}</label><div id="groupPick"></div>`;
+      }
+      case 'maxK': ctrl = num(2, 10); break;
+      case 'K': ctrl = num(2, 10); break;
+      case 'starts': ctrl = num(1, 100); break;
+      case 'center': return `<label class="check"><input type="checkbox" name="center"${st.center ? ' checked' : ''}> ${t('f_center')}</label>`;
+      case 'weightVar': ctrl = `<select name="weightVar"><option value="">${t('none')}</option>${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${st.weightVar === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`; break;
+      case 'pmodel': ctrl = `<select name="pmodel">${[4, 6, 1, 7, 14].map(v => `<option value="${v}"${+st.pmodel === v ? ' selected' : ''}>${t('pm_' + v)}</option>`).join('')}</select>`; break;
+      case 'procX': case 'procY': case 'procW': case 'procM': {
+        const vars = processVars(), multi = k === 'procM';
+        ctrl = `<select name="${k}"${multi ? ' multiple size="6"' : ''}>${k === 'procW' ? `<option value="">${t('none')}</option>` : ''}${vars.map(v => `<option>${esc(v)}</option>`).join('')}</select>${multi ? `<small>${t('multi_hint')}</small>` : ''}`; break;
       }
       case 'regY': ctrl = `<select name="regY">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option>${esc(n)}</option>`).join('')}</select>`; break;
       case 'regX': ctrl = `<select name="regX" multiple size="8">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option>${esc(n)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
@@ -297,13 +313,15 @@
     S['last_' + kind] = fd;
     const settings = Object.assign({}, S.settings, {
       scheme: fd.scheme || S.settings.scheme, missing: fd.missing || S.settings.missing,
-      maxIter: fd.maxIter ? +fd.maxIter : S.settings.maxIter, consistent: !!fd.consistent
+      maxIter: fd.maxIter ? +fd.maxIter : S.settings.maxIter, consistent: !!fd.consistent, weightVar: fd.weightVar || undefined
     }, TASKS[kind].preset || {});
     if (fd.scheme) { S.settings.scheme = fd.scheme; S.settings.missing = fd.missing || S.settings.missing; }
     const opts = {
       samples: +fd.samples || 5000, ci: fd.ci, test: fd.test, alpha: +fd.alpha || 0.05, seed: +fd.seed || 0,
       distance: +fd.distance || 7, folds: +fd.folds || 10, reps: +fd.reps || 10, permutations: +fd.permutations || 1000,
-      target: fd.target, groupVar: fd.groupVar, y: fd.regY, x: fd.regX
+      target: fd.target, groupVar: fd.groupVar, y: fd.regY, x: fd.regX,
+      maxK: +fd.maxK || 4, K: +fd.K || 2, starts: +fd.starts || (kind === 'pos' ? 5 : 10), pmodel: +fd.pmodel || 4, center: !!fd.center,
+      ...(kind === 'process' ? { x: fd.procX, y: fd.procY, m: fd.procM || [], w: fd.procW || undefined } : {})
     };
     if (fd.gA !== undefined) opts.groups = [+fd.gA, +fd.gB];
     if (kind === 'ipma' && (fd.scaleMin !== '' || fd.scaleMax !== '')) {
@@ -328,7 +346,7 @@
       const local = () => setTimeout(() => {
         try {
           let r;
-          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mga(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts) }[task];
+          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mga(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), cbsem: () => E.cbsem(S.ds, model, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
           r = fn(); resolve(r);
         } catch (e) { reject({ error: e.message, details: e.details }); }
       }, 60);
@@ -349,7 +367,7 @@
       const r = await runTask(task, model, settings, opts, p => { $('#busybar').style.width = Math.round(p * 100) + '%'; });
       r.meta = { kind, model, settings, opts, time: new Date().toISOString(), ms: Math.round(performance.now() - t0) };
       S.results[kind] = r; S.current = kind; S.section = null;
-      if (kind === 'pls' || kind === 'plsc' || kind === 'bootstrap') applyOverlay(kind);
+      if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(kind)) applyOverlay(kind);
       setView('results');
       toast(t('done', { s: (r.meta.ms / 1000).toFixed(1) }), 'good');
     } catch (e) {
@@ -368,6 +386,13 @@
     const base = r.kind === 'bootstrap' ? r.base : r, m = editor.model;
     if (sig(r.meta.model) !== sig(m)) { editor.overlay = null; editor._lastOverlay = null; editor.render(); return; }
     const ids = m.constructs.map(c => c.id).concat(m.interactions.map(i => i.id));
+    if (r.kind === 'cbsem') { // standardised CB-SEM estimates (p-values in brackets)
+      const id = nm => ids[r.constructs.indexOf(nm)], ov = { paths: {}, r2: {}, outer: {} };
+      r.paths.forEach(p => { ov.paths[id(p.from) + '>' + id(p.to)] = f(p.std) + ' (' + fp(p.p) + ')'; });
+      r.r2.forEach(x => { ov.r2[id(x.construct)] = 'R² ' + f(x.r2); });
+      m.constructs.forEach(c => { ov.outer[c.id] = c.indicators.map(ind => { const l = r.loadings.find(x => x.construct === c.name && x.indicator === ind); return l ? f(l.std) : ''; }); });
+      editor.overlay = S.showResults ? ov : null; editor._lastOverlay = ov; editor.render(); return;
+    }
     const ov = { paths: {}, r2: {}, outer: {} };
     const pv = {}; if (r.kind === 'bootstrap') r.rows.forEach(x => { pv[x.key] = x.p; });
     base.constructs.forEach((name, j) => {
@@ -382,7 +407,7 @@
   }
 
   // ---------------------------------------------------------- results
-  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'blindfolding', 'predict', 'ipma', 'mga', 'nca', 'regression'];
+  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'blindfolding', 'predict', 'ipma', 'mga', 'nca', 'cbsem', 'fimix', 'pos', 'cta', 'copula', 'process', 'regression'];
   function renderResults() {
     const el = $('#resultsview'), kinds = KIND_ORDER.filter(k => S.results[k]);
     if (!kinds.length) { el.innerHTML = `<div class="empty"><p>${t('no_results')}</p><button class="primary" data-run="pls">${t('an_pls')}</button></div>`; return; }
@@ -430,6 +455,11 @@
       case 'mga': return mgaSections(r);
       case 'nca': return ncaSections(r);
       case 'regression': return regSections(r);
+      case 'cbsem': return cbsemSections(r);
+      case 'fimix': case 'pos': return segSections(r);
+      case 'cta': return ctaSections(r);
+      case 'copula': return copulaSections(r);
+      case 'process': return processSections(r);
     }
     return [];
   }
@@ -583,6 +613,81 @@
       sec('g_final', 'nca_plot', t('nca_plots'), () => r.rows.map(x => card(x.x + ' → ' + x.y, `<div class="chartgrid">${chart(C.scatter(x.points.map(p => ({ x: p[0], y: p[1] })), { step: x.steps, title: 'CE-FDH  d = ' + f(x.d), xLabel: x.x, yLabel: x.y }), 'nca')}${table([x.y + ' %', x.x + ' % ' + t('required')], x.bottleneck.map(b => [String(b.y), b.x === null ? 'NA' : f(b.x, 1)]), { title: 'bottleneck' })}</div>`)).join(''))];
   }
 
+  function processVars() {
+    const v = S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num');
+    const ok = editor.model.constructs.length && !E.validate(editor.model, S.ds).length;
+    return (ok ? editor.model.constructs.map(c => 'LV: ' + c.name) : []).concat(v);
+  }
+  const pcell = p => cell(fp(p) + ' ' + stars(p), p < 0.05 ? 'good' : '', p);
+  const thr = (v, ok, label) => cell(f(v), ok ? 'good' : 'warn', v);
+  function cbsemSections(r) {
+    const F = r.fit;
+    const fitRows = [
+      ['χ²', f(F.chi2), ''], ['df', String(F.df), ''], ['p (χ²)', fp(F.p), '> 0.05'], ['χ²/df', f(F.chi2 / F.df), '< 3'],
+      ['CFI', thr(F.cfi, F.cfi >= 0.95), '≥ 0.95'], ['TLI', thr(F.tli, F.tli >= 0.95), '≥ 0.95'],
+      ['RMSEA', thr(F.rmsea, F.rmsea <= 0.06), '≤ 0.06'], ['RMSEA 90% CI', f(F.rmseaLo) + ' – ' + f(F.rmseaHi), ''],
+      ['SRMR', thr(F.srmr, F.srmr <= 0.08), '≤ 0.08'], ['GFI', f(F.gfi), '≥ 0.90'], ['AGFI', f(F.agfi), '≥ 0.90'], ['NFI', f(F.nfi), '≥ 0.90'],
+      ['AIC', f(F.aic, 1), t('lower_better')], ['BIC', f(F.bic, 1), t('lower_better')], ['N', String(r.n), ''], [t('free_params'), String(F.params), ''], [t('iterations'), String(F.iterations) + (F.converged ? '' : ' ⚠'), '']];
+    const N = r.constructs;
+    return [
+      sec('g_quality', 'cb_fit', t('cb_fit'), () => (r.heywood ? `<p class="warn">⚠ ${t('heywood')}</p>` : '') + card(t('cb_fit'), table(['', t('value'), t('guideline')], fitRows, { title: 'cbsem_fit' }), { note: t('cb_fit_note'), doc: 'cbfit' })),
+      sec('g_final', 'cb_paths', t('path_coefs'), () => card(t('path_coefs'), table([t('relationship'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.paths.map(p => [p.from + ' → ' + p.to, f(p.est), f(p.se), f(p.z), pcell(p.p), f(p.std)]), { title: 'cbsem_paths' }) +
+        chart(C.bars(r.paths.map(p => ({ label: p.from + ' → ' + p.to, value: p.std })), { title: t('std_estimate') }), 'cbsem_paths'), { note: t('cb_paths_note'), doc: 'cbsem' })),
+      sec('g_final', 'cb_load', t('outer_loadings'), () => card(t('outer_loadings'), table([t('construct'), t('indicator'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.loadings.map(l => [l.construct, l.indicator, f(l.est), l.fixed ? t('fixed') : f(l.se), l.fixed ? '' : f(l.z), l.fixed ? cell('') : pcell(l.p), cell(f(l.std), l.std < 0.7 ? 'warn' : '', l.std)]), { title: 'cbsem_loadings' }) +
+        chart(C.bars(r.loadings.map(l => ({ label: l.indicator, value: l.std })), { title: t('std_estimate'), thresholds: [{ value: 0.7, label: '0.70' }] }), 'cbsem_loadings'), { note: t('cb_load_note'), doc: 'cbsem' })),
+      sec('g_final', 'cb_r2', t('r2'), () => card(t('r2'), table([t('construct'), 'R²'], r.r2.map(x => [x.construct, f(x.r2)]), { title: 'cbsem_r2' }), { doc: 'cbsem' })),
+      sec('g_final', 'cb_eff', t('total_effects'), () => card(t('total_effects') + ' (' + t('std_estimate') + ')', table([t('relationship'), t('direct'), t('indirect_total'), t('total')], r.effects.map(e => [e.from + ' → ' + e.to, f(e.direct), f(e.indirect), f(e.total)]), { title: 'cbsem_effects' }), { doc: 'effects' })),
+      sec('g_quality', 'cb_rel', t('reliability'), () => card(t('reliability'), table([t('construct'), 'CR', 'AVE', '√AVE'], r.reliability.map(x => [x.construct, cell(f(x.cr), x.cr >= 0.7 ? 'good' : 'warn', x.cr), cell(f(x.ave), x.ave >= 0.5 ? 'good' : 'bad', x.ave), f(Math.sqrt(x.ave))]), { title: 'cbsem_reliability' }) +
+        matrixTable(N, N, r.lvcorr.map((row, i) => row.map((v, j) => (i === j ? Math.sqrt(r.reliability[i].ave) : v))), { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(Math.sqrt(r.reliability[i].ave), Math.sqrt(r.reliability[j].ave)) ? 'bad' : ''), title: 'cbsem_fornell' }), { note: t('cb_rel_note'), doc: 'ave' })),
+      sec('g_data', 'cb_var', t('cb_variances'), () => card(t('cb_variances'), table(['', t('type'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.covs.map(c => [c.a === c.b ? c.a : c.a + ' ↔ ' + c.b, t('cbk_' + c.kind), cell(f(c.est), c.kind !== 'cov' && c.est < 0 ? 'bad' : '', c.est), f(c.se), f(c.z), pcell(c.p), f(c.std)]).concat(r.resid.map(x => [x.indicator, t('cbk_error'), cell(f(x.est), x.est < 0 ? 'bad' : '', x.est), f(x.se), f(x.z), pcell(x.p), f(x.std)])), { title: 'cbsem_variances' }))),
+      sec('g_data', 'cb_res', t('cb_residuals'), () => card(t('cb_residuals'), chart(C.heatmap(r.indicators, r.indicators, r.resCorr, { lower: true, hideDiag: true, min: -0.2, max: 0.2 }), 'residuals'), { note: t('cb_res_note') }))
+    ];
+  }
+  function segSections(r) {
+    const isF = r.kind === 'fimix', segs = r.segments, head = [t('relationship'), t('global')].concat(segs.map(s => t('segment') + ' ' + s.segment));
+    const out = [];
+    if (isF) {
+      const crit = ['aic', 'aic3', 'aic4', 'bic', 'caic', 'hq', 'mdl5'], minOf = k => Math.min(...r.table.map(x => x[k]));
+      out.push(sec('g_quality', 'fx_crit', t('fx_criteria'), () => card(t('fx_criteria'), table(['K', 'lnL', 'AIC', 'AIC3', 'AIC4', 'BIC', 'CAIC', 'HQ', 'MDL5', 'EN'], r.table.map(x => [String(x.K), f(x.lnL, 2)].concat(crit.map(k => cell(f(x[k], 2), x[k] === minOf(k) ? 'good' : '', x[k]))).concat([f(x.en)])), { title: 'fimix_criteria' }), { note: t('fx_crit_note'), doc: 'fimix' })));
+    }
+    out.push(sec('g_final', 'seg_paths', t('seg_results'), () => card(t('seg_sizes'), table([t('segment'), t('share'), 'N'], segs.map(s => [String(s.segment), f(s.share * 100, 1) + '%', String(s.count)]), { title: 'segment_sizes' }) +
+      (isF ? '' : `<p class="meta">${t('pos_objective', { a: f(r.globalObjective), b: f(r.objective) })}</p>`), { doc: isF ? 'fimix' : 'pos' }) +
+      card(t('path_coefs'), table(head, r.global.map((g, q) => [g.from + ' → ' + g.to, f(g.value)].concat(segs.map(s => f(s.paths[q].value)))), { title: 'segment_paths' }) +
+        chart(C.grouped(r.global.map((g, q) => ({ label: g.from + ' → ' + g.to, values: [g.value].concat(segs.map(s => s.paths[q].value)) })), [t('global')].concat(segs.map(s => t('segment') + ' ' + s.segment)), { title: t('path_coefs') }), 'segments')) +
+      card('R²', table([t('construct')].concat(isF ? [] : [t('global')]).concat(segs.map(s => t('segment') + ' ' + s.segment)), segs[0].r2.map((x, q) => [x.construct].concat(isF ? [] : [f(r.globalR2[q].r2)]).concat(segs.map(s => f(s.r2[q].r2)))), { title: 'segment_r2' }), { note: isF ? t('fx_seg_note') : t('pos_note', { m: r.minSize }) })));
+    out.push(sec('g_data', 'seg_mem', t('membership'), () => card(t('membership'), table(['#', t('segment')].concat(isF ? segs.map(s => 'P(' + s.segment + ')') : []), r.membership.map(x => [String(x.row), String(x.segment)].concat(isF ? x.probs.map(v => f(v)) : [])), { title: 'membership' }), { note: t('membership_note') })));
+    return out;
+  }
+  function ctaSections(r) {
+    return [sec('g_quality', 'cta', t('an_cta'), () => r.constructs.map(c => card(c.construct + ' – ' + (c.reflectiveRejected ? t('cta_reject') : t('cta_keep')),
+      table([t('tetrad'), t('value'), t('sample_mean'), t('std_dev'), 'T', 'p', t('ci_low_adj'), t('ci_high_adj'), t('result')], c.rows.map(x => [x.tetrad, f(x.value, 4), f(x.mean, 4), f(x.sd, 4), f(x.t), fp(x.p), f(x.lo, 4), f(x.hi, 4), cell(x.sig ? t('cta_nonzero') : t('cta_zero'), x.sig ? 'bad' : 'good')]), { title: 'cta_' + c.construct }),
+      { note: t('cta_note', { m: c.tetrads, a: f(c.adjAlpha, 4), b: r.samples }), doc: 'cta' })).join(''))];
+  }
+  function copulaSections(r) {
+    return [
+      sec('g_quality', 'cop_tests', t('cop_tests'), () => card(t('cop_tests'), table([t('outcome'), t('model'), t('term'), t('value'), t('std_dev'), 'T', 'p', '2.5%', '97.5%'], r.tests.flatMap(x => x.copulas.map(c => [x.outcome, x.model, c.term, f(c.value), f(c.sd), f(c.t), cell(fp(c.p), c.p < 0.05 ? 'bad' : 'good', c.p), f(c.lo), f(c.hi)]).concat(x.paths.map(pp => [x.outcome, x.model, pp.term + ' (' + t('original') + ' ' + f(pp.original) + ')', f(pp.value), f(pp.sd), f(pp.t), fp(pp.p), f(pp.lo), f(pp.hi)]))), { title: 'copula' }), { note: t('cop_note', { b: r.samples }), doc: 'copula' })),
+      sec('g_quality', 'cop_norm', t('cop_normality'), () => card(t('cop_normality'), table([t('construct'), 'KS D', t('critical_5'), t('skewness'), t('kurtosis'), t('result')], r.normality.map(x => [x.construct, f(x.D), f(x.crit), f(x.skew), f(x.kurt), cell(x.nonNormal ? t('nonnormal') : t('normal_like'), x.nonNormal ? 'good' : 'warn')]), { title: 'copula_normality' }), { note: t('cop_norm_note'), doc: 'copula' }))];
+  }
+  function processLabel(r, key) {
+    const W = r.w, lv = r.wvals || [], lvl = q => [t('low'), t('mean'), t('high')][q] + ' (' + f(lv[q]) + ')';
+    const M = i => r.m[i];
+    let m;
+    if (key === 'total') return t('total') + ': ' + r.x + ' → ' + r.y;
+    if (key === 'direct') return t('direct') + ': ' + r.x + ' → ' + r.y;
+    if (key === 'total_ind') return t('indirect_total');
+    if ((m = key.match(/^ind_(\d)$/))) { const i = +m[1]; if (r.pmodel === 6 && i === 2) return r.x + ' → ' + M(0) + ' → ' + M(1) + ' → ' + r.y; return r.x + ' → ' + M(i) + ' → ' + r.y; }
+    if ((m = key.match(/^cond_(\d)$/))) return t('cond_effect') + ' ' + r.x + ' → ' + r.y + ' | ' + W + ' = ' + lvl(+m[1]);
+    if ((m = key.match(/^cind_(\d)_(\d)$/))) return r.x + ' → ' + M(+m[1]) + ' → ' + r.y + ' | ' + W + ' = ' + lvl(+m[2]);
+    if ((m = key.match(/^imm_(\d)$/))) return t('imm') + ' (' + M(+m[1]) + ')';
+    return key;
+  }
+  function processSections(r) {
+    return [
+      sec('g_final', 'pr_eff', t('pr_effects'), () => card(t('pm_' + r.pmodel), table([t('effect'), t('value'), 'Boot SE', 'Boot 2.5%', 'Boot 97.5%', t('result')], r.effects.map((e, q) => [processLabel(r, e.key), f(e.value), f(e.se), f(e.lo), f(e.hi), cell(e.lo > 0 || e.hi < 0 ? t('significant') : t('not_significant'), e.lo > 0 || e.hi < 0 ? 'good' : '')].concat([])), { title: 'process_effects' }) +
+        (r.condSE ? table([t('cond_effect'), 'SE', 't', 'p'], r.wvals.map((w, q) => { const e = r.effects.find(x => x.key === 'cond_' + q), tt = e.value / r.condSE[q]; return [processLabel(r, 'cond_' + q), f(r.condSE[q]), f(tt), fp(E.tTwoTailedP(tt, r.equations[0].df))]; }), { title: 'process_conditional' }) : ''), { note: t('pr_note', { b: r.samples, n: r.n }) + (r.center ? ' ' + t('pr_centered') : ''), doc: 'process' })),
+      sec('g_final', 'pr_eq', t('pr_equations'), () => r.equations.map(eq => card(t('outcome') + ': ' + eq.outcome, `<p class="meta">R² = ${f(eq.r2)} · F = ${f(eq.F, 2)} · df = ${eq.df}</p>` + table([t('term'), 'b', 'SE', 't', 'p', 'LLCI', 'ULCI'], eq.terms.map(x => [x.name, f(x.b), f(x.se), f(x.t), pcell(x.p), f(x.lo), f(x.hi)]), { title: 'process_' + eq.outcome }))).join(''))];
+  }
+
   function regSections(r) {
     return [sec('g_final', 'reg', t('an_regression'), () => card(r.y + ' ~ ' + r.terms.slice(1).map(x => x.name).join(' + '),
       `<p class="meta">N = ${r.n} · R² = ${f(r.r2)} · ${t('r2adj')} = ${f(r.r2adj)} · F(${r.df1}, ${r.df2}) = ${f(r.F, 2)} · p = ${fp(r.pF)}</p>` +
@@ -716,7 +821,7 @@
     S.ap.palette = 'theme'; S.ap.decimals = 3; applyAppearance(); afterStyle(true);
   }
   function afterStyle(redraw) {
-    if (S.results && S.current && ['pls', 'plsc', 'bootstrap'].includes(S.current)) applyOverlay(S.current); else editor.render();
+    if (S.results && S.current && ['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current)) applyOverlay(S.current); else editor.render();
     if (redraw && $('#styledlg').open) $('#stylebody').innerHTML = styleBody();
     autosave();
   }
@@ -819,7 +924,7 @@
   // ------------------------------------------------------------ editor
   const editor = new window.YPEditor($('#canvas'), {
     // re-apply results to the diagram if the structure still matches them (e.g. after undoing a colour change)
-    change: () => { renderProps(); renderIndicators(); autosave(); if (['pls', 'plsc', 'bootstrap'].includes(S.current) && S.results[S.current]) applyOverlay(S.current); },
+    change: () => { renderProps(); renderIndicators(); autosave(); if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current) && S.results[S.current]) applyOverlay(S.current); },
     select: () => renderProps(),
     render: () => { },
     tool: tl => $$('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === tl)),
@@ -892,7 +997,7 @@
       if (b.dataset.view) setView(b.dataset.view);
       if (b.dataset.tool) editor.setTool(b.dataset.tool);
       if (b.dataset.run) { $('#calcmenu').hidden = true; openRun(b.dataset.run); }
-      if (b.dataset.kind) { S.current = b.dataset.kind; S.section = null; renderResults(); if (['pls', 'plsc', 'bootstrap'].includes(S.current)) applyOverlay(S.current); }
+      if (b.dataset.kind) { S.current = b.dataset.kind; S.section = null; renderResults(); if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current)) applyOverlay(S.current); }
       if (b.dataset.help) { S.help = b.dataset.help; renderHelp(); $('#helpout').scrollTop = 0; }
       if (b.dataset.doc) openDoc(b.dataset.doc);
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
@@ -950,6 +1055,7 @@
   }
 
   // ------------------------------------------------------------- start
+  if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('is-desktop');
   prefs(false); applyTheme(); applyAppearance(); bind(); bindStyle();
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
