@@ -1,5 +1,6 @@
 # Builds the desktop apps (Windows installer + portable .exe, macOS .dmg, Linux .AppImage), smoke-tests each
-# packaged app, and attaches them to a GitHub Release when a version tag (v*) is pushed.
+# packaged app, and publishes them as a GitHub Release v<desktop/package.json version> — on a pushed v* tag, or when
+# run manually (Actions → desktop → Run workflow), in which case the tag is created on the current commit.
 name: desktop
 on:
   push:
@@ -53,9 +54,12 @@ jobs:
           if-no-files-found: error
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Release tag
+        run: echo "TAG=v$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -65,7 +69,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ls -la out
-          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "YouPls $GITHUB_REF_NAME" --notes "YouPls desktop apps.
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "YouPls $TAG" --notes "YouPls desktop apps.
 
           - **Windows:** \`YouPls-Setup-*.exe\` (installer) or \`YouPls-Portable-*.exe\` (no installation).
           - **macOS:** \`YouPls-*-mac-arm64.dmg\` (Apple silicon) or \`-x64.dmg\` (Intel).
