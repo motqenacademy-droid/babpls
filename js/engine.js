@@ -585,17 +585,19 @@
     }
     return { S, Sig, p };
   }
-  function fitIndices(fit, spec, estimated) {
-    const { S, Sig, p } = implied(fit, spec, estimated);
+  // SRMR, d_ULS and d_G between an observed (S) and a model-implied (Σ) correlation matrix
+  function discrepancy(S, Sig, p) {
     let ss = 0, cnt = 0, uls = 0;
     for (let a = 0; a < p; a++) for (let b = 0; b <= a; b++) { const d = S[a][b] - Sig[a][b]; ss += d * d; cnt++; }
     for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) { const d = S[a][b] - Sig[a][b]; uls += d * d; }
-    const out = { srmr: Math.sqrt(ss / cnt), dULS: 0.5 * uls, dG: NaN, chi2: NaN, nfi: NaN };
+    let dG = NaN;
+    try { const Li = inverse(cholesky(S)), ev = jacobiEigen(matmul(matmul(Li, Sig), transpose(Li))); dG = 0.5 * ev.reduce((a, l) => a + (l > 0 ? Math.pow(Math.log(l), 2) : NaN), 0); } catch (e) { /* not PD */ }
+    return { srmr: Math.sqrt(ss / cnt), dULS: 0.5 * uls, dG };
+  }
+  function fitIndices(fit, spec, estimated) {
+    const { S, Sig, p } = implied(fit, spec, estimated);
+    const out = Object.assign(discrepancy(S, Sig, p), { chi2: NaN, nfi: NaN });
     try {
-      const Ls = cholesky(S), Li = inverse(Ls);
-      const M = matmul(matmul(Li, Sig), transpose(Li));
-      const ev = jacobiEigen(M);
-      out.dG = 0.5 * ev.reduce((a, l) => a + (l > 0 ? Math.pow(Math.log(l), 2) : NaN), 0);
       const lS = logdet(S), lSig = logdet(Sig);
       const SigInv = inverse(Sig);
       let tr = 0; for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) tr += S[a][b] * SigInv[b][a];
@@ -707,6 +709,11 @@
       outerVIF: outerVIF(fit, spec), innerVIF: innerVIF(fit, spec),
       fit: { saturated: fitSat, estimated: fitEst },
       selection: sel,
+      gof: (() => { // Tenenhaus et al. (2005): √(mean communality of reflective multi-item blocks × mean R²)
+        const com = []; lv.forEach((l, j) => { if (l.mode === 'A' && l.idx.length > 1 && !l.inter) fit.L[j].forEach(v => com.push(v * v)); });
+        const r2v = fit.r2.filter(v => isFinite(v));
+        return com.length && r2v.length ? Math.sqrt(mean(com) * mean(r2v)) : NaN;
+      })(),
       specific: specificIndirect(fit, spec).map(s => ({ path: s.path.map(j => names[j]), value: s.value })),
       scores: fit.Y.map(y => (fit.sq ? Array.from(y, (v, t) => v / fit.sq[t]) : Array.from(y))),
       weighted: !!fit.sq,
@@ -1044,6 +1051,38 @@
   }
 
   // ---------------------------------------------------------- regression
+  // ------------------------------------------ confirmatory composite analysis: exact fit test
+  // Bootstrap-based test of exact model fit (Dijkstra & Henseler, 2015; Schuberth, Henseler & Dijkstra, 2018): the data are
+  // transformed so that the model holds exactly (Bollen & Stine, 1992), then resampled; HI95/HI99 are the 95%/99% quantiles.
+  function fitTest(ds, model, settings, opts, progress) {
+    settings = Object.assign({}, DEFAULTS, settings || {});
+    opts = Object.assign({ samples: 1000, seed: 1 }, opts || {});
+    const prep = prepare(ds, model, settings), spec = prep.spec;
+    if (spec.inter.length) throw new Error('no_interactions');
+    const fit0 = fitFull(prep.raw, spec, settings), n = prep.raw[0].length, rand = rng(opts.seed), out = {};
+    ['saturated', 'estimated'].forEach((which, w) => {
+      const est = which === 'estimated', imp = implied(fit0, spec, est), obs = discrepancy(imp.S, imp.Sig, imp.p);
+      let Zt = null;
+      try {
+        const p = imp.p, Li = inverse(cholesky(imp.S)), Ls = cholesky(imp.Sig), T = matmul(transpose(Li), transpose(Ls));
+        const order = []; spec.lv.forEach(l => l.idx.forEach(k => { if (!order.includes(k)) order.push(k); }));
+        const Zc = order.map(k => fit0.Z[k]);
+        Zt = Array.from({ length: p }, (_, b) => { const v = new Float64Array(n); for (let a = 0; a < p; a++) { const c = T[a][b]; if (c) for (let t = 0; t < n; t++) v[t] += Zc[a][t] * c; } return v; });
+        const back = new Array(prep.raw.length); order.forEach((k, a) => { back[k] = Zt[a]; }); Zt = back;
+      } catch (e) { Zt = null; }
+      const draws = { srmr: [], dULS: [], dG: [] };
+      if (Zt) for (let b = 0; b < opts.samples; b++) {
+        const idx = Int32Array.from({ length: n }, () => Math.floor(rand() * n));
+        try { const fb = fitFull(Zt.map(c => Float64Array.from(idx, t => c[t])), spec, settings), ib = implied(fb, spec, est), d = discrepancy(ib.S, ib.Sig, ib.p); ['srmr', 'dULS', 'dG'].forEach(k => { if (isFinite(d[k])) draws[k].push(d[k]); }); } catch (e) { /* skip */ }
+        if (progress && b % 20 === 0) progress((w + b / opts.samples) / 2);
+      }
+      out[which] = ['srmr', 'dULS', 'dG'].map(k => { const d = draws[k].sort((a, b) => a - b); return { index: k, value: obs[k], hi95: quantile(d, 0.95), hi99: quantile(d, 0.99), p: d.length ? d.filter(v => v >= obs[k]).length / d.length : NaN, ok: d.length ? obs[k] <= quantile(d, 0.95) : null }; });
+      out[which + 'PD'] = !!Zt;
+    });
+    const rep_ = report(prep, fit0, settings);
+    return { kind: 'cca', samples: opts.samples, n, fitTest: out, base: rep_ };
+  }
+
   function regression(ds, opts) {
     const yj = ds.names.indexOf(opts.y), xj = opts.x.map(n => ds.names.indexOf(n));
     if (yj < 0 || xj.some(j => j < 0) || !xj.length) throw new Error('bad_regression');
@@ -1063,13 +1102,27 @@
       return { name, b: coef[q], beta: q === 0 ? NaN : coef[q] * sd(X[q - 1]) / sy, se, t, p: tTwoTailedP(t, df), vif };
     });
     const F = (r2 / k) / ((1 - r2) / df);
-    return { kind: 'regression', y: opts.y, n, r2, r2adj: 1 - (1 - r2) * (n - 1) / df, F, pF: fP(F, k, df), df1: k, df2: df, terms, residuals: Array.from(fitted, (v, t) => [v, y[t] - v]) };
+    if (+opts.samples > 0) { // case-resampling bootstrap of B, β and R²
+      const B = +opts.samples, rand = rng(opts.seed || 1), dB = terms.map(() => []), dBeta = terms.map(() => []), dR2 = [];
+      for (let b = 0; b < B; b++) {
+        const idx = Int32Array.from({ length: n }, () => Math.floor(rand() * n)), yb = Float64Array.from(idx, t => y[t]), Xb = X.map(c => Float64Array.from(idx, t => c[t]));
+        try {
+          const c = olsFit(Xb, yb).coef, syb = sd(yb); let e = 0, tt = 0; const myb = mean(yb);
+          for (let t = 0; t < n; t++) { let v = c[0]; Xb.forEach((col, q) => { v += c[q + 1] * col[t]; }); e += (yb[t] - v) ** 2; tt += (yb[t] - myb) ** 2; }
+          c.forEach((v, q) => { dB[q].push(v); if (q) dBeta[q].push(v * sd(Xb[q - 1]) / syb); }); dR2.push(1 - e / tt);
+        } catch (er) { /* singular resample */ }
+      }
+      const summ = (o, d) => { const srt = d.slice().sort((a, b) => a - b), s_ = sd(srt), tv = Math.abs(o / s_); return { bootSE: s_, bootP: tTwoTailedP(tv, srt.length - 1), lo: quantile(srt, 0.025), hi: quantile(srt, 0.975) }; };
+      terms.forEach((x, q) => { Object.assign(x, summ(x.b, dB[q])); if (q) { const sb = summ(x.beta, dBeta[q]); x.betaLo = sb.lo; x.betaHi = sb.hi; } });
+      var r2CI = summ(r2, dR2), bootSamples = B;
+    }
+    return { kind: 'regression', bootSamples: bootSamples || 0, r2Lo: r2CI ? r2CI.lo : NaN, r2Hi: r2CI ? r2CI.hi : NaN, y: opts.y, n, r2, r2adj: 1 - (1 - r2) * (n - 1) / df, F, pF: fP(F, k, df), df1: k, df2: df, terms, residuals: Array.from(fitted, (v, t) => [v, y[t] - v]) };
   }
 
   const api = {
     rng, mean, sd, standardize, corr, corrMatrix, quantile, median, inverse, solve, jacobiEigen, cholesky, logdet, lgamma, matmul, transpose, zeros, eye, dot, olsFit, r2From,
     tTwoTailedP, fP, pnorm, qnorm, ibeta, parseCSV, describe, validate, prepare, fitFull, collectStats,
-    runPLS, bootstrap, blindfolding, plspredict, ipma, mga, nca, ncaPair, regression, splitKey, DEFAULTS
+    runPLS, bootstrap, blindfolding, plspredict, ipma, mga, nca, ncaPair, regression, splitKey, DEFAULTS, fitTest, implied, discrepancy, report
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.YPEngine = api;

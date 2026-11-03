@@ -10,7 +10,8 @@
     name: 'Untitled', csv: '', dataName: '', ds: null, desc: null,
     settings: Object.assign({}, E.DEFAULTS), results: {}, view: 'data', current: null, section: null,
     selCols: [], lang: 'ar', theme: 'auto', showResults: true, dataSel: null,
-    ap: { palette: 'theme', decimals: 3, uiFont: 'system', uiScale: 100 }, help: 'start'
+    ap: { palette: 'theme', decimals: 3, uiFont: 'system', uiScale: 100 }, help: 'start',
+    models: [], cur: 0, history: [], fromMatrix: null, cmp: null
   };
 
   // ---------------------------------------------------------------- i18n
@@ -35,7 +36,7 @@
   function applyTheme() { if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme; }
 
   // ------------------------------------------------------------ utilities
-  const f = (v, d) => (v === null || v === undefined || !isFinite(v)) ? '–' : Number(v).toFixed(d === undefined ? S.ap.decimals : d);
+  const f = (v, d) => { if (v === null || v === undefined || !isFinite(v)) return '–'; const k = d === undefined ? S.ap.decimals : d, out = Number(v).toFixed(k); return /^-0\.?0*$/.test(out) ? out.slice(1) : out; };
   const fp = v => (!isFinite(v)) ? '–' : (v < 0.001 ? '0.000' : v.toFixed(3));
   const stars = p => !isFinite(p) ? '' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : '';
   function toast(msg, kind) {
@@ -84,8 +85,15 @@
   }
 
   // ---------------------------------------------------------- persistence
-  function projectJSON() {
-    return { format: 'youpls', version: 1, name: S.name, data: { name: S.dataName, csv: S.csv }, model: editor.model, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
+  function syncModel() { if (!S.models.length) S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.models[S.cur].model = editor.model; }
+  function projectJSON(full) {
+    syncModel();
+    const p = { format: 'youpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
+    if (full) { // reports are saved in the project file (not in the browser autosave); history entries that are current results are stored as references
+      p.results = S.results;
+      p.history = S.history.map(h => { const k = Object.keys(S.results).find(q => S.results[q] === h.r); return k ? { id: h.id, label: h.label, ref: k } : h; });
+    }
+    return p;
   }
   let saveTimer = null;
   function autosave() {
@@ -98,10 +106,12 @@
     if (!p || p.format !== 'youpls') throw new Error(t('bad_project'));
     S.name = p.name || 'Untitled'; $('#pname').value = S.name;
     S.settings = Object.assign({}, E.DEFAULTS, p.settings || {});
-    S.results = {}; S.current = null;
+    S.results = p.results || {}; S.history = (p.history || []).map(h => (h.ref ? { id: h.id, label: h.label, r: S.results[h.ref] } : h)).filter(h => h.r); S.current = null; S.cmp = null;
+    S.fromMatrix = (p.data && p.data.fromMatrix) || null;
     if (p.data && p.data.csv) setData(p.data.csv, p.data.name, true); else { S.csv = ''; S.ds = null; S.dataName = ''; }
     if (p.appearance) { S.ap.palette = p.appearance.palette || 'theme'; S.ap.decimals = isFinite(p.appearance.decimals) ? +p.appearance.decimals : 3; applyAppearance(); }
-    editor.history = []; editor.setModel(p.model);
+    S.models = p.models && p.models.length ? p.models : [{ name: t('model') + ' 1', model: p.model }]; S.cur = Math.min(p.cur || 0, S.models.length - 1);
+    editor.history = []; editor.setModel(S.models[S.cur].model);
     if (p.view) editor.view = p.view;
     editor.render(); refreshAll();
   }
@@ -118,7 +128,7 @@
     const el = $('#dataview');
     if (!S.ds) { el.innerHTML = welcome(); return; }
     const ds = S.ds, d = S.desc;
-    let h = `<div class="datahead"><h2>${esc(S.dataName)}</h2><span class="pill">${t('rows')}: ${ds.n}</span><span class="pill">${t('variables')}: ${ds.names.length}</span><span class="pill">${t('missing')}: ${d.reduce((a, x) => a + x.missing, 0)}</span></div>`;
+    let h = `<div class="datahead"><h2>${esc(S.dataName)}</h2>${S.fromMatrix ? `<span class="pill warn">${t('from_matrix', { n: S.fromMatrix.n })}</span>` : ''}<span class="grow"></span><button data-act="groups">${t('define_groups')}</button><button data-act="covimport">${t('import_cov')}</button></div><div class="datahead"><span class="pill">${t('rows')}: ${ds.n}</span><span class="pill">${t('variables')}: ${ds.names.length}</span><span class="pill">${t('missing')}: ${d.reduce((a, x) => a + x.missing, 0)}</span></div>`;
     const descRows = d.map(x => [x.name, x.kind === 'cat' ? t('categorical') : t('numeric'), x.n, x.missing, f(x.mean), f(x.median), f(x.min), f(x.max), f(x.sd), f(x.kurtosis), f(x.skewness)]);
     h += card(t('descriptives'), `<p class="note">${t('click_var')}</p>` + table([t('variable'), t('type'), 'N', t('missing'), t('mean'), t('median'), t('min'), t('max'), t('sd'), t('kurtosis'), t('skewness')], descRows, { title: 'descriptives', cls: 'clickable', rowAttr: i => `data-var="${i}"` }), { doc: 'descriptives' });
     if (S.dataSel !== null) {
@@ -146,7 +156,7 @@
   }
   function welcome() {
     return `<div class="welcome"><img src="assets/logo.svg" alt="" width="84" height="84"><h1>YouPls</h1><p>${t('tagline')}</p>
-      <div class="actions"><button class="primary" data-act="example">${t('load_example')}</button><button data-act="import">${t('import_csv')}</button><button data-act="open">${t('open_project')}</button></div>
+      <div class="actions"><button class="primary" data-act="example">${t('load_example')}</button><button data-act="import">${t('import_csv')}</button><button data-act="open">${t('open_project')}</button><button data-act="covimport">${t('import_cov')}</button></div>
       <ol class="steps"><li>${t('step1')}</li><li>${t('step2')}</li><li>${t('step3')}</li><li>${t('step4')}</li></ol></div>`;
   }
 
@@ -198,6 +208,7 @@
         <h4>${t('moderation')}</h4><p class="note">${t('moderation_note')}</p>
         <label>${t('moderator')}<select id="p_mod">${mods.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
         <button data-act="addmod" ${mods.length ? '' : 'disabled'}>${t('add_moderator')}</button>
+        <h4>${t('nonlinear')}</h4><p class="note">${t('quadratic_hint')}</p><button data-act="addquad">${t('add_quadratic')}</button>
         ${elStyleHTML(s)}
         <button class="danger" data-act="delete">${t('delete')}</button>`;
     } else if (s.type === 'inter') {
@@ -219,9 +230,12 @@
     blindfolding: { title: 'an_blindfolding', fields: ['distance', 'scheme', 'missing'] },
     predict: { title: 'an_predict', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
     ipma: { title: 'an_ipma', fields: ['target', 'scaleMin', 'scaleMax', 'scheme', 'missing'] },
-    mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'bootSamples', 'seed', 'scheme', 'missing'] },
+    mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'bootSamples', 'seed', 'scheme', 'missing', 'consistent'] },
     nca: { title: 'an_nca', fields: ['permutations', 'scheme', 'missing'] },
-    regression: { title: 'an_regression', fields: ['regY', 'regX'], noModel: true },
+    regression: { title: 'an_regression', fields: ['regY', 'regX', 'regBoot', 'seed'], noModel: true },
+    cca: { title: 'an_cca', fields: ['samples', 'seed', 'scheme', 'missing'] },
+    cbsemmg: { title: 'an_cbsemmg', fields: ['groupVar', 'missing'] },
+    compare: { title: 'an_compare', fields: ['cmpMethod', 'scheme', 'missing'], noModel: true },
     cbsem: { title: 'an_cbsem', fields: ['cbBoot', 'seed', 'missing'] },
     gsca: { title: 'an_gsca', fields: ['samples', 'seed', 'missing'] },
     cvpat: { title: 'an_cvpat', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
@@ -233,7 +247,7 @@
     copula: { title: 'an_copula', fields: ['samples', 'seed', 'scheme', 'missing'] },
     process: { title: 'an_process', fields: ['pmodel', 'procX', 'procM', 'procW', 'procY', 'samples', 'seed', 'center'], noModel: true }
   };
-  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '', bootSamples: 1000, cbBoot: 0, ssPmin: 0.2, ssAlpha: 0.05, ssPower: 0.8 };
+  const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '', bootSamples: 1000, cbBoot: 0, ssPmin: 0.2, ssAlpha: 0.05, ssPower: 0.8, regBoot: 0, cmpMethod: 'pls' };
   function fieldHTML(k, task) {
     const st = Object.assign({}, S.settings, DEF, S['last_' + task] || {});
     const num = (min, max, step) => `<input type="number" name="${k}" value="${esc(st[k])}" min="${min}" max="${max}" step="${step || 1}">`;
@@ -267,6 +281,8 @@
         return `<label>${t('f_groupVar')}${ctrl}</label><div id="groupPick"></div>`;
       }
       case 'bootSamples': ctrl = num(0, 100000, 1); break;
+      case 'regBoot': ctrl = num(0, 100000, 1); break;
+      case 'cmpMethod': ctrl = `<select name="cmpMethod">${['pls', 'cbsem'].map(v => `<option value="${v}"${st.cmpMethod === v ? ' selected' : ''}>${t('cmp_' + v)}</option>`).join('')}</select><small>${t('cmp_models_hint', { n: S.models.length })}</small>`; break;
       case 'cbBoot': ctrl = num(0, 100000, 1); break;
       case 'ssPmin': ctrl = num(0.01, 1, 'any'); break;
       case 'ssAlpha': ctrl = `<select name="ssAlpha">${[0.01, 0.05, 0.1].map(v => `<option${+st.ssAlpha === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`; break;
@@ -304,6 +320,8 @@
   function openRun(kind) {
     const def = TASKS[kind];
     if (!S.ds && !def.noData) { toast(t('no_data'), 'bad'); return; }
+    if (S.fromMatrix && !['pls', 'plsc', 'cbsem', 'compare', 'samplesize'].includes(kind)) { toast(t('matrix_only'), 'bad'); return; }
+    if (kind === 'compare') { syncModel(); if (S.models.length < 2) { toast(t('compare_two_models'), 'bad'); return; } }
     if (!def.noModel) {
       const errs = E.validate(editor.model, S.ds);
       if (errs.length) { toast(errText(errs[0]), 'bad'); setView('model'); return; }
@@ -335,7 +353,9 @@
       maxK: +fd.maxK || 4, K: +fd.K || 2, starts: +fd.starts || (kind === 'pos' ? 5 : 10), pmodel: +fd.pmodel || 4, center: !!fd.center,
       ...(kind === 'process' ? { x: fd.procX, y: fd.procY, m: fd.procM || [], w: fd.procW || undefined } : {}),
       ...(kind === 'logistic' ? { y: fd.logY, x: fd.logX || [] } : {}),
-      ...(kind === 'cbsem' ? { samples: +fd.cbBoot || 0 } : {}),
+      ...(kind === 'cbsem' ? { samples: S.fromMatrix ? 0 : +fd.cbBoot || 0 } : {}),
+      ...(kind === 'regression' ? { samples: +fd.regBoot || 0 } : {}),
+      method: fd.cmpMethod || 'pls',
       ...(kind === 'samplesize' ? sampleSizeInputs(fd) : {}),
       bootSamples: fd.bootSamples === undefined ? 1000 : +fd.bootSamples
     };
@@ -362,7 +382,7 @@
       const local = () => setTimeout(() => {
         try {
           let r;
-          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mgaFull(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), gsca: () => E.gsca(S.ds, model, settings, opts), cvpat: () => E.cvpat(S.ds, model, settings, opts), logistic: () => E.logistic(S.ds, model, settings, opts), samplesize: () => E.sampleSize(opts), cbsem: () => E.cbsem(S.ds, model, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
+          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mgaFull(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), gsca: () => E.gsca(S.ds, model, settings, opts), cvpat: () => E.cvpat(S.ds, model, settings, opts), logistic: () => E.logistic(S.ds, model, settings, opts), samplesize: () => E.sampleSize(opts), cbsem: () => E.cbsemModerated(S.ds, model, settings, opts), cca: () => E.fitTest(S.ds, model, settings, opts), cbsemmg: () => E.cbsemMG(S.ds, model, settings, opts), compare: () => E.compareModels(S.ds, opts.models, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
           r = fn(); resolve(r);
         } catch (e) { reject({ error: e.message, details: e.details }); }
       }, 60);
@@ -376,13 +396,17 @@
   async function run(kind) {
     const dlg = $('#rundlg'); const { settings, opts } = readForm(dlg, kind); dlg.close();
     const task = TASKS[kind].task || kind;
+    syncModel();
     const model = JSON.parse(JSON.stringify(editor.model));
+    if (kind === 'compare') opts.models = S.models.map(x => ({ name: x.name, model: JSON.parse(JSON.stringify(x.model)) }));
     const bar = $('#busy'); bar.hidden = false; $('#busytext').textContent = t(TASKS[kind].title) + '…'; $('#busybar').style.width = '0%';
     const t0 = performance.now();
     try {
       const r = await runTask(task, model, settings, opts, p => { $('#busybar').style.width = Math.round(p * 100) + '%'; });
-      r.meta = { kind, model, settings, opts, time: new Date().toISOString(), ms: Math.round(performance.now() - t0) };
-      S.results[kind] = r; S.current = kind; S.section = null;
+      if (opts.models) delete opts.models;
+      r.meta = { kind, model, modelName: (S.models[S.cur] || {}).name, settings, opts, time: new Date().toISOString(), ms: Math.round(performance.now() - t0) };
+      S.results[kind] = r; S.current = kind; S.section = null; S.cmp = null;
+      S.history.unshift({ id: Date.now(), label: t(TASKS[kind].title) + ' · ' + r.meta.modelName + ' · ' + new Date().toLocaleTimeString(), r }); if (S.history.length > 30) S.history.pop();
       if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(kind)) applyOverlay(kind);
       setView('results');
       toast(t('done', { s: (r.meta.ms / 1000).toFixed(1) }), 'good');
@@ -423,18 +447,18 @@
   }
 
   // ---------------------------------------------------------- results
-  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'blindfolding', 'predict', 'cvpat', 'ipma', 'mga', 'nca', 'cta', 'copula', 'fimix', 'pos', 'cbsem', 'gsca', 'process', 'regression', 'logistic', 'samplesize'];
+  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'cca', 'blindfolding', 'predict', 'cvpat', 'ipma', 'mga', 'nca', 'cta', 'copula', 'fimix', 'pos', 'compare', 'cbsem', 'cbsemmg', 'gsca', 'process', 'regression', 'logistic', 'samplesize'];
   function renderResults() {
     const el = $('#resultsview'), kinds = KIND_ORDER.filter(k => S.results[k]);
     if (!kinds.length) { el.innerHTML = `<div class="empty"><p>${t('no_results')}</p><button class="primary" data-run="pls">${t('an_pls')}</button></div>`; return; }
     if (!S.current || !S.results[S.current]) S.current = kinds[0];
-    const r = S.results[S.current];
+    const r = S.cmp ? S.cmp : S.results[S.current];
     TABLES.clear();
     const secs = sections(S.current, r);
     if (!S.section || !secs.some(s => s.id === S.section)) S.section = secs[0].id;
     const sec = secs.find(s => s.id === S.section);
     el.innerHTML = `<div class="restabs" role="tablist">${kinds.map(k => `<button role="tab" data-kind="${k}" class="${k === S.current ? 'on' : ''}">${t(TASKS[k].title)}</button>`).join('')}
-        <span class="grow"></span><button data-act="excel">⬇ Excel</button><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
+        <span class="grow"></span><button data-act="cmpreports">⇄ ${t('compare_reports')}</button><button data-act="excel">⬇ Excel</button><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
       <div class="resbody"><nav class="secnav">${groupNav(secs)}</nav><div class="secout" id="secout">${metaLine(r)}${sec.html()}</div></div>`;
   }
   function groupNav(secs) {
@@ -443,7 +467,7 @@
     return h;
   }
   function metaLine(r) {
-    const m = r.meta; let s = `<p class="meta">${esc(t(TASKS[m.kind].title))} · ${new Date(m.time).toLocaleString(S.lang === 'ar' ? 'ar' : 'en')} · ${t('done', { s: (m.ms / 1000).toFixed(1) })}`;
+    const m = r.meta; if (m.kind === 'cmp') return `<p class="meta">${t('compare_reports')}</p>`; let s = `<p class="meta">${esc(t(TASKS[m.kind].title))}${m.modelName ? ' · ' + esc(m.modelName) : ''} · ${new Date(m.time).toLocaleString(S.lang === 'ar' ? 'ar' : 'en')} · ${t('done', { s: (m.ms / 1000).toFixed(1) })}`;
     const b = r.kind === 'bootstrap' ? r.base : r;
     if (b && b.kind === 'pls') s += ` · N = ${b.n} · ${t('iterations')}: ${b.iterations}${b.converged ? '' : ' ⚠ ' + t('not_converged')}`;
     if (sig(m.model) !== sig(editor.model)) s += ` · <span class="warn">${t('stale')}</span>`;
@@ -476,6 +500,10 @@
       case 'cvpat': return cvpatSections(r);
       case 'logistic': return logitSections(r);
       case 'samplesize': return ssSections(r);
+      case 'cca': return ccaSections(r);
+      case 'cbsemmg': return mgcbSections(r);
+      case 'compare': return compareSections(r);
+      case 'cmp': return cmpSections(r);
       case 'fimix': case 'pos': return segSections(r);
       case 'cta': return ctaSections(r);
       case 'copula': return copulaSections(r);
@@ -515,6 +543,10 @@
     if (r.inter.length) s.push(sec('g_final', 'slopes', t('simple_slopes'), () => r.inter.map(it => {
       const b = k => r.stats['path|' + k] || 0;
       const bx = b(it.x + ' -> ' + it.y), bm = b(it.m + ' -> ' + it.y), bi = b(it.name + ' -> ' + it.y);
+      if (it.x === it.m) { // quadratic effect: Y = b·X + b_q·X² (component scores)
+        const pts = []; for (let x = -2; x <= 2.0001; x += 0.1) pts.push([x, bx * x + bi * x * x]);
+        return card(t('quadratic_effect') + ': ' + it.name, chart(C.scatter([], { lines: [{ points: pts, label: it.y + ' = ' + f(bx) + '·' + it.x + (bi >= 0 ? ' + ' : ' − ') + f(Math.abs(bi)) + '·' + it.x + '²' }], xLabel: it.x, yLabel: it.y, xmin: -2, xmax: 2, title: it.name }), 'quadratic'), { note: t('quadratic_note'), doc: 'nonlinear' });
+      }
       const line = mv => ({ points: [-2, 2].map(x => [x, bx * x + bm * mv + bi * x * mv]), label: it.m + (mv > 0 ? ' +1 SD' : mv < 0 ? ' -1 SD' : ' ' + t('mean')) });
       return card(t('simple_slopes') + ': ' + it.name, chart(C.scatter([], { lines: [line(-1), line(0), line(1)], xLabel: it.x, yLabel: it.y, title: it.name + ' → ' + it.y, xmin: -2, xmax: 2 }), 'slopes'), { note: t('slopes_note'), doc: 'slopes' });
     }).join('')));
@@ -546,14 +578,14 @@
     }));
     s.push(sec('g_quality', 'fit', t('model_fit'), () => {
       const a = r.fit.saturated, b = r.fit.estimated;
-      const rows = [['SRMR', cell(f(a.srmr), a.srmr > 0.08 ? 'warn' : 'good', a.srmr), f(b.srmr)], ['d_ULS', f(a.dULS), f(b.dULS)], ['d_G', f(a.dG), f(b.dG)], ['Chi²', f(a.chi2), f(b.chi2)], ['NFI', f(a.nfi), f(b.nfi)]];
+      const rows = [['SRMR', cell(f(a.srmr), a.srmr > 0.08 ? 'warn' : 'good', a.srmr), f(b.srmr)], ['d_ULS', f(a.dULS), f(b.dULS)], ['d_G', f(a.dG), f(b.dG)], ['Chi²', f(a.chi2), f(b.chi2)], ['NFI', f(a.nfi), f(b.nfi)], ['GoF', f(r.gof), '']];
       return card(t('model_fit'), table(['', t('saturated'), t('estimated')], rows, { title: 'fit' }), { note: t('fit_note'), doc: 'fit' }) +
         card(t('selection'), table([t('construct'), 'AIC', 'BIC', 'HQ'], r.selection.map(x => [x.construct, f(x.aic), f(x.bic), f(x.hq)]), { title: 'selection' }), { note: t('selection_note'), doc: 'ic' });
     }));
     // data
     s.push(sec('g_data', 'scores', t('lv_scores'), () => {
       const rows = r.scores[0].map((_, i) => [String(r.rows[i] + 1)].concat(r.scores.map(sc => f(sc[i], 4))));
-      return card(t('lv_scores'), table(['#'].concat(N), rows, { title: 'lv_scores' }));
+      return card(t('lv_scores'), `<button data-act="addscores">＋ ${t('add_scores')}</button>` + table(['#'].concat(N), rows, { title: 'lv_scores' }));
     }));
     s.push(sec('g_data', 'algo', t('algorithm'), () => card(t('algorithm'), table([t('setting'), t('value')], [[t('f_scheme'), t('opt_' + r.settings.scheme)], [t('f_missing'), t('opt_' + r.settings.missing)], [t('f_maxIter'), r.settings.maxIter], [t('stop_criterion'), r.settings.tol], [t('iterations'), r.iterations], [t('converged'), r.converged ? t('yes') : t('no')], ['PLSc', r.settings.consistent ? t('yes') : t('no')], ['N', r.n]], { title: 'algorithm' }))));
     return s;
@@ -679,7 +711,7 @@
       card(t('path_coefs'), table(head, r.global.map((g, q) => [g.from + ' → ' + g.to, f(g.value)].concat(segs.map(s => f(s.paths[q].value)))), { title: 'segment_paths' }) +
         chart(C.grouped(r.global.map((g, q) => ({ label: g.from + ' → ' + g.to, values: [g.value].concat(segs.map(s => s.paths[q].value)) })), [t('global')].concat(segs.map(s => t('segment') + ' ' + s.segment)), { title: t('path_coefs') }), 'segments')) +
       card('R²', table([t('construct')].concat(isF ? [] : [t('global')]).concat(segs.map(s => t('segment') + ' ' + s.segment)), segs[0].r2.map((x, q) => [x.construct].concat(isF ? [] : [f(r.globalR2[q].r2)]).concat(segs.map(s => f(s.r2[q].r2)))), { title: 'segment_r2' }), { note: isF ? t('fx_seg_note') : t('pos_note', { m: r.minSize }) })));
-    out.push(sec('g_data', 'seg_mem', t('membership'), () => card(t('membership'), table(['#', t('segment')].concat(isF ? segs.map(s => 'P(' + s.segment + ')') : []), r.membership.map(x => [String(x.row), String(x.segment)].concat(isF ? x.probs.map(v => f(v)) : [])), { title: 'membership' }), { note: t('membership_note') })));
+    out.push(sec('g_data', 'seg_mem', t('membership'), () => card(t('membership'), table(['#', t('segment')].concat(isF ? segs.map(s => 'P(' + s.segment + ')') : []), r.membership.map(x => [String(x.row), String(x.segment)].concat(isF ? x.probs.map(v => f(v)) : [])), { title: 'membership' }) + `<button data-act="addseg">＋ ${t('add_segments')}</button>`, { note: t('membership_note') })));
     return out;
   }
   function ctaSections(r) {
@@ -828,10 +860,134 @@
     renderResults();
   }
 
+  function ccaSections(r) {
+    const ft = r.fitTest, row = x => [x.index === 'srmr' ? 'SRMR' : x.index === 'dULS' ? 'd_ULS' : 'd_G', f(x.value), f(x.hi95), f(x.hi99), fp(x.p), cell(x.ok === null ? '–' : x.ok ? t('supported') : t('not_supported'), x.ok ? 'good' : 'bad')];
+    const head = ['', t('value'), 'HI95', 'HI99', 'p', t('result')];
+    const base = plsSections(r.base);
+    return [sec('g_quality', 'cca_fit', t('cca_fit'), () => card(t('cca_fit') + ' – ' + t('saturated'), r.fitTest.saturatedPD ? table(head, ft.saturated.map(row), { title: 'cca_saturated' }) : `<p class="warn">${t('cca_not_pd')}</p>`, { note: t('cca_fit_note', { b: r.samples }), doc: 'cca' }) +
+        card(t('cca_fit') + ' – ' + t('estimated'), r.fitTest.estimatedPD ? table(head, ft.estimated.map(row), { title: 'cca_estimated' }) : `<p class="warn">${t('cca_not_pd')}</p>`, { doc: 'cca' }))]
+      .concat(base.filter(x => ['assess', 'outer', 'rel', 'htmt', 'fl', 'cross', 'vif'].includes(x.id)).map(x => Object.assign({}, x, { group: 'g_quality' })));
+  }
+  function mgcbSections(r) {
+    const L = r.levels, lv = ['configural', 'metric', 'scalar'];
+    const fitRow = k => [t('inv_' + k), f(L[k].chi2, 2), String(L[k].df), fp(L[k].p), f(L[k].cfi), f(L[k].tli), f(L[k].rmsea), f(L[k].srmr), f(L[k].aic, 1), f(L[k].bic, 1)];
+    return [
+      sec('g_quality', 'mg_inv', t('cb_invariance'), () => card(t('cb_invariance') + ' – ' + r.groups.map((g, i) => g + ' (n=' + r.ns[i] + ')').join(' / '), table(['', 'χ²', 'df', 'p', 'CFI', 'TLI', 'RMSEA', 'SRMR', 'AIC', 'BIC'], lv.map(fitRow), { title: 'cbsem_invariance_fit' }) +
+        table([t('comparison'), 'Δχ²', 'Δdf', 'p', 'ΔCFI', 'ΔRMSEA', t('result')], r.invariance.map(x => { const ok = x.p >= 0.05 || (x.dcfi >= -0.01 && x.drmsea <= 0.015); return [t('inv_' + x.model) + ' vs ' + t('inv_' + x.vs), f(x.dchi, 2), String(x.ddf), fp(x.p), f(x.dcfi), f(x.drmsea), cell(ok ? t('established') : t('not_established'), ok ? 'good' : 'bad')]; }), { title: 'cbsem_invariance_tests' }), { note: t('cb_inv_note'), doc: 'cbsemmg' })),
+      sec('g_final', 'mg_paths', t('cb_mga'), () => card(t('cb_mga'), table([t('relationship')].concat(r.groups.map(g => g + ' (B)')).concat(['Δχ² (1 df)', 'p']), r.pathTests.map(x => [x.path].concat(x.values.map(v => f(v))).concat([f(x.dchi, 2), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p)])), { title: 'cbsem_mga' }) +
+        chart(C.grouped(r.pathTests.map((x, q) => ({ label: x.path, values: r.groupEstimates.map(g => g.paths[q].std) })), r.groups, { title: t('std_estimate') }), 'cbsem_mga'), { note: t('cb_mga_note'), doc: 'cbsemmg' })),
+      sec('g_final', 'mg_means', t('latent_means'), () => card(t('latent_means'), table([t('segment'), t('construct'), t('estimate'), t('std_estimate')], r.latentMeans.map(x => [x.group, x.construct, f(x.mean), f(x.std)]), { title: 'cbsem_latent_means' }), { note: t('latent_means_note', { g: r.groups[0] }) })),
+      sec('g_data', 'mg_load', t('outer_loadings'), () => card(t('outer_loadings') + ' (' + t('std_estimate') + ')', table([t('construct'), t('indicator')].concat(r.groups), r.groupEstimates[0].loadings.map((l, q) => [l.construct, l.indicator].concat(r.groupEstimates.map(g => f(g.loadings[q].std)))), { title: 'cbsem_mg_loadings' })))
+    ];
+  }
+  function compareSections(r) {
+    if (r.method === 'cbsem') {
+      const ok = r.models.filter(m => m.fit);
+      return [sec('g_final', 'cmp_cb', t('an_compare'), () => card(t('cmp_cbsem'), table([t('model'), 'χ²', 'df', 'p', 'CFI', 'TLI', 'RMSEA', 'SRMR', 'AIC', 'BIC', t('bic_weight')], ok.map(m => [m.name, f(m.fit.chi2, 2), String(m.fit.df), fp(m.fit.p), f(m.fit.cfi), f(m.fit.tli), f(m.fit.rmsea), f(m.fit.srmr), f(m.fit.aic, 1), f(m.fit.bic, 1), cell(f(m.bicWeight), m.bicWeight === Math.max(...ok.map(x => x.bicWeight)) ? 'good' : '', m.bicWeight)]), { title: 'compare_cbsem' }) +
+        (r.diffs.length ? table([t('restricted'), t('less_restricted'), 'Δχ²', 'Δdf', 'p'], r.diffs.map(d => [d.restricted, d.free, f(d.dchi, 2), String(d.ddf), cell(fp(d.p), d.p < 0.05 ? 'warn' : 'good', d.p)]), { title: 'compare_chi2' }) : '') +
+        (r.models.some(m => m.error) ? `<p class="warn">${r.models.filter(m => m.error).map(m => esc(m.name) + ': ' + esc(errMsg(m.error))).join('<br>')}</p>` : ''), { note: t('cmp_cb_note'), doc: 'modelselection' }))];
+    }
+    return [sec('g_final', 'cmp_pls', t('an_compare'), () => r.targets.map(tg => card(t('target') + ': ' + tg.construct, table([t('model'), t('predictors'), 'R²', 'AIC', 'BIC', 'HQ', t('bic_weight')], tg.rows.map(x => [x.model, String(x.k), f(x.r2), f(x.aic, 2), f(x.bic, 2), f(x.hq, 2), cell(f(x.bicWeight), x.bicWeight === Math.max(...tg.rows.map(y => y.bicWeight)) ? 'good' : '', x.bicWeight)]), { title: 'compare_' + tg.construct }), { note: t('cmp_pls_note'), doc: 'modelselection' })).join('') +
+      card(t('model_fit'), table([t('model'), 'N', 'SRMR', 'GoF'], r.models.map(m => [m.name, m.error ? errMsg(m.error) : String(m.n), f(m.srmr), f(m.gof)]), { title: 'compare_fit' })))];
+  }
+  function errMsg(code) { const k = 'err_' + code; return t(k) !== k ? t(k) : code; }
+  // flattened statistics of a result, for side-by-side comparison of two reports
+  function flatten(r) {
+    const o = {};
+    if (r.kind === 'pls') { Object.assign(o, r.stats); o['fit|GoF'] = r.gof; }
+    else if (r.kind === 'bootstrap') r.rows.forEach(x => { o[x.key] = x.original; o['p|' + x.label + ' (' + x.group + ')'] = x.p; });
+    else if (r.kind === 'cbsem') { ['chi2', 'df', 'cfi', 'tli', 'rmsea', 'srmr', 'aic', 'bic'].forEach(k => { o['fit|' + k] = r.fit[k]; }); r.paths.forEach(x => { o['path|' + x.from + ' -> ' + x.to] = x.std; }); r.loadings.forEach(x => { o['loading|' + x.indicator + ' <- ' + x.construct] = x.std; }); r.r2.forEach(x => { o['r2|' + x.construct] = x.r2; }); }
+    else if (r.kind === 'gsca') r.rows.forEach(x => { o[x.key] = x.original; });
+    else if (r.kind === 'cca') { Object.assign(o, r.base.stats); }
+    else if (r.kind === 'regression' || r.kind === 'logistic') r.terms.forEach(x => { o['coef|' + x.name] = x.b; });
+    else return null;
+    return o;
+  }
+  function cmpSections(c) {
+    const A = flatten(c.a.r), B = flatten(c.b.r);
+    const keys = Array.from(new Set(Object.keys(A).concat(Object.keys(B))));
+    const groups = Array.from(new Set(keys.map(k => k.split('|')[0])));
+    return groups.map(g => sec('g_final', 'cmp_' + g, t('bg_' + g) !== 'bg_' + g ? t('bg_' + g) : g, () => card(t('compare_reports'), table([t('parameter'), 'A', 'B', 'B − A'], keys.filter(k => k.split('|')[0] === g).map(k => { const a = A[k], b = B[k], d = isFinite(a) && isFinite(b) ? b - a : NaN; return [k.slice(g.length + 1), f(a), f(b), cell(f(d), Math.abs(d) >= 0.1 ? 'warn' : '', d)]; }), { title: 'compare_' + g }), { note: 'A = ' + esc(c.a.label) + '<br>B = ' + esc(c.b.label) })));
+  }
+  function openCompare() {
+    const cand = S.history.filter(h => flatten(h.r));
+    if (cand.length < 2) { toast(t('compare_need_two'), 'bad'); return; }
+    const opt = sel => cand.map((h, i) => `<option value="${h.id}"${i === sel ? ' selected' : ''}>${esc(h.label)}</option>`).join('');
+    $('#runtitle').textContent = t('compare_reports'); $('#rundesc').textContent = t('compare_reports_d');
+    $('#runfields').innerHTML = `<label>A<select name="cmpA">${opt(1)}</select></label><label>B<select name="cmpB">${opt(0)}</select></label>`;
+    $('#rundlg').dataset.kind = '__compare'; $('#rundlg').showModal();
+  }
+  // ---- datasets: write back to CSV, add columns, define groups, covariance input
+  function datasetCSV(ds) {
+    const c = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const rows = [ds.names.map(c).join(',')];
+    for (let i = 0; i < ds.n; i++) rows.push(ds.cols.map((col, j) => (isNaN(col[i]) ? '' : ds.kinds[j] === 'cat' ? c(ds.labels[j][col[i] - 1]) : c(col[i]))).join(','));
+    return rows.join('\n');
+  }
+  function addColumns(list) { // [{ name, values: array indexed by data row (NaN = missing), labels? }]
+    const ds = S.ds; let added = 0;
+    list.forEach(col => {
+      let nm = col.name, k = 2; while (ds.names.includes(nm)) nm = col.name + '_' + k++;
+      ds.names.push(nm); ds.cols.push(Float64Array.from(col.values)); ds.kinds.push(col.labels ? 'cat' : 'num'); ds.labels.push(col.labels || null); added++;
+    });
+    const name = S.dataName; setData(datasetCSV(ds), name, true); autosave(); toast(t('columns_added', { n: added }), 'good');
+  }
+  function addScoresToData() {
+    const r = S.results[S.current]; const base = r.kind === 'bootstrap' ? r.base : r.kind === 'cca' ? r.base : r;
+    addColumns(base.constructs.map((nm, j) => { const v = new Float64Array(S.ds.n).fill(NaN); base.rows.forEach((row, t_) => { v[row] = base.scores[j][t_]; }); return { name: 'LV_' + nm.replace(/\s+/g, '_'), values: v }; }));
+  }
+  function addSegmentsToData() {
+    const r = S.results[S.current], v = new Float64Array(S.ds.n).fill(NaN);
+    r.membership.forEach(x => { v[x.row - 1] = x.segment; });
+    addColumns([{ name: (r.kind === 'fimix' ? 'FIMIX_K' : 'POS_K') + r.K, values: v, labels: Array.from({ length: r.K }, (_, i) => t('segment') + ' ' + (i + 1)) }]);
+  }
+  function openGroups() {
+    if (!S.ds) { toast(t('no_data'), 'bad'); return; }
+    const nums = S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num');
+    $('#runtitle').textContent = t('define_groups'); $('#rundesc').textContent = t('define_groups_d');
+    $('#runfields').innerHTML = `<label>${t('variable')}<select name="gVar">${nums.map(n => `<option>${esc(n)}</option>`).join('')}</select></label>
+      <label>${t('grp_method')}<select name="gMethod"><option value="median">${t('grp_median')}</option><option value="cuts">${t('grp_cuts')}</option><option value="quantiles">${t('grp_quantiles')}</option></select></label>
+      <label>${t('grp_param')}<input name="gParam" placeholder="${t('grp_param_ph')}"></label><label>${t('name')}<input name="gName" placeholder="group"></label>`;
+    $('#rundlg').dataset.kind = '__groups'; $('#rundlg').showModal();
+  }
+  function makeGroups(fd) {
+    const j = S.ds.names.indexOf(fd.gVar), col = S.ds.cols[j], vals = Array.from(col).filter(v => !isNaN(v)).sort((a, b) => a - b);
+    let cuts;
+    if (fd.gMethod === 'median') cuts = [E.quantile(vals, 0.5)];
+    else if (fd.gMethod === 'quantiles') { const k = Math.max(2, Math.min(10, parseInt(fd.gParam, 10) || 3)); cuts = Array.from({ length: k - 1 }, (_, i) => E.quantile(vals, (i + 1) / k)); }
+    else cuts = String(fd.gParam || '').split(/[;,\s]+/).map(Number).filter(isFinite).sort((a, b) => a - b);
+    if (!cuts.length) { toast(t('grp_need_cuts'), 'bad'); return; }
+    const labels = cuts.map((c, i) => (i === 0 ? '≤ ' + c : '(' + cuts[i - 1] + ', ' + c + ']')).concat(['> ' + cuts[cuts.length - 1]]);
+    const v = Float64Array.from(col, x => { if (isNaN(x)) return NaN; let g = 0; while (g < cuts.length && x > cuts[g]) g++; return g + 1; });
+    addColumns([{ name: (fd.gName || 'group_' + fd.gVar).trim(), values: v, labels }]);
+  }
+  function importCovMatrix(text, fname) {
+    let parsed; try { parsed = E.parseCovMatrix(text); } catch (e) { toast(t('csv_error') + ': ' + errMsg(e.message), 'bad'); return; }
+    const n = parseInt(window.prompt(t('cov_n_prompt'), '200'), 10);
+    if (!(n > parsed.names.length)) { toast(t('err_cov_n'), 'bad'); return; }
+    let cols; try { cols = E.dataFromCov(parsed.names, parsed.C, n, parsed.means, 1); } catch (e) { toast(errMsg(e.message), 'bad'); return; }
+    const ds = { names: parsed.names, cols, kinds: parsed.names.map(() => 'num'), labels: parsed.names.map(() => null), n };
+    S.fromMatrix = { n, file: fname, correlation: parsed.isCorr };
+    setData(datasetCSV(ds), fname, false); toast(t('cov_loaded', { n }), 'good');
+  }
+  // ---- multiple models per project
+  function renderModelTabs() {
+    const el = $('#modeltabs'); if (!el) return;
+    if (!S.models.length) S.models = [{ name: t('model') + ' 1', model: editor.model }];
+    el.innerHTML = S.models.map((m, i) => `<span class="mtab${i === S.cur ? ' on' : ''}"><button data-mtab="${i}" title="${esc(t('rename_hint'))}">${esc(m.name)}</button>${S.models.length > 1 ? `<button class="x" data-mdel="${i}" aria-label="${esc(t('delete'))}">×</button>` : ''}</span>`).join('') + `<button class="mini" data-act="mnew" title="${esc(t('new_model'))}">＋ ${t('new_model')}</button>`;
+  }
+  function useModel(i) {
+    syncModel(); S.cur = i; editor.history = []; editor.setModel(S.models[i].model); editor._fitted = false;
+    renderModelTabs(); renderProps(); renderIndicators(); requestAnimationFrame(() => editor.fit());
+    if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current) && S.results[S.current]) applyOverlay(S.current);
+    autosave();
+  }
+
   function regSections(r) {
     return [sec('g_final', 'reg', t('an_regression'), () => card(r.y + ' ~ ' + r.terms.slice(1).map(x => x.name).join(' + '),
       `<p class="meta">N = ${r.n} · R² = ${f(r.r2)} · ${t('r2adj')} = ${f(r.r2adj)} · F(${r.df1}, ${r.df2}) = ${f(r.F, 2)} · p = ${fp(r.pF)}</p>` +
-      table([t('term'), 'B', 'β', 'SE', 't', 'p', 'VIF'], r.terms.map(x => [x.name, f(x.b), f(x.beta), f(x.se), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.vif)]), { title: 'regression' }) +
+      table([t('term'), 'B', 'β', 'SE', 't', 'p', 'VIF'].concat(r.bootSamples ? ['Boot SE', 'Boot p', '2.5%', '97.5%'] : []), r.terms.map(x => [x.name, f(x.b), f(x.beta), f(x.se), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.vif)].concat(r.bootSamples ? [f(x.bootSE), pcell(x.bootP), f(x.lo), f(x.hi)] : [])), { title: 'regression' }) +
+      (r.bootSamples ? `<p class="meta">${t('reg_boot_note', { b: r.bootSamples, lo: f(r.r2Lo), hi: f(r.r2Hi) })}</p>` : '') +
       chart(C.scatter(r.residuals.map(p => ({ x: p[0], y: p[1] })), { title: t('residual_plot'), xLabel: t('fitted'), yLabel: t('residual') }), 'residuals'), { doc: 'regression' }))];
   }
 
@@ -1055,7 +1211,7 @@
     $$('.tabs [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     $$('main > .view').forEach(el => { el.hidden = el.id !== v + 'view' && !(v === 'model' && el.id === 'modelview'); });
     if (v === 'data') renderData();
-    if (v === 'model') { renderIndicators(); renderProps(); requestAnimationFrame(() => { if (!editor._fitted && editor.model.constructs.length) { editor.fit(); editor._fitted = true; } }); }
+    if (v === 'model') { renderModelTabs(); renderIndicators(); renderProps(); requestAnimationFrame(() => { if (!editor._fitted && editor.model.constructs.length) { editor.fit(); editor._fitted = true; } }); }
     if (v === 'results') renderResults();
     if (v === 'help') renderHelp();
   }
@@ -1096,7 +1252,8 @@
     if (!ex) { toast(t('example_failed'), 'bad'); return; }
     S.name = t('example_name'); $('#pname').value = S.name; S.results = {};
     setData(ex.csv, 'customer_satisfaction.csv', true);
-    editor.history = []; editor.setModel(JSON.parse(JSON.stringify(ex.model))); editor._fitted = false;
+    S.fromMatrix = null; S.history = []; S.models = [{ name: t('model') + ' 1', model: JSON.parse(JSON.stringify(ex.model)) }]; S.cur = 0;
+    editor.history = []; editor.setModel(S.models[0].model); editor._fitted = false;
     setView('model'); toast(t('example_loaded'), 'good'); autosave();
   }
 
@@ -1118,7 +1275,17 @@
     $('#theme').addEventListener('click', () => { S.theme = { auto: 'dark', dark: 'light', light: 'auto' }[S.theme]; applyTheme(); prefs(true); toast(t('theme_' + S.theme)); });
     $('#indsearch').addEventListener('input', renderIndicators);
     $('#cancelrun').addEventListener('click', cancelRun);
-    $('#rundlg').addEventListener('submit', e => { e.preventDefault(); run($('#rundlg').dataset.kind); });
+    $('#rundlg').addEventListener('submit', e => {
+      e.preventDefault(); const kind = $('#rundlg').dataset.kind;
+      if (kind === '__compare' || kind === '__groups') {
+        const fd = {}; $$('input,select', $('#runfields')).forEach(el => { fd[el.name] = el.value; }); $('#rundlg').close();
+        if (kind === '__groups') makeGroups(fd);
+        else { const a = S.history.find(h => String(h.id) === fd.cmpA), b = S.history.find(h => String(h.id) === fd.cmpB); S.cmp = { kind: 'cmp', a, b, meta: { kind: 'cmp', model: editor.model, time: new Date().toISOString(), ms: 0 } }; S.section = null; setView('results'); }
+        return;
+      }
+      run(kind);
+    });
+    $('#covfile').addEventListener('change', e => { const fl = e.target.files[0]; if (!fl) return; e.target.value = ''; readFile(fl, txt => importCovMatrix(txt, fl.name)); });
     $('#runcancel').addEventListener('click', () => $('#rundlg').close());
     const menu = $('#calcmenu');
     $('#calcbtn').addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; });
@@ -1145,7 +1312,9 @@
       if (b.dataset.view) setView(b.dataset.view);
       if (b.dataset.tool) editor.setTool(b.dataset.tool);
       if (b.dataset.run) { $('#calcmenu').hidden = true; openRun(b.dataset.run); }
-      if (b.dataset.kind) { S.current = b.dataset.kind; S.section = null; renderResults(); if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current)) applyOverlay(S.current); }
+      if (b.dataset.kind) { S.cmp = null; S.current = b.dataset.kind; S.section = null; renderResults(); if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current)) applyOverlay(S.current); }
+      if (b.dataset.mtab !== undefined) { const i = +b.dataset.mtab; if (i === S.cur && e.detail === 2) { const nm = window.prompt(t('rename_model'), S.models[i].name); if (nm && nm.trim()) { S.models[i].name = nm.trim(); renderModelTabs(); autosave(); } } else if (i !== S.cur) useModel(i); }
+      if (b.dataset.mdel !== undefined) { const i = +b.dataset.mdel; if (S.models.length > 1 && confirm(t('confirm_delete_model', { m: S.models[i].name }))) { syncModel(); S.models.splice(i, 1); S.cur = Math.max(0, Math.min(S.cur - (i < S.cur ? 1 : 0), S.models.length - 1)); editor.setModel(S.models[S.cur].model); renderModelTabs(); autosave(); } }
       if (b.dataset.help) { S.help = b.dataset.help; renderHelp(); $('#helpout').scrollTop = 0; }
       if (b.dataset.doc) openDoc(b.dataset.doc);
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
@@ -1157,8 +1326,8 @@
         case 'example': loadExample(); break;
         case 'import': $('#csvfile').click(); break;
         case 'open': $('#projfile').click(); break;
-        case 'save': download(slug(S.name) + '.youpls.json', JSON.stringify(projectJSON(), null, 1), 'application/json'); break;
-        case 'new': if (confirm(t('confirm_new'))) { S.name = 'Untitled'; $('#pname').value = S.name; S.csv = ''; S.ds = null; S.results = {}; editor.history = []; editor.setModel(null); try { localStorage.removeItem(STORE); } catch (e) { } setView('data'); } break;
+        case 'save': download(slug(S.name) + '.youpls.json', JSON.stringify(projectJSON(true)), 'application/json'); break;
+        case 'new': if (confirm(t('confirm_new'))) { S.name = 'Untitled'; $('#pname').value = S.name; S.csv = ''; S.ds = null; S.results = {}; S.history = []; S.fromMatrix = null; editor.history = []; editor.setModel(null); S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.cur = 0; renderModelTabs(); try { localStorage.removeItem(STORE); } catch (e) { } setView('data'); } break;
         case 'undo': editor.undo(); break;
         case 'redo': editor.redo(); break;
         case 'delete': editor.removeSelected(); break;
@@ -1176,6 +1345,13 @@
         case 'style-reset': resetStyle(); break;
         case 'report': exportReport(); break;
         case 'excel': exportExcel(); break;
+        case 'cmpreports': openCompare(); break;
+        case 'addscores': addScoresToData(); break;
+        case 'addseg': addSegmentsToData(); break;
+        case 'groups': openGroups(); break;
+        case 'covimport': $('#covfile').click(); break;
+        case 'mnew': { syncModel(); const copy = JSON.parse(JSON.stringify(editor.model)); S.models.push({ name: t('model') + ' ' + (S.models.length + 1), model: copy }); useModel(S.models.length - 1); toast(t('model_copied'), 'good'); break; }
+        case 'addquad': { const pth = editor.model.paths.find(q => q.id === editor.sel.id); if (!pth) break; if (editor.model.interactions.some(i => i.x === pth.from && i.m === pth.from && i.y === pth.to)) break; const a = editor.byId(pth.from), b = editor.byId(pth.to); editor.snapshot(); editor.model.interactions.push({ id: window.YPEditor.newId('i'), name: a.name + '²', x: pth.from, m: pth.from, y: pth.to, px: (a.x + b.x) / 2, py: Math.max(a.y, b.y) + 90 }); editor.changed(); break; }
         case 'copywriteup': { const w = $('#writeup'); if (w) (navigator.clipboard ? navigator.clipboard.writeText(w.innerText) : Promise.reject()).then(() => toast(t('copied'), 'good'), () => toast(t('copy_failed'), 'bad')); break; }
         case 'rerun': openRun(S.current); break;
       }

@@ -1,5 +1,5 @@
 /* Runs heavy YouPls analyses off the main thread. */
-importScripts('engine.js', 'advanced.js', 'advanced2.js');
+importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;
   const E = self.YPEngine;
@@ -15,7 +15,10 @@ self.onmessage = function (ev) {
       case 'mga': result = E.mgaFull(ds, model, settings, opts, progress); break;
       case 'nca': result = E.nca(ds, model, settings, opts, progress); break;
       case 'regression': result = E.regression(ds, opts); break;
-      case 'cbsem': result = E.cbsem(ds, model, settings, opts, progress); break;
+      case 'cbsem': result = E.cbsemModerated(ds, model, settings, opts, progress); break;
+      case 'cca': result = E.fitTest(ds, model, settings, opts, progress); break;
+      case 'cbsemmg': result = E.cbsemMG(ds, model, settings, opts, progress); break;
+      case 'compare': result = E.compareModels(ds, opts.models, settings, opts, progress); break;
       case 'gsca': result = E.gsca(ds, model, settings, opts, progress); break;
       case 'cvpat': result = E.cvpat(ds, model, settings, opts, progress); break;
       case 'logistic': result = E.logistic(ds, model, settings, opts); break;

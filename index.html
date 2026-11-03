@@ -39,6 +39,7 @@
       <button data-run="pls" data-i="an_pls"></button>
       <button data-run="plsc" data-i="an_plsc"></button>
       <button data-run="bootstrap" data-i="an_bootstrap"></button>
+      <button data-run="cca" data-i="an_cca"></button>
       <button data-run="blindfolding" data-i="an_blindfolding"></button>
       <button data-run="predict" data-i="an_predict"></button>
       <button data-run="cvpat" data-i="an_cvpat"></button>
@@ -50,8 +51,10 @@
       <button data-run="copula" data-i="an_copula"></button>
       <button data-run="fimix" data-i="an_fimix"></button>
       <button data-run="pos" data-i="an_pos"></button>
+      <button data-run="compare" data-i="an_compare"></button>
       <h5 data-i="menu_cb"></h5>
       <button data-run="cbsem" data-i="an_cbsem"></button>
+      <button data-run="cbsemmg" data-i="an_cbsemmg"></button>
       <button data-run="gsca" data-i="an_gsca"></button>
       <button data-run="process" data-i="an_process"></button>
       <button data-run="regression" data-i="an_regression"></button>
@@ -73,6 +76,7 @@
       <ul id="indlist" class="indlist"></ul>
     </aside>
     <div class="stage">
+      <div id="modeltabs" class="modeltabs"></div>
       <div class="etools">
         <button data-tool="select" class="on" data-it="tool_select">⬚ <span data-i="select"></span></button>
         <button data-tool="construct" data-it="tool_construct">◯ <span data-i="construct"></span></button>
@@ -124,12 +128,14 @@
 </dialog>
 
 <input id="csvfile" type="file" accept=".csv,.txt,.tsv,.xlsx,.sav,text/csv" hidden>
+<input id="covfile" type="file" accept=".csv,.txt,.tsv" hidden>
 <input id="projfile" type="file" accept=".json,application/json" hidden>
 
 <script src="js/engine.js"></script>
 <script src="js/advanced.js"></script>
 <script src="js/advanced2.js"></script>
 <script src="js/io.js"></script>
+<script src="js/advanced3.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/i18n.js"></script>

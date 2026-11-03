@@ -139,3 +139,55 @@ test('sample size: inverse square root method reproduces Kock & Hadaya (2018)', 
   assert.strictEqual(E2.sampleSize({ pmin: 0.2, alpha: 0.05, power: 0.8 }).n, 155);
   assert.strictEqual(E2.sampleSize({ pmin: 0.1, alpha: 0.05, power: 0.8 }).n, 619);
 });
+
+const E3 = require('../js/advanced3.js');
+test('multigroup CB-SEM: exact gradient, configural = sum of group fits, invariance df, simulated path difference found', () => {
+  assert.ok(E3.cbsemMG(ds, model(), {}, { groupVar: 'gender', gradCheck: true }).maxGradDiff < 1e-6);
+  const r = E3.cbsemMG(ds, model(), {}, { groupVar: 'gender' });
+  const gj = ds.names.indexOf('gender'); let sum = 0;
+  [1, 2].forEach(v => { const rows = []; for (let i = 0; i < ds.n; i++) if (ds.cols[gj][i] === v) rows.push(i); sum += E3.cbsem(Object.assign({}, ds, { cols: ds.cols.map(c => Float64Array.from(rows, i => c[i])), n: rows.length }), model(), {}).fit.chi2; });
+  close(r.levels.configural.chi2, sum, 1e-3, 'configural chi2');
+  assert.strictEqual(r.levels.metric.df - r.levels.configural.df, 15);
+  assert.strictEqual(r.levels.scalar.df - r.levels.metric.df, 15);
+  assert.ok(r.pathTests.find(x => x.path === 'Value → Satisfaction').p < 0.05, 'the simulated gender difference');
+});
+
+test('covariance-matrix input reproduces the matrix exactly and the PLS / CB-SEM estimates', () => {
+  const prep = E3.prepare(ds, model(), { missing: 'casewise' }), p = prep.raw.length, n = prep.raw[0].length;
+  const mu = prep.raw.map(c => E3.mean(c)), C = prep.raw.map((a, i) => prep.raw.map((b, j) => { let s = 0; for (let t = 0; t < n; t++) s += (a[t] - mu[i]) * (b[t] - mu[j]); return s / (n - 1); }));
+  const csv = [[''].concat(prep.names).join(',')].concat(prep.names.map((nm, i) => [nm].concat(C[i].map(v => v.toFixed(12))).join(','))).join('\n');
+  const parsed = E3.parseCovMatrix(csv), cols = E3.dataFromCov(parsed.names, parsed.C, n, mu, 5);
+  cols.forEach((a, i) => cols.forEach((b, j) => { const ma = E3.mean(a), mb = E3.mean(b); let s = 0; for (let t = 0; t < n; t++) s += (a[t] - ma) * (b[t] - mb); close(s / (n - 1), C[i][j], 1e-8, 'cov'); }));
+  const synth = { names: parsed.names, cols, kinds: parsed.names.map(() => 'num'), labels: parsed.names.map(() => null), n };
+  const a = E3.runPLS(ds, model(), { missing: 'casewise' }), b = E3.runPLS(synth, model(), {});
+  Object.keys(a.stats).forEach(k => close(b.stats[k], a.stats[k], 1e-6, k));
+  close(E3.cbsem(synth, model(), {}).fit.chi2, E3.cbsem(ds, model(), { missing: 'casewise' }).fit.chi2, 1e-4, 'CB-SEM chi2');
+});
+
+test('CCA exact fit test does not reject data that satisfy the composite model', () => {
+  const fit = E3.runPLS(ds, model(), {}), prep = E3.prepare(ds, model(), {});
+  const f0 = E3.fitFull(prep.raw, prep.spec, {}), imp = E3.implied(f0, prep.spec, false);
+  const cols = E3.dataFromCov(prep.names, imp.Sig, 300, null, 3);   // population = model-implied matrix
+  const synth = { names: prep.names, cols, kinds: prep.names.map(() => 'num'), labels: prep.names.map(() => null), n: 300 };
+  const r = E3.fitTest(synth, model(), {}, { samples: 200 });
+  assert.ok(r.fitTest.saturated.every(x => x.p > 0.05), 'exact fit not rejected');
+  assert.ok(fit.gof > 0 && fit.gof < 1);
+});
+
+test('model comparison: BIC weights sum to one; nested CB-SEM χ² difference', () => {
+  const m2 = model(); m2.paths = m2.paths.filter(p => !(p.from === 'c5' && p.to === 'c6'));
+  const pls = E3.compareModels(ds, [{ name: 'full', model: model() }, { name: 'reduced', model: m2 }], {}, { method: 'pls' });
+  const loy = pls.targets.find(x => x.construct === 'Loyalty');
+  close(loy.rows.reduce((a, r) => a + r.bicWeight, 0), 1, 1e-12, 'weights');
+  assert.ok(loy.rows.find(r => r.model === 'full').bicWeight > 0.99, 'dropping a strong path is penalised');
+  const cb = E3.compareModels(ds, [{ name: 'full', model: model() }, { name: 'reduced', model: m2 }], {}, { method: 'cbsem' });
+  assert.ok(cb.diffs.length === 1 && cb.diffs[0].ddf === 1 && cb.diffs[0].p < 0.001);
+  const mod = model(); mod.interactions = [{ id: 'i1', name: 'Value x Image', x: 'c4', m: 'c1', y: 'c5' }];
+  const r = E3.cbsemModerated(ds, mod, {}, {});
+  assert.ok(r.paths.some(p => p.from === 'Value x Image' && p.to === 'Satisfaction'));
+});
+
+test('regression bootstrap SEs agree with analytic SEs', () => {
+  const g = E3.regression(ds, { y: 'sat_1', x: ['val_1', 'qual_1'], samples: 800, seed: 4 });
+  g.terms.forEach(x => assert.ok(Math.abs(x.bootSE / x.se - 1) < 0.2, x.name));
+});

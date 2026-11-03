@@ -23,6 +23,14 @@
 
 **تصميم: د. أحمد يوسف** · [تنزيل تطبيق سطح المكتب (Windows / macOS / Linux)](https://github.com/motqenacademy-droid/youpls/releases/latest)
 
+## الجديد في 0.5: تغطية كل مزايا SmartPLS 4 Enterprise البرمجية
+
+- **CB-SEM متعدد المجموعات** مع بنية المتوسطات وثبات القياس (التكويني والتشبعات والتقاطعات) وفروق المتوسطات الكامنة واختبار Δχ² لكل مسار؛ و**التعديل في CB-SEM**؛ و**المقارنة بين نماذج CB-SEM**.
+- **التحليل التوكيدي للمركّبات (CCA)** مع اختبار المطابقة التامة بالإقلاع (HI95 وHI99)، و**GoF**، و**العلاقات غير الخطية** (الأثر التربيعي)، و**المقارنة بين النماذج واختيار النموذج الموجَّه بالتنبؤ** (أوزان BIC)، و**MGA والتباديل المتّسقان** (PLSc).
+- **عدة نماذج في المشروع**، و**مقارنة التقارير جنباً إلى جنب**، و**حفظ التقارير في ملف المشروع**، و**إنشاء بيانات جديدة من النتائج** (الدرجات الكامنة والقطاعات).
+- **استيراد مصفوفة تغاير/ارتباط** (تقديرات مطابقة تماماً للبيانات الأصلية)، و**تعريف مجموعات البيانات**، و**الإقلاع الذاتي في الانحدار**.
+- جدول مقارنة كامل بمزايا SmartPLS 4 Enterprise في «الدليل والمصادر».
+
 ## الجديد في 0.4
 
 - **GSCA** مع FIT وAFIT وGFI وSRMR والإقلاع الذاتي، و**الانحدار اللوجستي** (مطابق لـ statsmodels حتى 10⁻⁶) مع نسب الأرجحية وROC وHosmer-Lemeshow، و**CVPAT** لاختبار القدرة التنبؤية.
@@ -83,7 +91,7 @@
 
 ### خارطة الطريق
 
-MGA لـ CB-SEM، وCB-SEM للبيانات الترتيبية (WLSMV)، والانحدار اللوجستي بمجموعات البيانات، وREBUS-PLS، وتوقيع تطبيقات سطح المكتب رقمياً. المساهمات مرحّب بها.
+CB-SEM للبيانات الترتيبية (WLSMV)، وPOS بإجراء Becker وآخرين الكامل، والإقلاع الذاتي في الانحدار اللوجستي، وREBUS-PLS، وتوقيع تطبيقات سطح المكتب رقمياً. المساهمات مرحّب بها.
 
 ## الدقة والتحقق
 
@@ -111,6 +119,7 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 | `js/advanced.js` | CB-SEM (مع الإقلاع ومؤشرات التعديل) وFIMIX-PLS وPOS وCTA-PLS والكوبولا وPROCESS |
 | `js/advanced2.js` | GSCA والانحدار اللوجستي وCVPAT واختبارات MGA بالإقلاع وتخطيط حجم العينة |
 | `js/io.js` | قراءة Excel وSPSS وكتابة Excel دون مكتبات |
+| `js/advanced3.js` | CB-SEM متعدد المجموعات وثبات القياس، والتعديل في CB-SEM، والمقارنة بين النماذج، ومدخلات مصفوفة التغاير |
 | `js/docs.js` | الدليل والمنهجيات والمراجع وصفحة «عن البرنامج» |
 | `desktop/` | تطبيق سطح المكتب (Electron)؛ يُبنى بـ `.github/workflows/desktop.yml` عند وسم `v*` |
 | `js/engine.js` | كل الحسابات (يعمل في المتصفح وفي Node): قراءة CSV، PLS/PLSc، معايير الجودة، الإقلاع الذاتي، الطيّ الأعمى، PLSpredict، IPMA، MGA/MICOM، NCA، الانحدار |
@@ -136,6 +145,8 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 
 **Designed by Dr. Ahmed Youssef.** **Desktop apps** (Windows installer and portable EXE, macOS DMG, Linux AppImage): [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest).
 
+**New in 0.5 — every software feature of SmartPLS 4 Enterprise:** multigroup CB-SEM with mean structure and measurement invariance (configural/metric/scalar), CB-SEM moderation and model comparison; confirmatory composite analysis with bootstrap exact-fit tests, GoF, nonlinear (quadratic) effects, model comparison and prediction-oriented model selection (BIC weights), consistent MGA/permutation; several models per project, side-by-side report comparison, reports saved in the project, new datasets from results; covariance-matrix input, data groups, regression bootstrapping. A row-by-row comparison with the Enterprise feature table is in the in-app guide.
+
 **New in 0.4:** GSCA, logistic regression (matches statsmodels), CVPAT, PLS-MGA / parametric / Welch-Satterthwaite MGA tests, CB-SEM bootstrapping and modification indices, Excel/SPSS import, export of all results to Excel, automatic APA write-up and assessment checklist, sample-size planning, and a SmartPLS 4 coverage page.
 
 **New in 0.3:** CB-SEM by maximum likelihood (validated against semopy), FIMIX-PLS, POS, CTA-PLS, Gaussian-copula endogeneity tests, PROCESS models 1/4/6/7/14, weighted PLS, offline desktop apps built and smoke-tested by CI, new logo, designer profile.
@@ -146,6 +157,6 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 
 **Analyses:** PLS-SEM (path/factor/centroid weighting; loadings, weights, path coefficients, total/indirect/specific indirect effects, R², adjusted R², f², LV scores) · quality criteria (Cronbach's α, ρA, ρc, AVE, Fornell-Larcker, HTMT, cross-loadings, outer/inner VIF, SRMR, d_ULS, d_G, χ², NFI for saturated and estimated model, AIC/BIC/HQ) · consistent PLS (PLSc) · bootstrapping (percentile or BCa CIs, one/two-tailed, distribution histograms, CI plots) · blindfolding Q² · PLSpredict (Q²predict, RMSE, MAE vs LM benchmark) · IPMA (constructs and indicators) · MGA permutation test with MICOM steps 2–3 · two-stage moderation with simple-slope plots · NCA (CE-FDH, permutation test, bottleneck tables) · OLS regression · higher-order constructs via repeated indicators.
 
-**Roadmap:** CB-SEM multigroup analysis, ordinal CB-SEM (WLSMV), logistic regression with data groups, REBUS-PLS, code-signed desktop apps. Contributions welcome.
+**Roadmap:** ordinal CB-SEM (WLSMV), the full Becker et al. POS procedure, logistic-regression bootstrapping, REBUS-PLS, code-signed desktop apps. Contributions welcome.
 
 **Validation:** the PLS-SEM algorithm matches an independent NumPy implementation (`tools/reference_pls.py`) to 1e-6 for weights, loadings, paths and R² under path, factor and centroid schemes and Mode B. Tests (`npm test`) also cover reliability/HTMT formulas, effect decomposition, distribution functions, seeded bootstrap reproducibility, PLSc, moderation and every other analysis. HTMT uses absolute correlations; bootstrap p-values use the t-distribution with B−1 degrees of freedom.
