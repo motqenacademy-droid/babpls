@@ -15,6 +15,7 @@ if (has('CSC_LINK', 'CSC_KEY_PASSWORD', 'APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD
   console.log('macOS: Developer ID signing + notarization');
 } else {
   config.mac.identity = '-';
+  config.mac.hardenedRuntime = false; // only needed for notarization; with ad-hoc signatures it can block library loading
   console.log('macOS: ad-hoc signature (no Apple Developer certificate configured)');
 }
 
