@@ -1,0 +1,23 @@
+{
+  "name": "YouPls – PLS-SEM & CB-SEM",
+  "short_name": "YouPls",
+  "description": "Free, open-source PLS-SEM and CB-SEM software. Works offline.",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#312e81",
+  "lang": "ar",
+  "dir": "auto",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "file_handlers": [
+    { "action": "./index.html", "accept": { "application/json": [".youpls.json"], "text/csv": [".csv"] } }
+  ]
+}

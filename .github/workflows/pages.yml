@@ -24,7 +24,7 @@ jobs:
           node-version: 22
       - run: npm test
       - name: Collect site files
-        run: mkdir _site && cp -r index.html css js assets examples LICENSE README.md _site/ && touch _site/.nojekyll
+        run: mkdir _site && cp -r index.html manifest.webmanifest sw.js css js assets examples LICENSE README.md _site/ && touch _site/.nojekyll
       - uses: actions/configure-pages@v5
         with:
           enablement: true

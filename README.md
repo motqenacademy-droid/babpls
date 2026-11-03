@@ -23,6 +23,10 @@
 
 **تصميم: د. أحمد يوسف** · [تنزيل تطبيق سطح المكتب (Windows / macOS / Linux)](https://github.com/motqenacademy-droid/youpls/releases/latest)
 
+## التثبيت دون تحذيرات أمنية
+
+افتح الموقع في Edge أو Chrome واضغط **⤓ ثبّت التطبيق**: يصبح YouPls تطبيقاً على سطح المكتب يعمل دون إنترنت، بلا ملفات تنفيذية ولا تحذيرات SmartScreen أو Gatekeeper. أما البرامج القابلة للتنزيل فتُوقَّع تلقائياً بمجرد إضافة حساب توقيع إلى المستودع؛ الخطوات في [`SIGNING.md`](SIGNING.md).
+
 ## الجديد في 0.5: تغطية كل مزايا SmartPLS 4 Enterprise البرمجية
 
 - **CB-SEM متعدد المجموعات** مع بنية المتوسطات وثبات القياس (التكويني والتشبعات والتقاطعات) وفروق المتوسطات الكامنة واختبار Δχ² لكل مسار؛ و**التعديل في CB-SEM**؛ و**المقارنة بين نماذج CB-SEM**.
@@ -144,6 +148,8 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 **Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
 
 **Designed by Dr. Ahmed Youssef.** **Desktop apps** (Windows installer and portable EXE, macOS DMG, Linux AppImage): [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest).
+
+**Install without security warnings:** open the website in Edge or Chrome and click *Install app* (offline-capable PWA). Downloadable programs are signed automatically once a signing account is configured; see [`SIGNING.md`](SIGNING.md).
 
 **New in 0.5 — every software feature of SmartPLS 4 Enterprise:** multigroup CB-SEM with mean structure and measurement invariance (configural/metric/scalar), CB-SEM moderation and model comparison; confirmatory composite analysis with bootstrap exact-fit tests, GoF, nonlinear (quadratic) effects, model comparison and prediction-oriented model selection (BIC weights), consistent MGA/permutation; several models per project, side-by-side report comparison, reports saved in the project, new datasets from results; covariance-matrix input, data groups, regression bootstrapping. A row-by-row comparison with the Enterprise feature table is in the in-app guide.
 

@@ -1382,6 +1382,12 @@
 
   // ------------------------------------------------------------- start
   if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('is-desktop');
+  // Installable web app (PWA): offline use and a desktop/start-menu app without any download or security warning
+  let installEvt = null;
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) && !/Electron\//.test(navigator.userAgent)) navigator.serviceWorker.register('sw.js').catch(() => { });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installbtn').hidden = false; });
+  window.addEventListener('appinstalled', () => { $('#installbtn').hidden = true; toast(t('installed'), 'good'); });
+  $('#installbtn').addEventListener('click', async () => { if (!installEvt) { setView('help'); S.help = 'desktop'; renderHelp(); return; } installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installbtn').hidden = true; });
   prefs(false); applyTheme(); applyAppearance(); bind(); bindStyle();
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }

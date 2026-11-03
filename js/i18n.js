@@ -1,6 +1,8 @@
 /* YouPls UI strings (Arabic / English). Every key must exist in both; tests/i18n.test.js checks it. */
 window.YPI18N = {
   en: {
+    install_app: "Install app",
+    installed: "YouPls is installed: open it from your desktop or start menu, also offline.",
     add_quadratic: "Add quadratic effect",
     add_scores: "Add construct scores to the data",
     add_segments: "Add segment membership to the data",
@@ -426,6 +428,8 @@ window.YPI18N = {
     err_bad_regression: 'Choose a dependent variable and at least one independent variable.', err_cancelled: 'Cancelled.', err_singular: 'Singular matrix (perfect collinearity?).'
   },
   ar: {
+    install_app: "ثبّت التطبيق",
+    installed: "ثُبّت YouPls: افتحه من سطح المكتب أو قائمة ابدأ، ويعمل دون إنترنت.",
     add_quadratic: "أضف أثراً تربيعياً",
     add_scores: "أضف درجات المتغيرات الكامنة إلى البيانات",
     add_segments: "أضف انتماء القطاعات إلى البيانات",

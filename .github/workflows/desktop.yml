@@ -23,10 +23,33 @@ jobs:
       - run: npm test
       - run: npm ci
         working-directory: desktop
+      # Signing switches on only when these repository secrets exist (see SIGNING.md); otherwise macOS is ad-hoc signed.
       - run: npm run dist
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ secrets.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
+          AZURE_SIGN_PUBLISHER: ${{ secrets.AZURE_SIGN_PUBLISHER }}
+      - name: Signature report (macOS)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          for app in dist/mac*/YouPls.app; do codesign --verify --deep --strict "$app" && codesign -dv "$app" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" ; done
+      - name: Signature report (Windows)
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: pwsh
+        run: Get-ChildItem dist/*.exe | ForEach-Object { "{0}: {1}" -f $_.Name, (Get-AuthenticodeSignature $_.FullName).Status }
       - name: Smoke test (Linux)
         if: runner.os == 'Linux'
         working-directory: desktop
@@ -76,4 +99,6 @@ jobs:
           - **macOS:** \`YouPls-*-mac-arm64.dmg\` (Apple silicon) or \`-x64.dmg\` (Intel).
           - **Linux:** \`YouPls-*-linux-x64.AppImage\` (chmod +x, then run).
 
-          The apps are not code-signed yet: Windows SmartScreen may show *More info → Run anyway*; on macOS right-click the app → Open the first time."
+          **Easiest, with no security warnings:** open https://motqenacademy-droid.github.io/youpls/ in Edge or Chrome and click *Install app* — YouPls becomes a desktop app that works offline.
+
+          Until the downloads are signed with a certificate: Windows SmartScreen may show *More info → Run anyway*; on macOS (ad-hoc signed) choose *System Settings → Privacy & Security → Open Anyway* the first time."

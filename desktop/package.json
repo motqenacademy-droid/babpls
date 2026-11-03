@@ -1,7 +1,7 @@
 {
   "name": "youpls-desktop",
   "productName": "YouPls",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "YouPls: free, open-source PLS-SEM and CB-SEM software",
   "author": "Dr. Ahmed Youssef",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "prepare-app": "node prepare.js",
     "start": "node prepare.js && electron .",
     "smoke": "node prepare.js && electron . --smoke",
-    "dist": "node prepare.js && electron-builder --publish never"
+    "dist": "node prepare.js && node build.js"
   },
   "devDependencies": {
     "electron": "44.7.2",
@@ -71,8 +71,7 @@
         }
       ],
       "category": "public.app-category.education",
-      "icon": "build/icon.png",
-      "identity": null
+      "icon": "build/icon.png"
     },
     "dmg": {
       "artifactName": "YouPls-${version}-mac-${arch}.${ext}"
