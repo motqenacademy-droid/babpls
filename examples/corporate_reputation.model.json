@@ -1,0 +1,223 @@
+{
+ "models": [
+  {
+   "name": "First order",
+   "model": {
+    "constructs": [
+     {
+      "id": "r1",
+      "name": "Quality",
+      "mode": "B",
+      "indicators": [
+       "qual_1",
+       "qual_2",
+       "qual_3",
+       "qual_4",
+       "qual_5"
+      ],
+      "x": 160,
+      "y": 180,
+      "side": "left"
+     },
+     {
+      "id": "r2",
+      "name": "CSR",
+      "mode": "B",
+      "indicators": [
+       "csr_1",
+       "csr_2",
+       "csr_3",
+       "csr_4"
+      ],
+      "x": 160,
+      "y": 540,
+      "side": "left"
+     },
+     {
+      "id": "r3",
+      "name": "Competence",
+      "mode": "A",
+      "indicators": [
+       "comp_1",
+       "comp_2",
+       "comp_3"
+      ],
+      "x": 560,
+      "y": 160,
+      "side": "top"
+     },
+     {
+      "id": "r4",
+      "name": "Likeability",
+      "mode": "A",
+      "indicators": [
+       "like_1",
+       "like_2",
+       "like_3",
+       "like_4"
+      ],
+      "x": 560,
+      "y": 560,
+      "side": "bottom"
+     },
+     {
+      "id": "r5",
+      "name": "Loyalty",
+      "mode": "A",
+      "indicators": [
+       "loy_1",
+       "loy_2",
+       "loy_3"
+      ],
+      "x": 960,
+      "y": 360,
+      "side": "right"
+     }
+    ],
+    "paths": [
+     {
+      "from": "r1",
+      "to": "r3"
+     },
+     {
+      "from": "r1",
+      "to": "r4"
+     },
+     {
+      "from": "r2",
+      "to": "r3"
+     },
+     {
+      "from": "r2",
+      "to": "r4"
+     },
+     {
+      "from": "r3",
+      "to": "r5"
+     },
+     {
+      "from": "r4",
+      "to": "r5"
+     }
+    ],
+    "interactions": []
+   }
+  },
+  {
+   "name": "Higher order",
+   "model": {
+    "constructs": [
+     {
+      "id": "r1",
+      "name": "Quality",
+      "mode": "B",
+      "indicators": [
+       "qual_1",
+       "qual_2",
+       "qual_3",
+       "qual_4",
+       "qual_5"
+      ],
+      "x": 160,
+      "y": 180,
+      "side": "left"
+     },
+     {
+      "id": "r2",
+      "name": "CSR",
+      "mode": "B",
+      "indicators": [
+       "csr_1",
+       "csr_2",
+       "csr_3",
+       "csr_4"
+      ],
+      "x": 160,
+      "y": 540,
+      "side": "left"
+     },
+     {
+      "id": "r6",
+      "name": "Reputation",
+      "mode": "A",
+      "indicators": [
+       "comp_1",
+       "comp_2",
+       "comp_3",
+       "like_1",
+       "like_2",
+       "like_3",
+       "like_4"
+      ],
+      "x": 560,
+      "y": 360,
+      "side": "top"
+     },
+     {
+      "id": "r3",
+      "name": "Competence",
+      "mode": "A",
+      "indicators": [
+       "comp_1",
+       "comp_2",
+       "comp_3"
+      ],
+      "x": 860,
+      "y": 140,
+      "side": "right"
+     },
+     {
+      "id": "r4",
+      "name": "Likeability",
+      "mode": "A",
+      "indicators": [
+       "like_1",
+       "like_2",
+       "like_3",
+       "like_4"
+      ],
+      "x": 860,
+      "y": 580,
+      "side": "right"
+     },
+     {
+      "id": "r5",
+      "name": "Loyalty",
+      "mode": "A",
+      "indicators": [
+       "loy_1",
+       "loy_2",
+       "loy_3"
+      ],
+      "x": 1060,
+      "y": 360,
+      "side": "right"
+     }
+    ],
+    "paths": [
+     {
+      "from": "r1",
+      "to": "r6"
+     },
+     {
+      "from": "r2",
+      "to": "r6"
+     },
+     {
+      "from": "r6",
+      "to": "r3"
+     },
+     {
+      "from": "r6",
+      "to": "r4"
+     },
+     {
+      "from": "r6",
+      "to": "r5"
+     }
+    ],
+    "interactions": []
+   }
+  }
+ ]
+}

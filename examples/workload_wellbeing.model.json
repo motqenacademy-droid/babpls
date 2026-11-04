@@ -1,0 +1,186 @@
+{
+ "models": [
+  {
+   "name": "Moderation",
+   "model": {
+    "constructs": [
+     {
+      "id": "w1",
+      "name": "Workload",
+      "mode": "A",
+      "indicators": [
+       "wl_1",
+       "wl_2",
+       "wl_3",
+       "wl_4"
+      ],
+      "x": 160,
+      "y": 200,
+      "side": "left"
+     },
+     {
+      "id": "w2",
+      "name": "Support",
+      "mode": "A",
+      "indicators": [
+       "sup_1",
+       "sup_2",
+       "sup_3"
+      ],
+      "x": 160,
+      "y": 520,
+      "side": "left"
+     },
+     {
+      "id": "w3",
+      "name": "Stress",
+      "mode": "A",
+      "indicators": [
+       "str_1",
+       "str_2",
+       "str_3",
+       "str_4"
+      ],
+      "x": 560,
+      "y": 360,
+      "side": "bottom"
+     },
+     {
+      "id": "w4",
+      "name": "Wellbeing",
+      "mode": "A",
+      "indicators": [
+       "wb_1",
+       "wb_2",
+       "wb_3",
+       "wb_4"
+      ],
+      "x": 940,
+      "y": 200,
+      "side": "right"
+     }
+    ],
+    "paths": [
+     {
+      "from": "w1",
+      "to": "w3"
+     },
+     {
+      "from": "w2",
+      "to": "w3"
+     },
+     {
+      "from": "w3",
+      "to": "w4"
+     },
+     {
+      "from": "w1",
+      "to": "w4"
+     }
+    ],
+    "interactions": [
+     {
+      "id": "wi1",
+      "name": "Workload x Support",
+      "x": "w1",
+      "m": "w2",
+      "y": "w3",
+      "px": 360,
+      "py": 560
+     }
+    ]
+   }
+  },
+  {
+   "name": "Quadratic",
+   "model": {
+    "constructs": [
+     {
+      "id": "w1",
+      "name": "Workload",
+      "mode": "A",
+      "indicators": [
+       "wl_1",
+       "wl_2",
+       "wl_3",
+       "wl_4"
+      ],
+      "x": 160,
+      "y": 200,
+      "side": "left"
+     },
+     {
+      "id": "w2",
+      "name": "Support",
+      "mode": "A",
+      "indicators": [
+       "sup_1",
+       "sup_2",
+       "sup_3"
+      ],
+      "x": 160,
+      "y": 520,
+      "side": "left"
+     },
+     {
+      "id": "w3",
+      "name": "Stress",
+      "mode": "A",
+      "indicators": [
+       "str_1",
+       "str_2",
+       "str_3",
+       "str_4"
+      ],
+      "x": 560,
+      "y": 360,
+      "side": "bottom"
+     },
+     {
+      "id": "w4",
+      "name": "Wellbeing",
+      "mode": "A",
+      "indicators": [
+       "wb_1",
+       "wb_2",
+       "wb_3",
+       "wb_4"
+      ],
+      "x": 940,
+      "y": 200,
+      "side": "right"
+     }
+    ],
+    "paths": [
+     {
+      "from": "w1",
+      "to": "w3"
+     },
+     {
+      "from": "w2",
+      "to": "w3"
+     },
+     {
+      "from": "w3",
+      "to": "w4"
+     },
+     {
+      "from": "w1",
+      "to": "w4"
+     }
+    ],
+    "interactions": [
+     {
+      "id": "wq1",
+      "name": "Stress²",
+      "x": "w3",
+      "m": "w3",
+      "y": "w4",
+      "px": 760,
+      "py": 520
+     }
+    ]
+   }
+  }
+ ]
+}

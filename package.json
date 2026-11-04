@@ -1,13 +1,13 @@
 {
   "name": "youpls",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Free, open-source PLS-SEM and CB-SEM software that runs in the browser and on the desktop",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "node --test tests/engine.test.js tests/advanced.test.js tests/io.test.js tests/i18n.test.js tests/docs.test.js tests/pwa.test.js",
+    "test": "node --test tests/examples.test.js tests/engine.test.js tests/advanced.test.js tests/io.test.js tests/i18n.test.js tests/docs.test.js tests/pwa.test.js",
     "serve": "python3 -m http.server 8765",
-    "example": "node tools/make_example.js"
+    "example": "node tools/make_example.js && node tools/make_examples.js"
   },
   "author": "Dr. Ahmed Youssef"
 }

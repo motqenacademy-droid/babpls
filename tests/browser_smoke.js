@@ -23,6 +23,20 @@ const URL = process.env.YOUPLS_URL || 'http://127.0.0.1:8765/index.html';
     for (const s of secs) await p.click(`.secnav button[data-sec="${s}"]`);
     console.log('ok', k, secs.length, 'sections');
   }
+  // example gallery: every guide's "Run this analysis" button opens the dialog with the described settings
+  const small = { samples: '100', permutations: '50', bootSamples: '50', reps: '2', starts: '3', cbBoot: '0' };
+  const guides = await p.evaluate(() => window.YP_EXAMPLES.map(e => [e.id, e.analyses.length]));
+  for (const [id, n] of guides) {
+    for (let q = 0; q < n; q++) {
+      await p.click('[data-view=help]'); await p.click(`.secnav [data-help="ex:${id}"]`);
+      await p.click(`[data-exrun="${id}|${q}"]`);
+      const kind = await p.$eval('#rundlg', d => d.dataset.kind);
+      for (const [nm, v] of Object.entries(small)) if (await p.$(`#runfields [name=${nm}]`)) await p.fill(`#runfields [name=${nm}]`, v);
+      await p.click('#rundlg button[type=submit]');
+      await p.waitForSelector(`.restabs [data-kind=${kind}].on`, { timeout: 120000 });
+      console.log('ok example', id, q, kind);
+    }
+  }
   await b.close();
   if (errs.length) { console.error('JS errors:', errs); process.exit(1); }
   console.log('browser smoke test passed');

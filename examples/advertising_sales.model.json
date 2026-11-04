@@ -1,0 +1,52 @@
+{
+ "constructs": [
+  {
+   "id": "a1",
+   "name": "Advertising",
+   "mode": "A",
+   "indicators": [
+    "ad_spend"
+   ],
+   "x": 180,
+   "y": 180,
+   "side": "left"
+  },
+  {
+   "id": "a2",
+   "name": "Quality",
+   "mode": "A",
+   "indicators": [
+    "qual_1",
+    "qual_2",
+    "qual_3"
+   ],
+   "x": 180,
+   "y": 520,
+   "side": "left"
+  },
+  {
+   "id": "a3",
+   "name": "Sales",
+   "mode": "A",
+   "indicators": [
+    "sales_1",
+    "sales_2",
+    "sales_3"
+   ],
+   "x": 640,
+   "y": 350,
+   "side": "right"
+  }
+ ],
+ "paths": [
+  {
+   "from": "a1",
+   "to": "a3"
+  },
+  {
+   "from": "a2",
+   "to": "a3"
+  }
+ ],
+ "interactions": []
+}

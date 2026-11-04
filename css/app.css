@@ -253,3 +253,11 @@ p.big { font-size: 18px; }
 .mtab .x { padding: 2px 6px; }
 .pill.warn { background: var(--warn-bg); color: var(--warn); }
 .is-desktop #installbtn { display: none !important; }
+
+/* example gallery */
+.exgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.card.exan > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card.exan h4 { margin: 12px 0 4px; }
+.card.exan ol { margin: 4px 0; padding-inline-start: 22px; }
+.card.exan .expect { border-inline-start: 3px solid var(--accent); padding: 6px 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 4px; }
+.actions a.btn { margin-inline-start: 6px; }

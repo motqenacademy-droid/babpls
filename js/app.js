@@ -156,7 +156,7 @@
   }
   function welcome() {
     return `<div class="welcome"><img src="assets/logo.svg" alt="" width="84" height="84"><h1>YouPls</h1><p>${t('tagline')}</p>
-      <div class="actions"><button class="primary" data-act="example">${t('load_example')}</button><button data-act="import">${t('import_csv')}</button><button data-act="open">${t('open_project')}</button><button data-act="covimport">${t('import_cov')}</button></div>
+      <div class="actions"><button class="primary" data-act="example">${t('load_example')}</button><button data-act="examples">${t('examples_gallery')}</button><button data-act="import">${t('import_csv')}</button><button data-act="open">${t('open_project')}</button><button data-act="covimport">${t('import_cov')}</button></div>
       <ol class="steps"><li>${t('step1')}</li><li>${t('step2')}</li><li>${t('step3')}</li><li>${t('step4')}</li></ol></div>`;
   }
 
@@ -251,6 +251,7 @@
   function fieldHTML(k, task) {
     const st = Object.assign({}, S.settings, DEF, S['last_' + task] || {});
     const num = (min, max, step) => `<input type="number" name="${k}" value="${esc(st[k])}" min="${min}" max="${max}" step="${step || 1}">`;
+    const pick = v => ((Array.isArray(st[k]) ? st[k].includes(v) : String(st[k]) === String(v)) ? ' selected' : '');
     const opt = (vals) => `<select name="${k}">${vals.map(v => `<option value="${v}"${String(st[k]) === String(v) ? ' selected' : ''}>${t('opt_' + v)}</option>`).join('')}</select>`;
     let ctrl;
     switch (k) {
@@ -277,7 +278,7 @@
       }
       case 'groupVar': {
         const cats = S.ds.names.filter((n, j) => { const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; });
-        ctrl = `<select name="groupVar">${cats.map(n => `<option>${esc(n)}</option>`).join('')}</select>`;
+        ctrl = `<select name="groupVar">${cats.map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select>`;
         return `<label>${t('f_groupVar')}${ctrl}</label><div id="groupPick"></div>`;
       }
       case 'bootSamples': ctrl = num(0, 100000, 1); break;
@@ -287,8 +288,8 @@
       case 'ssPmin': ctrl = num(0.01, 1, 'any'); break;
       case 'ssAlpha': ctrl = `<select name="ssAlpha">${[0.01, 0.05, 0.1].map(v => `<option${+st.ssAlpha === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`; break;
       case 'ssPower': ctrl = `<select name="ssPower">${[0.8, 0.9, 0.95].map(v => `<option${+st.ssPower === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`; break;
-      case 'logY': { const bin = S.ds.names.filter((n, j) => new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))).size === 2); ctrl = `<select name="logY">${bin.map(v => `<option>${esc(v)}</option>`).join('')}</select><small>${t('binary_hint')}</small>`; break; }
-      case 'logX': ctrl = `<select name="logX" multiple size="8">${processVars().map(v => `<option>${esc(v)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
+      case 'logY': { const bin = S.ds.names.filter((n, j) => new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))).size === 2); ctrl = `<select name="logY">${bin.map(v => `<option${pick(v)}>${esc(v)}</option>`).join('')}</select><small>${t('binary_hint')}</small>`; break; }
+      case 'logX': ctrl = `<select name="logX" multiple size="8">${processVars().map(v => `<option${pick(v)}>${esc(v)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
       case 'maxK': ctrl = num(2, 10); break;
       case 'K': ctrl = num(2, 10); break;
       case 'starts': ctrl = num(1, 100); break;
@@ -297,10 +298,10 @@
       case 'pmodel': ctrl = `<select name="pmodel">${[4, 6, 1, 7, 14].map(v => `<option value="${v}"${+st.pmodel === v ? ' selected' : ''}>${t('pm_' + v)}</option>`).join('')}</select>`; break;
       case 'procX': case 'procY': case 'procW': case 'procM': {
         const vars = processVars(), multi = k === 'procM';
-        ctrl = `<select name="${k}"${multi ? ' multiple size="6"' : ''}>${k === 'procW' ? `<option value="">${t('none')}</option>` : ''}${vars.map(v => `<option>${esc(v)}</option>`).join('')}</select>${multi ? `<small>${t('multi_hint')}</small>` : ''}`; break;
+        ctrl = `<select name="${k}"${multi ? ' multiple size="6"' : ''}>${k === 'procW' ? `<option value="">${t('none')}</option>` : ''}${vars.map(v => `<option${pick(v)}>${esc(v)}</option>`).join('')}</select>${multi ? `<small>${t('multi_hint')}</small>` : ''}`; break;
       }
-      case 'regY': ctrl = `<select name="regY">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option>${esc(n)}</option>`).join('')}</select>`; break;
-      case 'regX': ctrl = `<select name="regX" multiple size="8">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option>${esc(n)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
+      case 'regY': ctrl = `<select name="regY">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select>`; break;
+      case 'regX': ctrl = `<select name="regX" multiple size="8">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
     }
     return `<label>${t('f_' + k)}${ctrl}</label>`;
   }
@@ -1186,6 +1187,7 @@
   function renderHelp() {
     const D = window.YPDocs, L = S.lang, el = $('#helpview');
     const nav = `<nav class="secnav"><h4>${t('user_guide')}</h4>${D.guide.map(g => `<button data-help="${g.id}" class="${S.help === g.id ? 'on' : ''}">${esc(g[L].title)}</button>`).join('')}
+      <h4>${t('examples')}</h4><button data-help="examples" class="${S.help === 'examples' ? 'on' : ''}">${t('examples_all')}</button>${(window.YP_EXAMPLES || []).map(ex => `<button data-help="ex:${ex.id}" class="${S.help === 'ex:' + ex.id ? 'on' : ''}">${esc(ex.title[L])}</button>`).join('')}
       <h4>${t('methods_refs')}</h4><button data-help="methods" class="${S.help === 'methods' ? 'on' : ''}">${t('methods')}</button><button data-help="biblio" class="${S.help === 'biblio' ? 'on' : ''}">${t('bibliography')}</button>
       <h4>YouPls</h4><button data-help="about" class="${S.help === 'about' ? 'on' : ''}">${t('about')}</button></nav>`;
     // short author-year label from an APA entry: "Hair et al., 2022"
@@ -1198,6 +1200,8 @@
     let body;
     if (S.help === 'methods') body = `<h2>${t('methods')}</h2><p class="note">${t('methods_note')}</p>` + D.methods.map(m => `<section class="card method" id="m-${m.id}"><header><h3>${esc(m[L].title)}</h3></header><p>${esc(m[L].text)}</p><div class="formula">${m.formula}</div><p class="refs">${t('sources')}: ${m.refs.map(cite).join(L === 'ar' ? '؛ ' : '; ')}</p></section>`).join('');
     else if (S.help === 'biblio') body = `<h2>${t('bibliography')}</h2><ol class="biblio">${Object.keys(D.refs).sort().map(k => `<li id="ref-${k}" dir="ltr">${D.refs[k]}</li>`).join('')}</ol>`;
+    else if (S.help === 'examples') body = examplesIndex();
+    else if (S.help.startsWith('ex:') && (window.YP_EXAMPLES || []).some(x => 'ex:' + x.id === S.help)) body = exampleHTML(window.YP_EXAMPLES.find(x => 'ex:' + x.id === S.help));
     else if (S.help === 'about') body = `<div class="about"><img src="assets/logo.svg" alt="" width="64" height="64"><h2>YouPls ${D.version}</h2>${D.about[L].split('{v}').join(D.version)}</div>`;
     else { const g = D.guide.find(x => x.id === S.help) || D.guide[0]; body = `<h2>${esc(g[L].title)}</h2><div class="guide">${g[L].html}</div>`; }
     el.innerHTML = `<div class="resbody">${nav}<div class="secout helpout" id="helpout">${body}</div></div>`;
@@ -1250,6 +1254,7 @@
   }
 
   function loadExample() {
+    if (window.YP_EXDATA && window.YP_EXAMPLES) { loadExampleSet('customer'); return; }
     const ex = window.YP_EXAMPLE;
     if (!ex) { toast(t('example_failed'), 'bad'); return; }
     S.name = t('example_name'); $('#pname').value = S.name; S.results = {};
@@ -1257,6 +1262,48 @@
     S.fromMatrix = null; S.history = []; S.models = [{ name: t('model') + ' 1', model: JSON.parse(JSON.stringify(ex.model)) }]; S.cur = 0;
     editor.history = []; editor.setModel(S.models[0].model); editor._fitted = false;
     setView('model'); toast(t('example_loaded'), 'good'); autosave();
+  }
+
+  // Example gallery (js/examples.js + js/example-data.js): load a dataset with its models, or load it and open an
+  // analysis with the settings the guide describes.
+  function loadExampleSet(id, quiet) {
+    const ex = (window.YP_EXAMPLES || []).find(x => x.id === id), d = window.YP_EXDATA && window.YP_EXDATA[id];
+    if (!ex || !d) { toast(t('example_failed'), 'bad'); return false; }
+    S.name = ex.title[S.lang] || ex.title.en; $('#pname').value = S.name; S.results = {}; S.history = []; S.current = null; S.cmp = null;
+    if (d.matrix) {
+      const p = E.parseCovMatrix(d.matrix), cols = E.dataFromCov(p.names, p.C, d.n, p.means, 1);
+      S.fromMatrix = { n: d.n, file: d.file, correlation: p.isCorr };
+      setData(datasetCSV({ names: p.names, cols, kinds: p.names.map(() => 'num'), labels: p.names.map(() => null), n: d.n }), d.file, true);
+    } else { S.fromMatrix = null; setData(d.csv, d.file, true); }
+    S.models = d.models.map(m => ({ name: m.name, model: JSON.parse(JSON.stringify(m.model)) })); S.cur = 0;
+    editor.history = []; editor.setModel(S.models[0].model); editor._fitted = false; renderModelTabs();
+    S.example = id; autosave();
+    if (!quiet) { setView(S.models[0].model.constructs.length ? 'model' : 'data'); toast(t('example_loaded'), 'good'); }
+    return true;
+  }
+  function runExample(id, q) {
+    const ex = (window.YP_EXAMPLES || []).find(x => x.id === id), a = ex && ex.analyses[q]; if (!a) return;
+    if (S.example !== id || !S.ds || S.dataName !== ex.file) { if (!loadExampleSet(id, true)) return; }
+    if (a.model !== S.cur && S.models[a.model]) useModel(a.model);
+    S['last_' + a.kind] = Object.assign({}, a.preset);
+    setView(S.models[S.cur].model.constructs.length ? 'model' : 'data');
+    openRun(a.kind);
+  }
+  function exampleHTML(ex) {
+    const L = S.lang, d = (window.YP_EXDATA || {})[ex.id] || {};
+    const step = a => `<ol>${a.how[L].map(x => `<li>${esc(x)}</li>`).join('')}</ol>`;
+    return `<h2>${esc(ex.title[L])}</h2><p>${esc(ex.story[L])}</p>
+      <p class="actions"><button class="primary" data-exload="${ex.id}">${t('ex_load')}</button> <a class="btn" href="examples/${esc(ex.file)}" download>⬇ ${esc(ex.file)}</a></p>
+      <h3>${t('ex_vars')}</h3>${table([t('variable'), t('description')], ex.vars.map(v => [v[0], L === 'ar' ? v[1] : v[2]]), { title: 'variables_' + ex.id })}
+      ${d.models && d.models.some(m => m.model.constructs.length) ? `<p class="note">${t('ex_models', { m: d.models.map(m => '«' + esc(m.name) + '»').join(L === 'ar' ? '، ' : ', ') })}</p>` : `<p class="note">${t('ex_nomodel')}</p>`}
+      <h3>${t('ex_analyses')}</h3>` + ex.analyses.map((a, q) => `<section class="card exan"><header><h3>${esc(t(TASKS[a.kind].title))}${d.models && d.models.length > 1 ? ' · ' + esc(d.models[a.model].name) : ''}</h3><button class="primary" data-exrun="${ex.id}|${q}">▶ ${t('ex_run')}</button></header>
+        <h4>${t('ex_how')}</h4>${step(a)}<h4>${t('ex_read')}</h4><p>${esc(a.read[L])}</p><h4>${t('ex_expect')}</h4><p class="expect">${esc(a.expect[L])}</p></section>`).join('');
+  }
+  function examplesIndex() {
+    const L = S.lang;
+    return `<h2>${t('examples')}</h2><p class="note">${t('examples_note')}</p><div class="exgrid">` + (window.YP_EXAMPLES || []).map(ex => `<section class="card"><header><h3>${esc(ex.title[L])}</h3></header><p>${esc(ex.story[L])}</p>
+      <p class="note">${ex.analyses.map(a => esc(t(TASKS[a.kind].title))).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ')}</p>
+      <p class="actions"><button data-help="ex:${ex.id}">${t('ex_guide')}</button> <button class="primary" data-exload="${ex.id}">${t('ex_load')}</button></p></section>`).join('') + '</div>';
   }
 
   // ------------------------------------------------------------ wiring
@@ -1319,6 +1366,8 @@
       if (b.dataset.mdel !== undefined) { const i = +b.dataset.mdel; if (S.models.length > 1 && confirm(t('confirm_delete_model', { m: S.models[i].name }))) { syncModel(); S.models.splice(i, 1); S.cur = Math.max(0, Math.min(S.cur - (i < S.cur ? 1 : 0), S.models.length - 1)); editor.setModel(S.models[S.cur].model); renderModelTabs(); autosave(); } }
       if (b.dataset.help) { S.help = b.dataset.help; renderHelp(); $('#helpout').scrollTop = 0; }
       if (b.dataset.doc) openDoc(b.dataset.doc);
+      if (b.dataset.exload) loadExampleSet(b.dataset.exload);
+      if (b.dataset.exrun) { const [id, q] = b.dataset.exrun.split('|'); runExample(id, +q); }
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
       if (b.dataset.csv) { const tb = TABLES.get(b.dataset.csv); if (tb) download(slug(S.name) + '_' + slug(tb.title) + '.csv', tb.csv, 'text/csv;charset=utf-8'); }
       if (b.dataset.copy) { const tb = TABLES.get(b.dataset.copy); if (tb) { const tsv = tb.csv.replace(/^﻿/, '').split('\n').map(l => l.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\t')).join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => toast(t('copied'), 'good'), () => toast(t('copy_failed'), 'bad')); } }
@@ -1326,6 +1375,7 @@
       const fig = b.closest('figure.chartbox'); if (fig && b.dataset.act) { exportChart(fig, b.dataset.act); return; }
       switch (b.dataset.act) {
         case 'example': loadExample(); break;
+        case 'examples': S.help = 'examples'; setView('help'); break;
         case 'import': $('#csvfile').click(); break;
         case 'open': $('#projfile').click(); break;
         case 'save': download(slug(S.name) + '.youpls.json', JSON.stringify(projectJSON(true)), 'application/json'); break;

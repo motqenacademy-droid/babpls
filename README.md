@@ -119,6 +119,7 @@ cd desktop && npm ci && npm run smoke   # اختبار تطبيق سطح الم�
 cd desktop && npm run dist    # بناء المثبِّت لنظامك
 node tests/browser_smoke.js   # اختياري: يحتاج Playwright وخادماً على 8765
 node tools/make_example.js    # يعيد توليد بيانات المثال
+node tools/make_examples.js   # يعيد توليد بيانات معرض الأمثلة
 python3 tools/reference_pls.py > tests/fixtures/reference.json   # يحتاج numpy
 python3 tools/reference_cbsem.py > tests/fixtures/semopy.json     # يحتاج semopy
 python3 tools/reference_logit.py > tests/fixtures/logit.json      # يحتاج statsmodels
@@ -138,10 +139,11 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 | `js/editor.js` | لوحة رسم النموذج (SVG) |
 | `js/charts.js` | الرسوم البيانية (SVG بلا مكتبات) |
 | `js/app.js` | الواجهة: البيانات والنموذج والنتائج والتصدير |
+| `js/examples.js` | معرض الأمثلة: دليل ثنائي اللغة لكل تحليل (البيانات في `js/example-data.js`) |
 | `js/i18n.js` | نصوص الواجهة بالعربية والإنجليزية (كل مفتاح في اللغتين؛ يحرسه `tests/i18n.test.js`) |
-| `examples/` | بيانات مثال مصطنعة (رضا العملاء، 300 حالة) ونموذجها |
+| `examples/` | تسع مجموعات بيانات أمثلة مصطنعة تغطي كل التحليلات (رضا العملاء، التعديل والوساطة، PROCESS، البنى التكوينية وCTA والمرتبة العليا، FIMIX/POS، الكوبولا، اللوجستي، PLS الموزون وMGA، مصفوفة ارتباطات) ونماذجها |
 
-بيانات المثال **مولَّدة** من نموذج معروف (`tools/make_example.js`) فلا قيود ترخيص عليها، وفيها متغير `gender` بفرق مقصود بين المجموعتين لتجربة MGA.
+بيانات الأمثلة **مولَّدة** من نماذج معروفة (`tools/make_example.js` و`tools/make_examples.js`)، ولكل منها دليل في «المساعدة ← الأمثلة» يشرح التشغيل والتفسير وما ينبغي أن يظهر (يتحقق منه `tests/examples.test.js`)، فلا قيود ترخيص عليها، وفيها متغير `gender` بفرق مقصود بين المجموعتين لتجربة MGA.
 
 ---
 

@@ -2,13 +2,15 @@
  * Every file the app needs is precached; responses are served from the cache and refreshed in the background.
  * Bump VERSION with every release (tests/pwa.test.js checks it matches package.json). */
 'use strict';
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const CACHE = 'youpls-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/engine.js', 'js/advanced.js', 'js/advanced2.js', 'js/advanced3.js', 'js/io.js', 'js/charts.js', 'js/editor.js',
-  'js/i18n.js', 'js/docs.js', 'js/example-data.js', 'js/app.js', 'js/worker.js',
-  'assets/logo.svg', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/favicon-32.png'
+  'js/i18n.js', 'js/docs.js', 'js/example-data.js', 'js/examples.js', 'js/app.js', 'js/worker.js',
+  'assets/logo.svg',
+  'examples/customer_satisfaction.csv', 'examples/workload_wellbeing.csv', 'examples/training_performance.csv', 'examples/corporate_reputation.csv',
+  'examples/hidden_segments.csv', 'examples/advertising_sales.csv', 'examples/purchase_decision.csv', 'examples/weighted_survey.csv', 'examples/cfa_correlations.csv', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/favicon-32.png'
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

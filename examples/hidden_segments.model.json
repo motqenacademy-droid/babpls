@@ -1,0 +1,54 @@
+{
+ "constructs": [
+  {
+   "id": "s1",
+   "name": "Satisfaction",
+   "mode": "A",
+   "indicators": [
+    "sat_1",
+    "sat_2",
+    "sat_3"
+   ],
+   "x": 180,
+   "y": 180,
+   "side": "left"
+  },
+  {
+   "id": "s2",
+   "name": "Price",
+   "mode": "A",
+   "indicators": [
+    "price_1",
+    "price_2",
+    "price_3"
+   ],
+   "x": 180,
+   "y": 520,
+   "side": "left"
+  },
+  {
+   "id": "s3",
+   "name": "Loyalty",
+   "mode": "A",
+   "indicators": [
+    "loy_1",
+    "loy_2",
+    "loy_3"
+   ],
+   "x": 640,
+   "y": 350,
+   "side": "right"
+  }
+ ],
+ "paths": [
+  {
+   "from": "s1",
+   "to": "s3"
+  },
+  {
+   "from": "s2",
+   "to": "s3"
+  }
+ ],
+ "interactions": []
+}

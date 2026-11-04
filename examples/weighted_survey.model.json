@@ -1,0 +1,37 @@
+{
+ "constructs": [
+  {
+   "id": "v1",
+   "name": "Satisfaction",
+   "mode": "A",
+   "indicators": [
+    "sat_1",
+    "sat_2",
+    "sat_3"
+   ],
+   "x": 200,
+   "y": 300,
+   "side": "left"
+  },
+  {
+   "id": "v2",
+   "name": "Loyalty",
+   "mode": "A",
+   "indicators": [
+    "loy_1",
+    "loy_2",
+    "loy_3"
+   ],
+   "x": 640,
+   "y": 300,
+   "side": "right"
+  }
+ ],
+ "paths": [
+  {
+   "from": "v1",
+   "to": "v2"
+  }
+ ],
+ "interactions": []
+}
