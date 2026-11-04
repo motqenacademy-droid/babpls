@@ -28,7 +28,7 @@
 
 - **Install from the website (recommended, no security warnings):** open <https://motqenacademy-droid.github.io/youpls/> in Edge or Chrome and click *Install app*.
 - **Desktop programs:** [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest). Windows installer and portable EXE, macOS DMG (Apple silicon and Intel), Linux AppImage.
-- **Code signing:** Windows releases use the **SignPath Foundation** for code signing. Free code signing is provided by [SignPath.io](https://about.signpath.io/), with the certificate by [SignPath Foundation](https://signpath.org/). The application is in progress, and signed releases will be marked as such. See the **[Code signing policy](CODE_SIGNING_POLICY.md)** and the **[Privacy policy](PRIVACY.md)**.
+- **Code signing:** the downloadable Windows programs are currently **not code-signed**, so Windows may show a SmartScreen notice (*More info → Run anyway*). macOS builds are ad-hoc signed. The installable web app above needs no signing and shows no warning. See the **[Code signing policy](CODE_SIGNING_POLICY.md)** and the **[Privacy policy](PRIVACY.md)**.
 
 ## التثبيت دون تحذيرات أمنية
 

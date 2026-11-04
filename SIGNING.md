@@ -11,6 +11,8 @@ Certificates are issued to a verified legal identity (a person or an organisatio
 ## Windows
 
 ### Option A: SignPath Foundation (free for open-source projects)
+> **Status:** applied in November 2026 and declined because the project was too new (not enough stars, forks, contributors or independent references). The Foundation invites reapplication once the project has broader public recognition.
+
 - Apply at <https://signpath.org/apply.html>. The requirements include an OSI-approved licence (YouPls uses MIT), a public repository, and builds made by CI from that repository (already the case).
 - After approval, SignPath signs the artifacts produced by the GitHub workflow. Add the signing step with the values SignPath provides; their demo is at <https://github.com/SignPath/github-actions-demo>.
 - The certificate is issued to the SignPath Foundation on behalf of the project.

@@ -1,7 +1,7 @@
 # Code signing policy
 
-Windows releases of YouPls are intended to be signed through the **SignPath Foundation** programme for open-source projects.
-Once approved, this notice applies: *Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).*
+**Current status:** the downloadable Windows programs are **not yet code-signed**. macOS builds carry an ad-hoc signature. The installable web app at <https://motqenacademy-droid.github.io/youpls/> needs no signing.
+The rules below apply to every signed release as soon as a signing certificate is in place (see `SIGNING.md`).
 
 ## What is signed
 Only the YouPls desktop programs built from this repository: `YouPls-Setup-<version>.exe` (installer) and `YouPls-Portable-<version>.exe`.
@@ -15,11 +15,11 @@ They are built by GitHub Actions (`.github/workflows/desktop.yml`) on GitHub-hos
 | Reviewer | Dr. Ahmed Youssef |
 | Approver (approves every signing request) | Dr. Ahmed Youssef |
 
-All team members use multi-factor authentication on GitHub and SignPath. Changes by outside contributors are merged only through reviewed pull requests.
+All team members use multi-factor authentication. Changes by outside contributors are merged only through reviewed pull requests.
 
 ## Build and release process
 1. A change is merged into `main` after the automated tests pass (`npm test`: statistical engine validated against NumPy, semopy and statsmodels, interface and file-format tests).
-2. The release workflow builds the installers on GitHub-hosted Windows, macOS and Linux runners, runs a smoke test of each packaged program, and submits the Windows files to SignPath.
+2. The release workflow builds the installers on GitHub-hosted Windows, macOS and Linux runners, runs a smoke test of each packaged program, and signs them with the configured certificate.
 3. The approver reviews and approves each signing request manually.
 4. The signed files are published on the [releases page](https://github.com/motqenacademy-droid/youpls/releases).
 

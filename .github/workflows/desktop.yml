@@ -102,6 +102,6 @@ jobs:
 
           **Easiest, with no security warnings:** open https://motqenacademy-droid.github.io/youpls/ in Edge or Chrome and click *Install app* — YouPls becomes a desktop app that works offline.
 
-          Code signing: Windows releases use the SignPath Foundation for code signing (free code signing provided by SignPath.io, certificate by SignPath Foundation). Code signing policy: https://github.com/motqenacademy-droid/youpls/blob/main/CODE_SIGNING_POLICY.md · Privacy policy: https://github.com/motqenacademy-droid/youpls/blob/main/PRIVACY.md
+          Code signing policy: https://github.com/motqenacademy-droid/youpls/blob/main/CODE_SIGNING_POLICY.md · Privacy policy: https://github.com/motqenacademy-droid/youpls/blob/main/PRIVACY.md
 
           Until the downloads are signed with a certificate: Windows SmartScreen may show *More info → Run anyway*; on macOS (ad-hoc signed) choose *System Settings → Privacy & Security → Open Anyway* the first time."
