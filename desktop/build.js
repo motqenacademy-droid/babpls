@@ -25,4 +25,19 @@ if (has('AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET', 'AZURE_SIGN
   console.log('Windows: Azure Trusted Signing');
 } else console.log('Windows: unsigned (no signing account configured)');
 
+// Microsoft Store: MSIX/APPX package (Windows runners only). The Store re-signs it, so no certificate is needed.
+// The identity comes from Partner Center (repository variables); without it a TEST package proves the build works.
+if (process.platform === 'win32') {
+  const real = has('APPX_IDENTITY_NAME', 'APPX_PUBLISHER', 'APPX_PUBLISHER_DISPLAY_NAME');
+  config.win.target.push({ target: 'appx', arch: ['x64'] });
+  config.appx = {
+    applicationId: 'YouPls', displayName: 'YouPls', backgroundColor: '#312e81', languages: ['en-US', 'ar-SA'],
+    identityName: real ? env.APPX_IDENTITY_NAME : 'YouPls.Test',
+    publisher: real ? env.APPX_PUBLISHER : 'CN=YouPls-Test',
+    publisherDisplayName: real ? env.APPX_PUBLISHER_DISPLAY_NAME : 'YouPls (test build)',
+    artifactName: real ? 'YouPls-${version}-store.${ext}' : 'YouPls-${version}-store-TEST.${ext}'
+  };
+  console.log('Microsoft Store package: ' + (real ? 'Partner Center identity ' + env.APPX_IDENTITY_NAME : 'TEST identity (set the APPX_* repository variables for a Store-ready package)'));
+}
+
 builder.build({ config, publish: 'never' }).then(files => console.log(files.join('\n'))).catch(e => { console.error(e); process.exit(1); });

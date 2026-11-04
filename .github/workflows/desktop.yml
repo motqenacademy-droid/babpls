@@ -40,6 +40,10 @@ jobs:
           AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
           AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
           AZURE_SIGN_PUBLISHER: ${{ secrets.AZURE_SIGN_PUBLISHER }}
+          # Microsoft Store identity from Partner Center (Product identity page); not secret, so repository *variables*
+          APPX_IDENTITY_NAME: ${{ vars.APPX_IDENTITY_NAME }}
+          APPX_PUBLISHER: ${{ vars.APPX_PUBLISHER }}
+          APPX_PUBLISHER_DISPLAY_NAME: ${{ vars.APPX_PUBLISHER_DISPLAY_NAME }}
       - name: Signature report (macOS)
         if: runner.os == 'macOS'
         working-directory: desktop
@@ -68,6 +72,13 @@ jobs:
         run: |
           app=$(ls -d dist/mac*/YouPls.app | head -1)
           "$app/Contents/MacOS/YouPls" --smoke
+      - name: Microsoft Store package (upload this file in Partner Center; it is not attached to the release)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-package
+          path: desktop/dist/*.appx
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: youpls-${{ runner.os }}
@@ -87,6 +98,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: out
+          pattern: youpls-*
           merge-multiple: true
       - name: Create release
         env:

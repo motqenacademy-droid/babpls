@@ -10,6 +10,9 @@ Certificates are issued to a verified legal identity (a person or an organisatio
 
 ## Windows
 
+### Option 0: Microsoft Store (free, recommended)
+Publishing in the Store removes the SmartScreen warning without any certificate. The build already produces the Store package; see [`STORE.md`](STORE.md).
+
 ### Option A: SignPath Foundation (free for open-source projects)
 > **Status:** applied in November 2026 and declined because the project was too new (not enough stars, forks, contributors or independent references). The Foundation invites reapplication once the project has broader public recognition.
 

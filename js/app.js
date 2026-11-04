@@ -454,7 +454,8 @@
     if (!S.current || !S.results[S.current]) S.current = kinds[0];
     const r = S.cmp ? S.cmp : S.results[S.current];
     TABLES.clear();
-    const secs = sections(S.current, r);
+    const rank = { g_final: 0, g_quality: 1, g_data: 2 }; // stable sort so each group heading appears once
+    const secs = sections(S.current, r).map((x, i) => [x, i]).sort((a, b) => ((rank[a[0].group] ?? 3) - (rank[b[0].group] ?? 3)) || a[1] - b[1]).map(x => x[0]);
     if (!S.section || !secs.some(s => s.id === S.section)) S.section = secs[0].id;
     const sec = secs.find(s => s.id === S.section);
     el.innerHTML = `<div class="restabs" role="tablist">${kinds.map(k => `<button role="tab" data-kind="${k}" class="${k === S.current ? 'on' : ''}">${t(TASKS[k].title)}</button>`).join('')}
@@ -994,7 +995,8 @@
   // ------------------------------------------------------------- report
   function exportReport() {
     const r = S.results[S.current]; if (!r) return;
-    const secs = sections(S.current, r);
+    const rank = { g_final: 0, g_quality: 1, g_data: 2 }; // stable sort so each group heading appears once
+    const secs = sections(S.current, r).map((x, i) => [x, i]).sort((a, b) => ((rank[a[0].group] ?? 3) - (rank[b[0].group] ?? 3)) || a[1] - b[1]).map(x => x[0]);
     const css = Array.from(document.styleSheets).map(ss => { try { return Array.from(ss.cssRules).map(x => x.cssText).join('\n'); } catch (e) { return ''; } }).join('\n');
     const body = secs.map(s => `<h2 class="rep">${esc(s.title)}</h2>` + s.html()).join('');
     const html = `<!doctype html><html lang="${S.lang}" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YouPls – ${esc(S.name)}</title><style>${css}\nbody{padding:24px;max-width:1100px;margin:auto;overflow:auto;height:auto}.cardtools,figcaption{display:none}</style></head><body><h1>YouPls · ${esc(S.name)}</h1>${metaLine(r)}${body}<p class="note">${t('generated_by')}</p></body></html>`;
