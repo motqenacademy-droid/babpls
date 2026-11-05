@@ -49,7 +49,7 @@ const OVERLAY_CSS = `
 const CURSOR_SVG = `<svg viewBox="0 0 24 24" width="28" height="28"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 
 async function start(o) {
-  const out = o.out, frames = out + '.frames';
+  const out = o.out, frames = o.frames || out + '.frames'; // o.frames: a private scratch folder (another recording may clean media/)
   fs.rmSync(frames, { recursive: true, force: true }); fs.mkdirSync(frames, { recursive: true });
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: W / ZOOM, height: H / ZOOM }, deviceScaleFactor: ZOOM, locale: o.lang === 'ar' ? 'ar' : 'en-US' });
@@ -74,8 +74,10 @@ async function start(o) {
   // keep the screencast producing frames during static scenes (a 1px heartbeat in a corner)
   await page.evaluate(() => { const d = document.createElement('div'); d.id = 'vo-beat'; d.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;z-index:2147483647;pointer-events:none'; document.body.appendChild(d); let k = 0; setInterval(() => { d.style.background = (k++ % 2) ? 'rgba(0,0,0,.01)' : 'rgba(0,0,0,.02)'; }, 100); });
 
-  const t0 = Date.now(), caps = []; // caption timeline for the .srt file
-  const capOn = text => { const now = (Date.now() - t0) / 1000; if (caps.length && caps[caps.length - 1].end === null) caps[caps.length - 1].end = now; if (text) caps.push({ start: now, end: null, text }); };
+  // caption timeline for the .srt file, on the screencast clock (ev.metadata.timestamp is wall time in seconds since the epoch):
+  // the video's time zero is the first captured frame, so caption times are measured from it too
+  const caps = [], vnow = () => Date.now() / 1000 - (shots.length ? shots[0].t : Date.now() / 1000);
+  const capOn = text => { const now = vnow(); if (caps.length && caps[caps.length - 1].end === null) caps[caps.length - 1].end = now; if (text) caps.push({ start: now, end: null, text }); };
   const R = {
     page, errors, lang: o.lang,
     T: v => (typeof v === 'string' ? v : v[o.lang]),
@@ -106,12 +108,15 @@ async function start(o) {
       recording = false; try { await cdp.send('Page.stopScreencast'); } catch (e) { /* ignore */ }
       const tEnd = shots.length ? shots[shots.length - 1].t + 0.5 : 0;
       await browser.close();
-      // concat list with real durations, then resample to constant 30 fps
-      const list = shots.map((s, i) => `file '${s.f}'\nduration ${Math.max(0.001, ((i + 1 < shots.length ? shots[i + 1].t : tEnd) - s.t)).toFixed(4)}`).join('\n') + `\nfile '${shots[shots.length - 1].f}'\n`;
-      const lf = path.join(frames, 'list.txt'); fs.writeFileSync(lf, list);
-      execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lf, '-vf', 'fps=30,scale=' + W + ':' + H + ':flags=lanczos,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-movflags', '+faststart', out]);
+      // constant 30 fps sequence: output frame k (time k/30 from the first shot) is the latest shot captured at or before
+      // that time. Exact by construction (the concat demuxer rounded each still's duration and made the video drift
+      // several seconds behind the wall clock over a 5-minute recording, so the .srt went out of sync).
+      const seq = path.join(frames, 'seq'); fs.mkdirSync(seq);
+      const T0 = shots[0].t, nOut = Math.max(1, Math.ceil((tEnd - T0) * 30));
+      for (let k = 0, j = 0; k < nOut; k++) { const t = T0 + k / 30; while (j + 1 < shots.length && shots[j + 1].t <= t) j++; fs.symlinkSync(shots[j].f, path.join(seq, String(k).padStart(6, '0') + '.jpg')); }
+      execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', '30', '-i', path.join(seq, '%06d.jpg'), '-vf', 'scale=' + W + ':' + H + ':flags=lanczos,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-r', '30', '-movflags', '+faststart', out]);
       fs.rmSync(frames, { recursive: true, force: true });
-      // subtitles: same text and timing as the burned-in captions (the video starts at the first frame, ≈ t0)
+      // subtitles: same text and timing as the burned-in captions (both measured from the first captured frame)
       capOn(null);
       const ts = v => { const ms = Math.max(0, Math.round(v * 1000)); return new Date(ms).toISOString().slice(11, 23).replace('.', ','); };
       fs.writeFileSync(out.replace(/\.mp4$/, '.srt'), caps.map((c, i) => `${i + 1}\n${ts(c.start)} --> ${ts(c.end)}\n${c.text}\n`).join('\n'));
