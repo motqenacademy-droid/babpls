@@ -1,10 +1,12 @@
-/* YouPls application: data, model, analyses and reports. */
+/* BabPls application: data, model, analyses and reports. */
 (function () {
   'use strict';
   const E = window.YPEngine, C = window.YPCharts, I18N = window.YPI18N;
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = C.esc;
-  const STORE = 'youpls.project.v1', PREF = 'youpls.prefs.v1';
+  const STORE = 'babpls.project.v1', PREF = 'babpls.prefs.v1';
+  // the app was called YouPls before 0.8.0: carry the browser's saved project and preferences over once
+  try { [['youpls.project.v1', STORE], ['youpls.prefs.v1', PREF]].forEach(([o, n]) => { const v = localStorage.getItem(o); if (v !== null && localStorage.getItem(n) === null) localStorage.setItem(n, v); if (v !== null) localStorage.removeItem(o); }); } catch (e) { /* storage unavailable */ }
 
   const S = {
     name: 'Untitled', csv: '', dataName: '', ds: null, desc: null,
@@ -51,7 +53,7 @@
   const csvCell = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const toCSV = (head, rows) => '﻿' + [head].concat(rows).map(r => r.map(csvCell).join(',')).join('\n');
   // ASCII-only file names: some browsers silently replace non-ASCII names with "download"
-  const slug = s => String(s).normalize('NFKD').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'youpls';
+  const slug = s => String(s).normalize('NFKD').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'babpls';
 
   // Tables are registered so their CSV can be exported.
   const TABLES = new Map(); let tableSeq = 0;
@@ -88,7 +90,7 @@
   function syncModel() { if (!S.models.length) S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.models[S.cur].model = editor.model; }
   function projectJSON(full) {
     syncModel();
-    const p = { format: 'youpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
+    const p = { format: 'babpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
     if (full) { // reports are saved in the project file (not in the browser autosave); history entries that are current results are stored as references
       p.results = S.results;
       p.history = S.history.map(h => { const k = Object.keys(S.results).find(q => S.results[q] === h.r); return k ? { id: h.id, label: h.label, ref: k } : h; });
@@ -103,7 +105,8 @@
     }, 400);
   }
   function loadProject(p) {
-    if (!p || p.format !== 'youpls') throw new Error(t('bad_project'));
+    if (!p || (p.format !== 'babpls' && p.format !== 'youpls')) // .youpls.json files from before the rename still open
+      throw new Error(t('bad_project'));
     S.name = p.name || 'Untitled'; $('#pname').value = S.name;
     S.settings = Object.assign({}, E.DEFAULTS, p.settings || {});
     S.results = p.results || {}; S.history = (p.history || []).map(h => (h.ref ? { id: h.id, label: h.label, r: S.results[h.ref] } : h)).filter(h => h.r); S.current = null; S.cmp = null;
@@ -155,7 +158,7 @@
     el.innerHTML = h;
   }
   function welcome() {
-    return `<div class="welcome"><img src="assets/logo.svg" alt="" width="84" height="84"><h1>YouPls</h1><p>${t('tagline')}</p>
+    return `<div class="welcome"><img src="assets/logo.svg" alt="" width="84" height="84"><h1>BabPls</h1><p>${t('tagline')}</p>
       <div class="actions"><button class="primary" data-act="example">${t('load_example')}</button><button data-act="examples">${t('examples_gallery')}</button><button data-act="import">${t('import_csv')}</button><button data-act="open">${t('open_project')}</button><button data-act="covimport">${t('import_cov')}</button></div>
       <ol class="steps"><li>${t('step1')}</li><li>${t('step2')}</li><li>${t('step3')}</li><li>${t('step4')}</li></ol></div>`;
   }
@@ -841,10 +844,10 @@
     const sig = paths.filter(x => x.p < 0.05), ns = paths.filter(x => !(x.p < 0.05));
     if (ar) return `<p>قُيِّم نموذج القياس وفق إرشادات Hair وآخرين (2019). تراوحت التشبعات الخارجية بين ${span(L)}${L.filter(v => v < 0.708).length ? `، وجاء ${L.filter(v => v < 0.708).length} منها دون 0.708` : '، وكلها فوق 0.708'}. وتراوح معامل ألفا كرونباخ بين ${span(rel('alpha'))}، وρA بين ${span(rel('rhoA'))}، والثبات المركب ρc بين ${span(rel('rhoC'))}، ومتوسط التباين المستخلص (AVE) بين ${span(rel('ave'))}. وبلغت أعلى قيمة لنسبة HTMT ${f(hmax)}${isFinite(hiMax) ? `، وأعلى حدّ أعلى لفترة الثقة 95% ${f(hiMax)}` : ''}${hmax < 0.85 ? '، مما يدعم الصدق التمايزي' : ''}.</p>
       <p>وفي النموذج الهيكلي تراوحت قيم VIF الداخلية بين ${span(iv)}. وأظهر الإقلاع الذاتي بـ ${rb.samples} عينة فرعية أن ${sig.length} من ${paths.length} مسارات دالة إحصائياً عند 0.05: ${sig.length ? pathTxt.filter((_, q) => paths[q].p < 0.05).join('؛ ') : '–'}.${ns.length ? ` ولم تكن المسارات التالية دالة: ${pathTxt.filter((_, q) => !(paths[q].p < 0.05)).join('؛ ')}.` : ''} ويفسّر النموذج من تباين المتغيرات التابعة: ${r2s.join('، ')}.</p>
-      <p class="note">استُعمل برنامج YouPls (الإصدار ${window.YPDocs.version}) بمخطط ترجيح ${t('opt_' + r.settings.scheme)} و${rb.samples} عينة إقلاع (${t('opt_' + rb.ci)}، ${t('opt_' + rb.test)}).</p>`;
+      <p class="note">استُعمل برنامج BabPls (الإصدار ${window.YPDocs.version}) بمخطط ترجيح ${t('opt_' + r.settings.scheme)} و${rb.samples} عينة إقلاع (${t('opt_' + rb.ci)}، ${t('opt_' + rb.test)}).</p>`;
     return `<p>The measurement model was assessed following Hair et al. (2019). Outer loadings ranged from ${span(L)}${L.filter(v => v < 0.708).length ? `, with ${L.filter(v => v < 0.708).length} below 0.708` : ', all above 0.708'}. Cronbach’s alpha ranged from ${span(rel('alpha'))}, ρA from ${span(rel('rhoA'))} and composite reliability ρc from ${span(rel('rhoC'))}; the average variance extracted (AVE) ranged from ${span(rel('ave'))}. The highest HTMT ratio was ${f(hmax)}${isFinite(hiMax) ? ` and the highest upper bound of the 95% confidence intervals was ${f(hiMax)}` : ''}${hmax < 0.85 ? ', supporting discriminant validity' : ''}.</p>
       <p>In the structural model, inner VIF values ranged from ${span(iv)}. Bootstrapping with ${rb.samples} subsamples showed ${sig.length} of ${paths.length} paths to be significant at the 5% level: ${sig.length ? pathTxt.filter((_, q) => paths[q].p < 0.05).join('; ') : '–'}.${ns.length ? ` The following paths were not significant: ${pathTxt.filter((_, q) => !(paths[q].p < 0.05)).join('; ')}.` : ''} The model explains ${r2s.join(', ')}.</p>
-      <p class="note">Analysis performed with YouPls (version ${window.YPDocs.version}) using the ${t('opt_' + r.settings.scheme).toLowerCase()} weighting scheme and ${rb.samples} bootstrap subsamples (${t('opt_' + rb.ci).toLowerCase()} confidence intervals, ${t('opt_' + rb.test).toLowerCase()} test).</p>`;
+      <p class="note">Analysis performed with BabPls (version ${window.YPDocs.version}) using the ${t('opt_' + r.settings.scheme).toLowerCase()} weighting scheme and ${rb.samples} bootstrap subsamples (${t('opt_' + rb.ci).toLowerCase()} confidence intervals, ${t('opt_' + rb.test).toLowerCase()} test).</p>`;
   }
 
   // ------------------------------------------------------- Excel export of all results
@@ -1000,7 +1003,7 @@
     const secs = sections(S.current, r).map((x, i) => [x, i]).sort((a, b) => ((rank[a[0].group] ?? 3) - (rank[b[0].group] ?? 3)) || a[1] - b[1]).map(x => x[0]);
     const css = Array.from(document.styleSheets).map(ss => { try { return Array.from(ss.cssRules).map(x => x.cssText).join('\n'); } catch (e) { return ''; } }).join('\n');
     const body = secs.map(s => `<h2 class="rep">${esc(s.title)}</h2>` + s.html()).join('');
-    const html = `<!doctype html><html lang="${S.lang}" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YouPls – ${esc(S.name)}</title><style>${css}\nbody{padding:24px;max-width:1100px;margin:auto;overflow:auto;height:auto}.cardtools,figcaption{display:none}</style></head><body><h1>YouPls · ${esc(S.name)}</h1>${metaLine(r)}${body}<p class="note">${t('generated_by')}</p></body></html>`;
+    const html = `<!doctype html><html lang="${S.lang}" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BabPls – ${esc(S.name)}</title><style>${css}\nbody{padding:24px;max-width:1100px;margin:auto;overflow:auto;height:auto}.cardtools,figcaption{display:none}</style></head><body><h1>BabPls · ${esc(S.name)}</h1>${metaLine(r)}${body}<p class="note">${t('generated_by')}</p></body></html>`;
     download(slug(S.name) + '_' + S.current + '.html', html, 'text/html;charset=utf-8');
     renderResults();
   }
@@ -1189,7 +1192,7 @@
     const nav = `<nav class="secnav"><h4>${t('user_guide')}</h4>${D.guide.map(g => `<button data-help="${g.id}" class="${S.help === g.id ? 'on' : ''}">${esc(g[L].title)}</button>`).join('')}
       <h4>${t('examples')}</h4><button data-help="examples" class="${S.help === 'examples' ? 'on' : ''}">${t('examples_all')}</button>${(window.YP_EXAMPLES || []).map(ex => `<button data-help="ex:${ex.id}" class="${S.help === 'ex:' + ex.id ? 'on' : ''}">${esc(ex.title[L])}</button>`).join('')}
       <h4>${t('methods_refs')}</h4><button data-help="methods" class="${S.help === 'methods' ? 'on' : ''}">${t('methods')}</button><button data-help="biblio" class="${S.help === 'biblio' ? 'on' : ''}">${t('bibliography')}</button>
-      <h4>YouPls</h4><button data-help="about" class="${S.help === 'about' ? 'on' : ''}">${t('about')}</button></nav>`;
+      <h4>BabPls</h4><button data-help="about" class="${S.help === 'about' ? 'on' : ''}">${t('about')}</button></nav>`;
     // short author-year label from an APA entry: "Hair et al., 2022"
     const cite = k => {
       const r = D.refs[k].replace(/<[^>]+>/g, ''), yr = (r.match(/\((\d{4}[a-z]?)\)/) || [])[1] || '';
@@ -1202,7 +1205,7 @@
     else if (S.help === 'biblio') body = `<h2>${t('bibliography')}</h2><ol class="biblio">${Object.keys(D.refs).sort().map(k => `<li id="ref-${k}" dir="ltr">${D.refs[k]}</li>`).join('')}</ol>`;
     else if (S.help === 'examples') body = examplesIndex();
     else if (S.help.startsWith('ex:') && (window.YP_EXAMPLES || []).some(x => 'ex:' + x.id === S.help)) body = exampleHTML(window.YP_EXAMPLES.find(x => 'ex:' + x.id === S.help));
-    else if (S.help === 'about') body = `<div class="about"><img src="assets/logo.svg" alt="" width="64" height="64"><h2>YouPls ${D.version}</h2>${D.about[L].split('{v}').join(D.version)}</div>`;
+    else if (S.help === 'about') body = `<div class="about"><img src="assets/logo.svg" alt="" width="64" height="64"><h2>BabPls ${D.version}</h2>${D.about[L].split('{v}').join(D.version)}</div>`;
     else { const g = D.guide.find(x => x.id === S.help) || D.guide[0]; body = `<h2>${esc(g[L].title)}</h2><div class="guide">${g[L].html}</div>`; }
     el.innerHTML = `<div class="resbody">${nav}<div class="secout helpout" id="helpout">${body}</div></div>`;
   }
@@ -1378,7 +1381,7 @@
         case 'examples': S.help = 'examples'; setView('help'); break;
         case 'import': $('#csvfile').click(); break;
         case 'open': $('#projfile').click(); break;
-        case 'save': download(slug(S.name) + '.youpls.json', JSON.stringify(projectJSON(true)), 'application/json'); break;
+        case 'save': download(slug(S.name) + '.babpls.json', JSON.stringify(projectJSON(true)), 'application/json'); break;
         case 'new': if (confirm(t('confirm_new'))) { S.name = 'Untitled'; $('#pname').value = S.name; S.csv = ''; S.ds = null; S.results = {}; S.history = []; S.fromMatrix = null; editor.history = []; editor.setModel(null); S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.cur = 0; renderModelTabs(); try { localStorage.removeItem(STORE); } catch (e) { } setView('data'); } break;
         case 'undo': editor.undo(); break;
         case 'redo': editor.redo(); break;
@@ -1445,5 +1448,5 @@
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
   if (!restored) { editor.setModel(null); refreshAll(); }
   if (restored && editor.model.constructs.length) setView('model');
-  window.YouPls = { S, editor, run: openRun };
+  window.BabPls = { S, editor, run: openRun };
 })();

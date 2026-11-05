@@ -1,4 +1,4 @@
-/* YouPls charts: tiny dependency-free SVG chart builders. Each returns an SVG string. */
+/* BabPls charts: tiny dependency-free SVG chart builders. Each returns an SVG string. */
 (function (root) {
   'use strict';
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

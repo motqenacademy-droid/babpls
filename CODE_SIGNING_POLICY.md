@@ -4,7 +4,7 @@
 The rules below apply to every signed release as soon as a signing certificate is in place (see `SIGNING.md`).
 
 ## What is signed
-Only the YouPls desktop programs built from this repository: `YouPls-Setup-<version>.exe` (installer) and `YouPls-Portable-<version>.exe`.
+Only the BabPls desktop programs built from this repository: `BabPls-Setup-<version>.exe` (installer) and `BabPls-Portable-<version>.exe`.
 They are built by GitHub Actions (`.github/workflows/desktop.yml`) on GitHub-hosted runners, directly from the public source code at
 <https://github.com/motqenacademy-droid/youpls>. No binary is built or signed on a personal computer.
 
@@ -24,7 +24,7 @@ All team members use multi-factor authentication. Changes by outside contributor
 4. The signed files are published on the [releases page](https://github.com/motqenacademy-droid/youpls/releases).
 
 ## Licence and components
-YouPls is released under the MIT licence (OSI-approved), with no commercial dual licensing. Bundled third-party components are open source:
+BabPls is released under the MIT licence (OSI-approved), with no commercial dual licensing. Bundled third-party components are open source:
 - Electron (MIT; includes Chromium, BSD-style licences);
 - electron-builder (MIT).
 
@@ -32,7 +32,7 @@ The application contains no proprietary components.
 
 ## Privacy statement
 This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
-YouPls has no accounts, telemetry, analytics or tracking. Data and projects stay on the user's computer. Network access happens only when the user opens a link, for example to the documentation or the releases page.
+BabPls has no accounts, telemetry, analytics or tracking. Data and projects stay on the user's computer. Network access happens only when the user opens a link, for example to the documentation or the releases page.
 
 ## Reporting
 Report security issues or misuse of the signature through the [issue tracker](https://github.com/motqenacademy-droid/youpls/issues).

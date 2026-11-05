@@ -1,4 +1,4 @@
-/* YouPls model editor: SVG path-model canvas. */
+/* BabPls model editor: SVG path-model canvas. */
 (function (root) {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';

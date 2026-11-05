@@ -31,11 +31,11 @@ if (process.platform === 'win32') {
   const real = has('APPX_IDENTITY_NAME', 'APPX_PUBLISHER', 'APPX_PUBLISHER_DISPLAY_NAME');
   config.win.target.push({ target: 'appx', arch: ['x64'] });
   config.appx = {
-    applicationId: 'YouPls', displayName: 'YouPls', backgroundColor: '#312e81', languages: ['en-US', 'ar-SA'],
-    identityName: real ? env.APPX_IDENTITY_NAME : 'YouPls.Test',
-    publisher: real ? env.APPX_PUBLISHER : 'CN=YouPls-Test',
-    publisherDisplayName: real ? env.APPX_PUBLISHER_DISPLAY_NAME : 'YouPls (test build)',
-    artifactName: real ? 'YouPls-${version}-store.${ext}' : 'YouPls-${version}-store-TEST.${ext}'
+    applicationId: 'BabPls', displayName: 'BabPls', backgroundColor: '#312e81', languages: ['en-US', 'ar-SA'],
+    identityName: real ? env.APPX_IDENTITY_NAME : 'BabPls.Test',
+    publisher: real ? env.APPX_PUBLISHER : 'CN=BabPls-Test',
+    publisherDisplayName: real ? env.APPX_PUBLISHER_DISPLAY_NAME : 'BabPls (test build)',
+    artifactName: real ? 'BabPls-${version}-store.${ext}' : 'BabPls-${version}-store-TEST.${ext}'
   };
   console.log('Microsoft Store package: ' + (real ? 'Partner Center identity ' + env.APPX_IDENTITY_NAME : 'TEST identity (set the APPX_* repository variables for a Store-ready package)'));
 }

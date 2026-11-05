@@ -1,5 +1,5 @@
 /*
- * YouPls advanced analyses II: GSCA, logistic regression, CVPAT, bootstrap-based multigroup tests
+ * BabPls advanced analyses II: GSCA, logistic regression, CVPAT, bootstrap-based multigroup tests
  * (PLS-MGA, parametric, Welch-Satterthwaite) and sample-size planning. Load after engine.js and advanced.js.
  */
 (function (root) {

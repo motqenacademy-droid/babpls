@@ -1,4 +1,4 @@
-/* YouPls – layout and theme. Colours are tokens so light/dark switch in one place. */
+/* BabPls – layout and theme. Colours are tokens so light/dark switch in one place. */
 :root {
   --bg: #f6f7fb; --bg2: #eef0f6; --panel: #ffffff; --ink: #1c2333; --muted: #6b7280; --line: #d5d9e3; --grid: #eceff5;
   --accent: #1d4ed8; --accent-ink: #fff; --sel: #f59e0b;

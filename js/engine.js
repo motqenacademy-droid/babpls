@@ -1,5 +1,5 @@
 /*
- * YouPls engine — PLS-SEM and companion analyses in plain JavaScript.
+ * BabPls engine — PLS-SEM and companion analyses in plain JavaScript.
  * Runs in the browser (window / Web Worker) and in Node (module.exports).
  * No dependencies. MIT licence.
  *

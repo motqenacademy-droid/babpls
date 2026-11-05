@@ -1,9 +1,9 @@
-/* YouPls service worker: makes the installed web app (PWA) work offline.
+/* BabPls service worker: makes the installed web app (PWA) work offline.
  * Every file the app needs is precached; responses are served from the cache and refreshed in the background.
  * Bump VERSION with every release (tests/pwa.test.js checks it matches package.json). */
 'use strict';
-const VERSION = '0.7.0';
-const CACHE = 'youpls-' + VERSION;
+const VERSION = '0.8.0';
+const CACHE = 'babpls-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/engine.js', 'js/advanced.js', 'js/advanced2.js', 'js/advanced3.js', 'js/io.js', 'js/charts.js', 'js/editor.js',
@@ -14,7 +14,7 @@ const FILES = [
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('youpls-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => (k.startsWith('babpls-') || k.startsWith('youpls-')) && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   const req = e.request;

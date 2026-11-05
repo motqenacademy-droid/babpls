@@ -1,22 +1,22 @@
-# Publishing YouPls in the Microsoft Store
+# Publishing BabPls in the Microsoft Store
 
 Store installs show **no SmartScreen warning**: Microsoft signs the package and distributes it. Individual developer accounts are free.
 
 ## 1. One-time setup (owner)
 1. Sign in at <https://partner.microsoft.com/dashboard/registration> with a personal Microsoft account and register as an **Individual** developer (free).
-2. **Apps and games → New product → MSIX or PWA app**. Reserve the name **YouPls**. If it is taken, use e.g. *YouPls – PLS-SEM*.
+2. **Apps and games → New product → MSIX or PWA app**. Reserve the name **BabPls**. If it is taken, use e.g. *BabPls – PLS-SEM*.
 3. Open **Product management → Product identity** and copy three values into GitHub. Go to *Settings → Secrets and variables → Actions → **Variables** tab → New repository variable*. These values are public identifiers, not secrets.
 
 | GitHub variable | Partner Center field | Example |
 |---|---|---|
-| `APPX_IDENTITY_NAME` | Package/Identity/Name | `12345AhmedYoussef.YouPls` |
+| `APPX_IDENTITY_NAME` | Package/Identity/Name | `12345AhmedYoussef.BabPls` |
 | `APPX_PUBLISHER` | Package/Identity/Publisher | `CN=ABCD1234-...` |
 | `APPX_PUBLISHER_DISPLAY_NAME` | Package/Properties/PublisherDisplayName | `Ahmed Youssef` |
 
-4. Run **Actions → desktop → Run workflow**. Download the artifact **store-package** from the run summary: `YouPls-<version>-store.appx`. Without the variables, the workflow produces a `…-store-TEST.appx`, which proves the build works but cannot be uploaded.
+4. Run **Actions → desktop → Run workflow**. Download the artifact **store-package** from the run summary: `BabPls-<version>-store.appx`. Without the variables, the workflow produces a `…-store-TEST.appx`, which proves the build works but cannot be uploaded.
 
 ## 2. Submission (each release)
-**Packages:** upload `YouPls-<version>-store.appx`. It is unsigned on purpose; the Store signs it.
+**Packages:** upload `BabPls-<version>-store.appx`. It is unsigned on purpose; the Store signs it.
 
 **Pricing and availability:** Free · all markets.
 
@@ -28,21 +28,21 @@ Store installs show **no SmartScreen warning**: Microsoft signs the package and 
 - **Does this product access, collect, or transmit personal information?** **No.**
 
 **Restricted capability `runFullTrust`:** Partner Center asks why the app needs it. Answer:
-> YouPls is a desktop (Electron/Win32) application packaged with MSIX. runFullTrust is required for all packaged desktop applications. The app does not access personal data or the network except when the user opens a link.
+> BabPls is a desktop (Electron/Win32) application packaged with MSIX. runFullTrust is required for all packaged desktop applications. The app does not access personal data or the network except when the user opens a link.
 
-**Age ratings:** complete the IARC questionnaire. YouPls has no violence, no user interaction or chat, no purchases and no data sharing, so it is usually rated *3+ / Everyone*.
+**Age ratings:** complete the IARC questionnaire. BabPls has no violence, no user interaction or chat, no purchases and no data sharing, so it is usually rated *3+ / Everyone*.
 
 **Store listings:** add **English (United States)** and **Arabic (Saudi Arabia)**. Both are declared in the package, so both need a listing. Use the texts below. Screenshots (1920×1080) are in [`docs/store/screenshots`](docs/store/screenshots): `en-*.png` for English and `ar-*.png` for Arabic. Logos are generated from `assets/logo.svg` (300×300: `assets/icon-512.png`).
 
 ---
 
 ### English listing
-**Product name:** YouPls
+**Product name:** BabPls
 
 **Short description:** Free structural equation modeling (PLS-SEM and CB-SEM) in English and Arabic: draw your model, run the analysis and get publication-ready results.
 
 **Description:**
-YouPls is free, open-source software for structural equation modeling, for researchers, graduate students and teachers.
+BabPls is free, open-source software for structural equation modeling, for researchers, graduate students and teachers.
 
 Import your data from CSV, Excel or SPSS. Draw the path model on the canvas, then run the analyses reported in theses and journal articles:
 - PLS-SEM with bootstrapping;
@@ -56,7 +56,7 @@ Import your data from CSV, Excel or SPSS. Draw the path model on the canvas, the
 - CB-SEM and CFA with fit indices, modification indices and measurement invariance;
 - GSCA, PROCESS, and linear and logistic regression.
 
-YouPls writes an APA-style results section for you and checks your model against published reporting guidelines. It exports every table to Excel and every chart or model diagram as PNG or SVG. Each statistic comes with its formula and scholarly source, and the statistical engine is tested against independent reference implementations.
+BabPls writes an APA-style results section for you and checks your model against published reporting guidelines. It exports every table to Excel and every chart or model diagram as PNG or SVG. Each statistic comes with its formula and scholarly source, and the statistical engine is tested against independent reference implementations.
 
 Your data stay on your computer: no account, no tracking, no data collection.
 
@@ -76,17 +76,17 @@ Your data stay on your computer: no account, no tracking, no data collection.
 
 **Keywords:** PLS-SEM, SEM, structural equation modeling, statistics, CB-SEM, research, SmartPLS alternative
 
-**Copyright:** © 2026 Dr. Ahmed Youssef and YouPls contributors · MIT licence
+**Copyright:** © 2026 Dr. Ahmed Youssef and BabPls contributors · MIT licence
 
 ---
 
 ### Arabic listing (العربية)
-**اسم المنتج:** YouPls
+**اسم المنتج:** BabPls
 
 **وصف قصير:** نمذجة المعادلات الهيكلية (PLS-SEM وCB-SEM) مجاناً بالعربية والإنجليزية: ارسم نموذجك، وشغّل التحليل، واحصل على نتائج جاهزة للنشر.
 
 **الوصف:**
-YouPls برنامج مجاني مفتوح المصدر لنمذجة المعادلات الهيكلية، موجّه إلى الباحثين وطلاب الدراسات العليا والأساتذة.
+BabPls برنامج مجاني مفتوح المصدر لنمذجة المعادلات الهيكلية، موجّه إلى الباحثين وطلاب الدراسات العليا والأساتذة.
 
 استورد بياناتك من CSV أو Excel أو SPSS، وارسم نموذج المسارات على اللوحة، ثم شغّل التحليلات المطلوبة في الرسائل العلمية والمجلات المحكَّمة:
 - PLS-SEM مع الإقلاع الذاتي؛
@@ -100,7 +100,7 @@ YouPls برنامج مجاني مفتوح المصدر لنمذجة المعاد
 - CB-SEM والتحليل العاملي التوكيدي مع مؤشرات المطابقة والتعديل وثبات القياس؛
 - GSCA وPROCESS، والانحدار الخطي واللوجستي.
 
-يكتب YouPls فقرة النتائج بأسلوب APA، ويقيّم نموذجك وفق إرشادات كتابة التقارير المنشورة. ويصدّر كل الجداول إلى Excel، وكل الرسوم ومخطط النموذج بصيغتي PNG وSVG. ولكل إحصاءة صيغتها ومصدرها العلمي داخل البرنامج، ومحرّكه الإحصائي مختبَر مقابل تنفيذات مرجعية مستقلة.
+يكتب BabPls فقرة النتائج بأسلوب APA، ويقيّم نموذجك وفق إرشادات كتابة التقارير المنشورة. ويصدّر كل الجداول إلى Excel، وكل الرسوم ومخطط النموذج بصيغتي PNG وSVG. ولكل إحصاءة صيغتها ومصدرها العلمي داخل البرنامج، ومحرّكه الإحصائي مختبَر مقابل تنفيذات مرجعية مستقلة.
 
 بياناتك تبقى على جهازك: لا حساب، ولا تتبّع، ولا جمع بيانات.
 

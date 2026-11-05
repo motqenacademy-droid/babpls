@@ -1,5 +1,5 @@
 /*
- * YouPls example gallery: one synthetic dataset per family of analyses, with bilingual guides on how to run
+ * BabPls example gallery: one synthetic dataset per family of analyses, with bilingual guides on how to run
  * each analysis and how to read its output. The data come from tools/make_examples.js (embedded in
  * js/example-data.js); every number quoted below is checked by tests/examples.test.js.
  * Each analysis entry: kind (TASKS key in app.js), model (index into the example's models), preset (values of the
@@ -316,7 +316,7 @@
       title: { ar: 'مصفوفة ارتباطات منشورة (CB-SEM من مصفوفة)', en: 'A published correlation matrix (CB-SEM from a matrix)' },
       story: {
         ar: 'كثيراً ما تنشر الأبحاث مصفوفة الارتباطات والانحرافات المعيارية فقط. هذا الملف مصفوفة لتسعة اختبارات قدرات (n = 301): بصرية ولفظية وسرعة، مع مسارين: القدرة البصرية واللفظية ← السرعة. يولّد البرنامج بيانات تعيد إنتاج المصفوفة تماماً، فتطابق تقديرات CB-SEM وPLS ما تُعطيه البيانات الأصلية.',
-        en: 'Papers often publish only a correlation matrix and standard deviations. This file is the matrix of nine ability tests (n = 301): visual, verbal (textual) and speed, with two paths: Visual and Textual → Speed. YouPls generates data that reproduce the matrix exactly, so CB-SEM and PLS estimates equal those from the original data.'
+        en: 'Papers often publish only a correlation matrix and standard deviations. This file is the matrix of nine ability tests (n = 301): visual, verbal (textual) and speed, with two paths: Visual and Textual → Speed. BabPls generates data that reproduce the matrix exactly, so CB-SEM and PLS estimates equal those from the original data.'
       },
       vars: [['visual_1…visual_3', 'اختبارات بصرية مكانية', 'Visual-spatial tests'], ['text_1…text_3', 'اختبارات لفظية', 'Verbal tests'], ['speed_1…speed_3', 'اختبارات سرعة', 'Speed tests'], ['sd', 'سطر الانحرافات المعيارية', 'Row of standard deviations']],
       analyses: [{

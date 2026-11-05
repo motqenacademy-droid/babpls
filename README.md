@@ -1,11 +1,11 @@
-# YouPls
+# BabPls
 
-<img src="assets/logo.svg" alt="YouPls" width="96" align="right">
+<img src="assets/logo.svg" alt="BabPls" width="96" align="right">
 
 **برنامج مجاني مفتوح المصدر (MIT) لنمذجة المعادلات الهيكلية بالمربعات الصغرى الجزئية (PLS-SEM)، يعمل في المتصفح بلا تثبيت ولا خادم، وبياناتك لا تغادر جهازك.**
 واجهته بالعربية والإنجليزية، وفيه تحليلات PLS-SEM الشائعة ورسوماتها.
 
-> YouPls مشروع مستقل، لا صلة له بشركة SmartPLS GmbH ولا ببرنامجها. الاسم «SmartPLS» يُذكر هنا للمقارنة فقط.
+> BabPls مشروع مستقل، لا صلة له بشركة SmartPLS GmbH ولا ببرنامجها. الاسم «SmartPLS» يُذكر هنا للمقارنة فقط.
 
 [English below ↓](#english)
 
@@ -32,7 +32,7 @@
 
 ## التثبيت دون تحذيرات أمنية
 
-افتح الموقع في Edge أو Chrome واضغط **⤓ ثبّت التطبيق**: يصبح YouPls تطبيقاً على سطح المكتب يعمل دون إنترنت، بلا ملفات تنفيذية ولا تحذيرات SmartScreen أو Gatekeeper. أما البرامج القابلة للتنزيل فتُوقَّع تلقائياً بمجرد إضافة حساب توقيع إلى المستودع؛ الخطوات في [`SIGNING.md`](SIGNING.md).
+افتح الموقع في Edge أو Chrome واضغط **⤓ ثبّت التطبيق**: يصبح BabPls تطبيقاً على سطح المكتب يعمل دون إنترنت، بلا ملفات تنفيذية ولا تحذيرات SmartScreen أو Gatekeeper. أما البرامج القابلة للتنزيل فتُوقَّع تلقائياً بمجرد إضافة حساب توقيع إلى المستودع؛ الخطوات في [`SIGNING.md`](SIGNING.md).
 
 ## الجديد في 0.5: تغطية كل مزايا SmartPLS 4 Enterprise البرمجية
 
@@ -69,7 +69,7 @@
 2. **النموذج:** أداة «متغير كامن» ثم انقر على اللوحة، واسحب المؤشرات من القائمة إليه (أو إلى مساحة فارغة فيُنشأ متغير باسم بادئتها)، أو زرّ «أنشئ المتغيرات الكامنة من بادئات الأسماء» لأسماء مثل `sat_1, sat_2`. أداة «مسار»: انقر المصدر ثم الهدف. اختر لكل متغير: انعكاسي (Mode A) أو تكويني (Mode B). للتعديل (Moderation) حدّد مساراً ثم «أضف أثراً معدِّلاً». تراجع/إعادة (Ctrl+Z / Ctrl+Y)، ترتيب تلقائي، تكبير، تصدير صورة SVG.
 3. **احسب:** من قائمة «احسب». تظهر القيم على النموذج نفسه (معاملات المسار و p في الإقلاع الذاتي، وR² داخل المتغيرات، والتشبعات على الأسهم).
 4. **النتائج:** كل جدول يُنزَّل CSV أو يُنسخ للصقه في Excel، وكل رسم يُنزَّل SVG أو PNG، والتقرير كاملاً HTML (يُطبع PDF من المتصفح).
-5. **الحفظ:** يُحفظ المشروع تلقائياً في المتصفح، و«حفظ» ينزّل ملف `.youpls.json` فيه البيانات والنموذج معاً.
+5. **الحفظ:** يُحفظ المشروع تلقائياً في المتصفح، و«حفظ» ينزّل ملف `.babpls.json` فيه البيانات والنموذج معاً.
 
 ## التحليلات المتاحة
 
@@ -150,9 +150,9 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 <a id="english"></a>
 ## English
 
-**YouPls** is a free, open-source (MIT) PLS-SEM application that runs entirely in the browser — no installation, no server, your data never leave your machine. Arabic and English UI.
+**BabPls** is a free, open-source (MIT) PLS-SEM application that runs entirely in the browser — no installation, no server, your data never leave your machine. Arabic and English UI.
 
-> YouPls is an independent project and is not affiliated with SmartPLS GmbH. "SmartPLS" is mentioned for comparison only.
+> BabPls is an independent project and is not affiliated with SmartPLS GmbH. "SmartPLS" is mentioned for comparison only.
 
 **Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
 
@@ -168,7 +168,7 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 
 **New in 0.2:** appearance presets and full control of fonts, colours, shapes, sizes and arrow styles (whole diagram or single elements), chart palettes (incl. colour-blind safe and greyscale), high-resolution PNG/SVG model export; a bilingual user guide, a methods page with the formula and APA references for every statistic (45 sources), 📖 links from every results table, and an About page with citation info.
 
-**Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.youpls.json` (data + model).
+**Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.babpls.json` (data + model).
 
 **Analyses:** PLS-SEM (path/factor/centroid weighting; loadings, weights, path coefficients, total/indirect/specific indirect effects, R², adjusted R², f², LV scores) · quality criteria (Cronbach's α, ρA, ρc, AVE, Fornell-Larcker, HTMT, cross-loadings, outer/inner VIF, SRMR, d_ULS, d_G, χ², NFI for saturated and estimated model, AIC/BIC/HQ) · consistent PLS (PLSc) · bootstrapping (percentile or BCa CIs, one/two-tailed, distribution histograms, CI plots) · blindfolding Q² · PLSpredict (Q²predict, RMSE, MAE vs LM benchmark) · IPMA (constructs and indicators) · MGA permutation test with MICOM steps 2–3 · two-stage moderation with simple-slope plots · NCA (CE-FDH, permutation test, bottleneck tables) · OLS regression · higher-order constructs via repeated indicators.
 

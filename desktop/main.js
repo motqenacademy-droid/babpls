@@ -1,4 +1,4 @@
-// YouPls desktop: the same web app, packaged with Electron so it runs offline as a normal program.
+// BabPls desktop: the same web app, packaged with Electron so it runs offline as a normal program.
 'use strict';
 const { app, BrowserWindow, protocol, net, shell, Menu } = require('electron');
 const path = require('path');
@@ -10,11 +10,11 @@ const ROOT = path.join(__dirname, 'app');
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1440, height: 920, minWidth: 900, minHeight: 600, title: 'YouPls', backgroundColor: '#f6f7fb',
+    width: 1440, height: 920, minWidth: 900, minHeight: 600, title: 'BabPls', backgroundColor: '#f6f7fb',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false }
   });
-  win.loadURL('app://youpls/index.html');
+  win.loadURL('app://youpls/index.html'); // host kept from the old name: storage is per origin, so saved work survives the rename
   // links to the web (docs, GitHub) open in the user's browser, never inside the app
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('app://')) { e.preventDefault(); if (/^https?:\/\//.test(url)) shell.openExternal(url); } });
@@ -37,8 +37,8 @@ function smoke(win) {
           w.onerror = e => bad(e.message || 'worker error');
           w.postMessage({ id: 1, task: 'cbsem', ds, model: ex.model, settings: {}, opts: {} });
         });
-        localStorage.setItem('youpls.smoke', '1');
-        return { title: document.title, ui: !!window.YouPls, plsN: pls.n, cbsemCFI: cb.fit.cfi, storage: localStorage.getItem('youpls.smoke') };
+        localStorage.setItem('babpls.smoke', '1');
+        return { title: document.title, ui: !!window.BabPls, plsN: pls.n, cbsemCFI: cb.fit.cfi, storage: localStorage.getItem('babpls.smoke') };
       })()`);
       console.log('SMOKE OK', JSON.stringify(r));
       app.exit(r.ui && r.plsN > 0 && r.cbsemCFI > 0 && r.storage === '1' ? 0 : 1);

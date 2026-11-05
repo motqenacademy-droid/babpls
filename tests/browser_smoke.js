@@ -3,7 +3,7 @@
 // Loads the example, runs every analysis, visits every result section and fails on any JS error.
 'use strict';
 const { chromium } = require('playwright');
-const URL = process.env.YOUPLS_URL || 'http://127.0.0.1:8765/index.html';
+const URL = process.env.BABPLS_URL || 'http://127.0.0.1:8765/index.html';
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   const errs = [];

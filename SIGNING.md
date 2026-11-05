@@ -1,8 +1,8 @@
-# Code signing YouPls
+# Code signing BabPls
 
-**Goal:** Windows and macOS should open the downloaded YouPls programs without a security warning.
+**Goal:** Windows and macOS should open the downloaded BabPls programs without a security warning.
 
-Users who install YouPls from the website (PWA: Edge or Chrome → *Install app*) never see a warning, so that route needs nothing below.
+Users who install BabPls from the website (PWA: Edge or Chrome → *Install app*) never see a warning, so that route needs nothing below.
 
 The release workflow (`.github/workflows/desktop.yml` → `desktop/build.js`) signs **automatically** as soon as the secrets below exist in the repository. Add them under *Settings → Secrets and variables → Actions → New repository secret*, then run *Actions → desktop → Run workflow*. Until then, macOS builds are ad-hoc signed and Windows builds are unsigned.
 
@@ -16,7 +16,7 @@ Publishing in the Store removes the SmartScreen warning without any certificate.
 ### Option A: SignPath Foundation (free for open-source projects)
 > **Status:** applied in November 2026 and declined because the project was too new (not enough stars, forks, contributors or independent references). The Foundation invites reapplication once the project has broader public recognition.
 
-- Apply at <https://signpath.org/apply.html>. The requirements include an OSI-approved licence (YouPls uses MIT), a public repository, and builds made by CI from that repository (already the case).
+- Apply at <https://signpath.org/apply.html>. The requirements include an OSI-approved licence (BabPls uses MIT), a public repository, and builds made by CI from that repository (already the case).
 - After approval, SignPath signs the artifacts produced by the GitHub workflow. Add the signing step with the values SignPath provides; their demo is at <https://github.com/SignPath/github-actions-demo>.
 - The certificate is issued to the SignPath Foundation on behalf of the project.
 

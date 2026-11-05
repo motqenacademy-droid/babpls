@@ -1,4 +1,4 @@
-/* Runs heavy YouPls analyses off the main thread. */
+/* Runs heavy BabPls analyses off the main thread. */
 importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;

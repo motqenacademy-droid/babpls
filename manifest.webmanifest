@@ -1,6 +1,6 @@
 {
-  "name": "YouPls – PLS-SEM & CB-SEM",
-  "short_name": "YouPls",
+  "name": "BabPls – PLS-SEM & CB-SEM",
+  "short_name": "BabPls",
   "description": "Free, open-source PLS-SEM and CB-SEM software. Works offline.",
   "id": "./",
   "start_url": "./index.html",
@@ -18,6 +18,6 @@
     { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
   ],
   "file_handlers": [
-    { "action": "./index.html", "accept": { "application/json": [".youpls.json"], "text/csv": [".csv"] } }
+    { "action": "./index.html", "accept": { "application/json": [".babpls.json", ".youpls.json"], "text/csv": [".csv"] } }
   ]
 }

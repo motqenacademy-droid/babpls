@@ -1,4 +1,4 @@
-// Run: node --test youpls/tests   (Node 18+)
+// Run: node --test tests   (Node 18+)
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');

@@ -48,7 +48,7 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: desktop
         run: |
-          for app in dist/mac*/YouPls.app; do codesign --verify --deep --strict "$app" && codesign -dv "$app" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" ; done
+          for app in dist/mac*/BabPls.app; do codesign --verify --deep --strict "$app" && codesign -dv "$app" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" ; done
       - name: Signature report (Windows)
         if: runner.os == 'Windows'
         working-directory: desktop
@@ -64,14 +64,14 @@ jobs:
         working-directory: desktop
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "dist/win-unpacked/YouPls.exe" -ArgumentList "--smoke" -Wait -PassThru -NoNewWindow
+          $p = Start-Process -FilePath "dist/win-unpacked/BabPls.exe" -ArgumentList "--smoke" -Wait -PassThru -NoNewWindow
           if ($p.ExitCode -ne 0) { throw "smoke test failed: $($p.ExitCode)" }
       - name: Smoke test (macOS)
         if: runner.os == 'macOS'
         working-directory: desktop
         run: |
-          app=$(ls -d dist/mac*/YouPls.app | head -1)
-          "$app/Contents/MacOS/YouPls" --smoke
+          app=$(ls -d dist/mac*/BabPls.app | head -1)
+          "$app/Contents/MacOS/BabPls" --smoke
       - name: Microsoft Store package (upload this file in Partner Center; it is not attached to the release)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: youpls-${{ runner.os }}
+          name: babpls-${{ runner.os }}
           path: |
             desktop/dist/*.exe
             desktop/dist/*.dmg
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: out
-          pattern: youpls-*
+          pattern: babpls-*
           merge-multiple: true
       - name: Create release
         env:
@@ -106,13 +106,13 @@ jobs:
         run: |
           ls -la out
           gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "YouPls $TAG" --notes "YouPls desktop apps.
+          gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "BabPls $TAG" --notes "BabPls desktop apps.
 
-          - **Windows:** \`YouPls-Setup-*.exe\` (installer) or \`YouPls-Portable-*.exe\` (no installation).
-          - **macOS:** \`YouPls-*-mac-arm64.dmg\` (Apple silicon) or \`-x64.dmg\` (Intel).
-          - **Linux:** \`YouPls-*-linux-x64.AppImage\` (chmod +x, then run).
+          - **Windows:** \`BabPls-Setup-*.exe\` (installer) or \`BabPls-Portable-*.exe\` (no installation).
+          - **macOS:** \`BabPls-*-mac-arm64.dmg\` (Apple silicon) or \`-x64.dmg\` (Intel).
+          - **Linux:** \`BabPls-*-linux-x64.AppImage\` (chmod +x, then run).
 
-          **Easiest, with no security warnings:** open https://motqenacademy-droid.github.io/youpls/ in Edge or Chrome and click *Install app* — YouPls becomes a desktop app that works offline.
+          **Easiest, with no security warnings:** open https://motqenacademy-droid.github.io/youpls/ in Edge or Chrome and click *Install app* — BabPls becomes a desktop app that works offline.
 
           Code signing policy: https://github.com/motqenacademy-droid/youpls/blob/main/CODE_SIGNING_POLICY.md · Privacy policy: https://github.com/motqenacademy-droid/youpls/blob/main/PRIVACY.md
 

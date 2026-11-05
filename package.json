@@ -1,6 +1,6 @@
 {
-  "name": "youpls",
-  "version": "0.7.0",
+  "name": "babpls",
+  "version": "0.8.0",
   "description": "Free, open-source PLS-SEM and CB-SEM software that runs in the browser and on the desktop",
   "license": "MIT",
   "private": true,

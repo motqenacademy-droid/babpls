@@ -1,5 +1,5 @@
 /*
- * YouPls advanced analyses: CB-SEM (maximum likelihood), FIMIX-PLS, POS, CTA-PLS,
+ * BabPls advanced analyses: CB-SEM (maximum likelihood), FIMIX-PLS, POS, CTA-PLS,
  * Gaussian-copula endogeneity tests and PROCESS models. Extends the engine in js/engine.js.
  * Browser: load after engine.js (adds to window.YPEngine). Node: require('./advanced.js') returns the engine.
  */

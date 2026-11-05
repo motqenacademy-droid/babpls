@@ -1,5 +1,5 @@
 /*
- * YouPls file I/O without libraries: read .xlsx (first worksheet) and SPSS .sav (uncompressed or bytecode-
+ * BabPls file I/O without libraries: read .xlsx (first worksheet) and SPSS .sav (uncompressed or bytecode-
  * compressed), write .xlsx workbooks. Readers return CSV text so the rest of the app keeps one data format.
  */
 (function (root) {

@@ -1,5 +1,5 @@
 /*
- * YouPls advanced analyses III: multigroup CB-SEM with mean structure (measurement invariance: configural, metric,
+ * BabPls advanced analyses III: multigroup CB-SEM with mean structure (measurement invariance: configural, metric,
  * scalar; path-wise equality tests), CB-SEM moderation, model comparison across models, and exact data generation
  * from a covariance/correlation matrix. Load after engine.js, advanced.js and advanced2.js.
  */
