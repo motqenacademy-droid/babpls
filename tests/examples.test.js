@@ -16,7 +16,7 @@ test('gallery and embedded data agree with the files in examples/', () => {
   for (const ex of EX) {
     const d = X[ex.id]; assert.ok(d, ex.id);
     assert.strictEqual(d.file, ex.file);
-    assert.strictEqual(fs.readFileSync(path.join(root, 'examples', ex.file), 'utf8'), d.csv || d.matrix, ex.file);
+    assert.strictEqual(fs.readFileSync(path.join(root, 'examples', ex.file), 'utf8').replace(/\r\n/g, '\n'), d.csv || d.matrix, ex.file); // Windows checkouts may use CRLF
     for (const a of ex.analyses) {
       assert.ok(d.models[a.model], ex.id + ' model ' + a.model);
       for (const k of ['how', 'read', 'expect']) { assert.ok(a[k].ar && a[k].en, `${ex.id}/${a.kind} ${k}`); }

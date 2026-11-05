@@ -1,0 +1,2 @@
+# Example data is published and compared byte for byte: keep LF on every platform
+examples/* text eol=lf
