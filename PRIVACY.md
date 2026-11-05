@@ -7,4 +7,4 @@ BabPls (web app, installed web app and desktop programs) **does not collect, tra
 - **The website** is hosted on GitHub Pages. GitHub may process technical request data (such as IP addresses) as described in the [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement). BabPls itself sets no cookies and runs no scripts from third parties.
 - **Deleting local data:** clear the site data in your browser, or uninstall the program.
 
-Contact: <https://github.com/motqenacademy-droid/youpls/issues>
+Contact: <https://github.com/motqenacademy-droid/babpls/issues>

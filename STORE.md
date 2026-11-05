@@ -22,9 +22,9 @@ Store installs show **no SmartScreen warning**: Microsoft signs the package and 
 
 **Properties:**
 - **Category:** *Education* (alternative: *Productivity*).
-- **Privacy policy URL:** <https://github.com/motqenacademy-droid/youpls/blob/main/PRIVACY.md>
-- **Website:** <https://motqenacademy-droid.github.io/youpls/>
-- **Support contact:** <https://github.com/motqenacademy-droid/youpls/issues>
+- **Privacy policy URL:** <https://github.com/motqenacademy-droid/babpls/blob/main/PRIVACY.md>
+- **Website:** <https://motqenacademy-droid.github.io/babpls/>
+- **Support contact:** <https://github.com/motqenacademy-droid/babpls/issues>
 - **Does this product access, collect, or transmit personal information?** **No.**
 
 **Restricted capability `runFullTrust`:** Partner Center asks why the app needs it. Answer:

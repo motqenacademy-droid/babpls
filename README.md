@@ -11,7 +11,7 @@
 
 ## التشغيل
 
-- **على الإنترنت مباشرة:** https://motqenacademy-droid.github.io/youpls/
+- **على الإنترنت مباشرة:** https://motqenacademy-droid.github.io/babpls/
 
 - **أبسط طريقة:** افتح `index.html` في المتصفح مباشرة. كل شيء يعمل، لكن بعض المتصفحات تمنع «العامل الخلفي» (Web Worker) لملفات `file://`، فتُحسب التحليلات في الصفحة نفسها وقد تتجمّد الواجهة لحظات في الإقلاع الذاتي الطويل.
 - **الطريقة الموصى بها:** خادم محلي، فتُحسب التحليلات الثقيلة في الخلفية مع شريط تقدّم وزرّ إلغاء:
@@ -21,13 +21,13 @@
   ثم افتح <http://127.0.0.1:8765>.
 - للنشر على استضافة أخرى: ارفع المستودع كما هو إلى أي استضافة ملفات ثابتة (GitHub Pages أو Netlify أو Cloudflare Pages…). لا يحتاج بناءً ولا مكتبات.
 
-**تصميم: د. أحمد يوسف** · [تنزيل تطبيق سطح المكتب (Windows / macOS / Linux)](https://github.com/motqenacademy-droid/youpls/releases/latest)
+**تصميم: د. أحمد يوسف** · [تنزيل تطبيق سطح المكتب (Windows / macOS / Linux)](https://github.com/motqenacademy-droid/babpls/releases/latest)
 
 <a id="download"></a>
 ## Download · التنزيل
 
-- **Install from the website (recommended, no security warnings):** open <https://motqenacademy-droid.github.io/youpls/> in Edge or Chrome and click *Install app*.
-- **Desktop programs:** [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest). Windows installer and portable EXE, macOS DMG (Apple silicon and Intel), Linux AppImage.
+- **Install from the website (recommended, no security warnings):** open <https://motqenacademy-droid.github.io/babpls/> in Edge or Chrome and click *Install app*.
+- **Desktop programs:** [latest release](https://github.com/motqenacademy-droid/babpls/releases/latest). Windows installer and portable EXE, macOS DMG (Apple silicon and Intel), Linux AppImage.
 - **Code signing:** the downloadable Windows programs are currently **not code-signed**, so Windows may show a SmartScreen notice (*More info → Run anyway*). macOS builds are ad-hoc signed. The installable web app above needs no signing and shows no warning. See the **[Code signing policy](CODE_SIGNING_POLICY.md)** and the **[Privacy policy](PRIVACY.md)**.
 
 ## التثبيت دون تحذيرات أمنية
@@ -154,9 +154,9 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 
 > BabPls is an independent project and is not affiliated with SmartPLS GmbH. "SmartPLS" is mentioned for comparison only.
 
-**Online:** https://motqenacademy-droid.github.io/youpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
+**Online:** https://motqenacademy-droid.github.io/babpls/ · **Run it locally:** open `index.html`, or (recommended, enables background computation with progress/cancel) `python3 -m http.server 8765` and browse to <http://127.0.0.1:8765>. Every push to `main` runs the tests and redeploys GitHub Pages; any other static host works too.
 
-**Designed by Dr. Ahmed Youssef.** **Desktop apps** (Windows installer and portable EXE, macOS DMG, Linux AppImage): [latest release](https://github.com/motqenacademy-droid/youpls/releases/latest).
+**Designed by Dr. Ahmed Youssef.** **Desktop apps** (Windows installer and portable EXE, macOS DMG, Linux AppImage): [latest release](https://github.com/motqenacademy-droid/babpls/releases/latest).
 
 **Install without security warnings:** open the website in Edge or Chrome and click *Install app* (offline-capable PWA). Downloadable programs are signed automatically once a signing account is configured; see [`SIGNING.md`](SIGNING.md).
 

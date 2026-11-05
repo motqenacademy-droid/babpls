@@ -5,7 +5,7 @@
   "description": "BabPls: free, open-source PLS-SEM and CB-SEM software",
   "author": "Dr. Ahmed Youssef",
   "license": "MIT",
-  "homepage": "https://github.com/motqenacademy-droid/youpls",
+  "homepage": "https://github.com/motqenacademy-droid/babpls",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -93,6 +93,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/motqenacademy-droid/youpls.git"
+    "url": "https://github.com/motqenacademy-droid/babpls.git"
   }
 }
