@@ -62,9 +62,8 @@ cd desktop && npm ci && npm start          # تطبيق سطح المكتب مح
   فيه Setup وPortable وDMG وAppImage، ويرفع `store-package` (appx) منفصلاً. الحزم غير موقّعة (ويندوز)، وماك موقّع ad-hoc.
 
 ## الحالة والمهام المفتوحة (2026-11-05)
-- **بناء سطح المكتب**: آخر ثلاث تشغيلات لـ`desktop.yml` (v0.7.0 – v0.8.1) فشلت على ويندوز وحده في `npm test`، والأرجح أن
-  اختبار تطابق ملفات الأمثلة انكسر بنهايات أسطر CRLF. أُصلح بتطبيع `\r\n` في `tests/examples.test.js` و`.gitattributes`
-  (`examples/* eol=lf`)؛ **أعِد تشغيل `desktop.yml` وتأكد من نجاحه** ومن ظهور Release v0.8.1.
+- **بناء سطح المكتب**: يعمل. فشلت تشغيلات v0.7.0 – v0.8.0 على ويندوز بسبب نهايات أسطر CRLF في ملفات الأمثلة، وأُصلح
+  (`tests/examples.test.js` و`.gitattributes`)؛ نجح التشغيل 11 ونُشر Release v0.8.1 بملفاته الخمسة (2026-11-05).
 - **متجر مايكروسوفت**: على صاحب المشروع التسجيل (فرد، مجاناً) في https://storedeveloper.microsoft.com، وحجز الاسم **BabPls**، ثم ضبط
   المتغيرات `APPX_IDENTITY_NAME` و`APPX_PUBLISHER` و`APPX_PUBLISHER_DISPLAY_NAME` وتشغيل `desktop.yml`. الخطوات في `STORE.md`.
 - **التوقيع**: رُفض طلب SignPath Foundation لقلة شهرة المشروع؛ يُعاد التقديم لاحقاً (`SIGNING.md`).
