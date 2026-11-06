@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Files | `media/BabPls-promo-ar.mp4`, `media/BabPls-promo-en.mp4` (1920×1080, 30 fps, H.264, AAC 48 kHz stereo at about -16 LUFS: EN narration (Piper, en_US-joe-medium) over ducked generated music; AR music only, no Arabic voice installed yet) + `.srt` subtitles (every in-app caption and the headline of every title card, with the URL on the end card) + `-thumb.png` thumbnails (the hook card) |
-| Length | AR 85.3 s, EN 92.5 s (narrated; the scenes wait for the voice) |
+| Files | `media/BabPls-promo-ar.mp4`, `media/BabPls-promo-en.mp4` (1920×1080, 30 fps, H.264, AAC 48 kHz stereo at about -16 LUFS: narration (Piper: EN en_US-joe-medium, AR ar_JO-kareem-medium) over ducked generated music) + `.srt` subtitles (every in-app caption and the headline of every title card, with the URL on the end card) + `-thumb.png` thumbnails (the hook card) |
+| Length | AR 98.7 s, EN 92.5 s (both narrated; the scenes wait for the voice) |
 | Source | `tools/video/promo.js` (Playwright + `tools/video/rec.js`); real app, example "Customer satisfaction and loyalty (ECSI)" |
 | Re-render | `cd babpls && (python3 -m http.server 8771 >/dev/null 2>&1 &)` then `export BABPLS_PY=<python with piper-tts>` and `node tools/video/promo.js ar 8771` / `en 8771`; then the soundtrack: `$BABPLS_PY tools/video/audio.py media/BabPls-promo-<lang>.mp4 <lang> promo` |
 
@@ -11,45 +11,61 @@ Recording is real time; two waits are cut out after encoding (frame-exact: the s
 bottom-left corner while a cut is on, and the frames carrying it are dropped): the 5,000-sample bootstrap run, and the
 CB-SEM run between its Calculate-menu entry and the fit table. The first frames (before the hook card) are cut the same way, so frame 0
 is the title card. The .srt is re-anchored at the end of each cut. A busy machine can stretch scenes by a few seconds; the
-two renders above were made on a shared machine and both stay between 60 and 90 s.
+two renders above were made on a shared machine (the AR one while the tutorial was recording) and stay within 60–100 s.
 
 ## Sound · الصوت
 
-With a voice installed (EN today), rec.js speaks every caption while recording and the next caption, hidden caption or
+With a voice installed (EN and AR), rec.js speaks every caption while recording and the next caption, hidden caption or
 card waits until the line has finished; `card()` in promo.js speaks each title card's sub-text (`R.narrate`, without the
 URL line) and holds the card until it ends; `cutOn()` waits for the speech first, so no cut ever shortens a spoken line
 (the CB-SEM narration ends on its dialog, before Start). `audio.py` then speaks the final .srt lines at their start times over
 the music: EN report `max_delay` 0.0, no delayed line. Pronunciation goes through `voice.py speak` (e.g. APA → "eh P eh",
 5,000 → "five thousand", BabPls → "Bab P L S"; "eh" is the espeak spelling that gives the letter name /eɪ/, "ay" would
 give /aɪ/). Captions 9, 11 and 13 were lengthened (closer to the Arabic) so the voice covers more of those demos. Loudness:
-`audio.py` applies one measured gain plus a −2.5 dBFS limiter → EN −16.2 LUFS / −2.1 dBTP, AR −15.9 LUFS / −4.6 dBTP. The AR render predates the narration timing (a few
-fixed waits were shortened by 0.2–0.4 s when the voice took over pacing); it was not re-recorded, only given its music.
+`audio.py` applies one measured gain plus a −2.5 dBFS limiter → EN −16.2 LUFS / −2.1 dBTP, AR −16.1 LUFS / −2.3 dBTP.
+
+Arabic narration (2026-11-06): every caption and card line was checked against Piper's IPA (`PiperVoice.phonemize`, after
+its automatic diacritization), and the misreadings were fixed with fully diacritized replacements in `voice.py` (`AR_PRE`,
+promo block): imperatives read as past verbs (صَدِّرْ، نَسِّقِ), wrong case endings (أَكْثَرُ، وَفَقْرَةُ نَتَائِجَ جَاهِزَةٌ، بَرْنَامَجٍ،
+تَقَدُّمٍ حَيٌّ، نَمُوذَجِ الْمَسَارِ، الْأَهَمِّيَّةِ وَالْأَدَاءِ), wrong vowels (تُحَمِّلُ، تُنَبِّهُكَ، وَيُمْكِنُكَ، تَقْيِيمٍ، عَيِّنَةٍ،
+اِفْتِرَاضِيًّا، تَوْزِيع، وَبَيَانَاتُكَ، وَوَضْعٌ… مُرِيحٌ), a change of meaning (المعاملات = coefficients مُعامِلات, not
+مُعامَلات «transactions»), «من» alone as the preposition *min* (not *man*), «بال» before a moon letter (*bil-*, not *bi-aal*),
+«سيم» in PLS-SEM/CB-SEM (*sīm*, not *saima*), the p of p-values (بي), and the ellipsis of the hook (a comma pause).
+BabPls is spoken «باب بي إل إس», APA «إيه بي إيه», Excel «إكسل», HTML «إتش تي إم إل», 5,000 «خمسة آلاف».
+The kareem voice is slow at its default pace (~4.3 syllables/s), and at the global Arabic setting (length_scale 0.9) the
+promo ran 113 s; the Arabic promo therefore uses `BABPLS_AR_SPEED=0.8` (~4.9 syllables/s, still a natural MSA reading
+pace; set by promo.js and by `audio.py` for `ar promo`, and part of the TTS cache key), a 0.25 s gap after each line
+(`rec.start({gap})`, the same gap audio.py keeps) and a tighter choreography (`tight` in promo.js, narrated Arabic only):
+captions 2, 7, 8, 9, 10, 11 and 14 start with the move that leads into their shot (gallery click, zoom, section or tab
+switch, Calculate menu) instead of after it, and a few holds after the speech are shorter (histogram, IPMA map, fit table,
+Excel chip, report preview, Classic preset, language switch). The English choreography is unchanged. AR report:
+`max_delay` 0.0, 19 lines, no delayed line.
 
 ## Scenes · المشاهد
 
-Times are from the Arabic render; the narrated English one runs up to ~7 s later by the end (see its .srt).
+Times are from the narrated Arabic render (2026-11-06); the English one has its own timing (see its .srt).
 
 | # | Time (AR) | On screen | Caption EN | الشرح بالعربية |
 |---|---|---|---|---|
-| 1 | 00:00–00:03 | Title card (opaque from frame 0): logo, BabPls, promise, tag PLS-SEM · CB-SEM | (card) BabPls: Structural equation modeling. Free, right in your browser. | (بطاقة) BabPls: نمذجة المعادلات الهيكلية… مجاناً وفي متصفحك |
-| 2 | 00:04–00:07 | The pointer heads for the gallery button while the card fades; example gallery, ECSI card highlighted | Nine ready-made examples covering every analysis | تسعة أمثلة جاهزة تغطي التحليلات كلها |
-| 3 | 00:07–00:10 | “Load data and models”: the path model opens; the diagram is panned up so the lowest indicators clear the caption | One click loads the data and the model | نقرة واحدة تحمّل البيانات والنموذج |
-| 4 | 00:10–00:13 | Calculate menu highlighted, pointer on Bootstrapping | Over twenty analyses in one menu | أكثر من عشرين تحليلاً في قائمة واحدة |
-| 5 | 00:13–00:15 | Bootstrapping dialog; the samples field (default 5000, unchanged) highlighted | Bootstrapping with 5,000 samples by default | الإقلاع الذاتي بخمسة آلاف عينة افتراضياً |
-| 6 | 00:16–00:18 | Start → the progress strip (shown at 1.5× for this shot) highlighted, caption at the top; the rest of the run is cut | Live progress, and you can cancel any time | شريط تقدّم حيّ، ويمكنك الإلغاء متى شئت |
-| 7 | 00:20–00:23 | Camera zoom (×1.4, report column only: section list and tabs stay put) on the assessment checklist; the frame is placed once the zoom has settled | An automatic checklist flags the weak spots | قائمة تقييم آلية تنبّهك إلى مواطن الضعف |
-| 8 | 00:24–00:27 | Scroll to the APA write-up, highlighted (mentions 5000 subsamples) | And a ready-made APA-style write-up | وفقرة نتائج جاهزة بأسلوب APA |
-| 9 | 00:29–00:35 | Path coefficients → the Image → Loyalty row is highlighted and clicked → zoom on its bootstrap histogram | Click any path to see its bootstrap distribution and confidence interval | انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة |
-| 10 | 00:36–00:39 | Model tab: bootstrap coefficients (p-values) and R² on the canvas; the pointer rests on empty canvas | Coefficients and p-values on the path model | المعاملات وقيم p على نموذج المسار نفسه |
-| 11 | 00:40–00:45 | Calculate → IPMA dialog (the caption comes with it), target construct Value → zoom on the importance-performance map | The importance-performance map shows what to improve first | خريطة الأهمية والأداء تكشف أولويات التحسين |
-| 12 | 00:46–00:52 | Calculate menu → CB-SEM (maximum likelihood) → dialog → (run cut) Model fit (CB-SEM) table, rows χ² … NFI highlighted | CB-SEM too, with a full set of fit indices | وفيه أيضاً CB-SEM بمؤشرات مطابقة كاملة |
-| 13 | 00:52–00:58 | Back to the Bootstrapping report → Excel is clicked (a chip shows the exported file name) → Export report (HTML) is clicked and the exported file is shown in a window for ~2 s | Export all your results to Excel, or to an HTML report | صدّر كل النتائج إلى Excel أو تقرير HTML |
-| 14 | 00:59–01:04 | Appearance dialog, preset row highlighted → “Classic” preset → close; the restyled diagram is held | Restyle diagrams: presets, colors, fonts | نسّق الرسم كما تشاء: قوالب وألوان وخطوط |
-| 15 | 01:05–01:07 | One click on the theme button → dark mode (caption after the change) | And a comfortable dark mode | ووضع داكن مريح للعين |
-| 16 | 01:08–01:12 | Language button: the other UI language held ~1.6 s (the pointer follows the mirrored button), then back | A full interface in English and Arabic | واجهة كاملة بالعربية والإنجليزية |
-| 17 | 01:13–01:17 | Card: headline, 20 analysis pills, SmartPLS line and the independence note (26 px) | (card) From PLS-SEM to CB-SEM, all in one app | (بطاقة) من PLS-SEM إلى CB-SEM في برنامج واحد |
-| 18 | 01:18–01:21 | Card: free, open source, data stays on the device; MIT, browser, no accounts, web app, Windows · macOS · Linux | (card) Free. Open source. Your data never leaves your device. | (بطاقة) مجاني ومفتوح المصدر، وبياناتك لا تغادر جهازك |
-| 19 | 01:21–01:24 | End card: logo, CTA, URL, “Designed by Dr. Ahmed Youssef” | (card) Open it now. No sign-up, no install. + URL | (بطاقة) افتحه الآن، بلا تسجيل ولا تثبيت + الرابط |
+| 1 | 00:00–00:06 | Title card (opaque from frame 0): logo, BabPls, promise, tag PLS-SEM · CB-SEM | (card) BabPls: Structural equation modeling. Free, right in your browser. | (بطاقة) BabPls: نمذجة المعادلات الهيكلية… مجاناً وفي متصفحك |
+| 2 | 00:06–00:11 | The pointer heads for the gallery button while the card fades; example gallery, ECSI card highlighted | Nine ready-made examples covering every analysis | تسعة أمثلة جاهزة تغطي التحليلات كلها |
+| 3 | 00:11–00:15 | “Load data and models”: the path model opens; the diagram is panned up so the lowest indicators clear the caption | One click loads the data and the model | نقرة واحدة تحمّل البيانات والنموذج |
+| 4 | 00:15–00:19 | Calculate menu highlighted, pointer on Bootstrapping | Over twenty analyses in one menu | أكثر من عشرين تحليلاً في قائمة واحدة |
+| 5 | 00:19–00:24 | Bootstrapping dialog; the samples field (default 5000, unchanged) highlighted | Bootstrapping with 5,000 samples by default | الإقلاع الذاتي بخمسة آلاف عينة افتراضياً |
+| 6 | 00:25–00:29 | Start → the progress strip (shown at 1.5× for this shot) highlighted, caption at the top (AR: the run's first seconds are cut so the bar is well under way while the line is spoken, and the pointer moves to Cancel); the rest of the run is cut | Live progress, and you can cancel any time | شريط تقدّم حيّ، ويمكنك الإلغاء متى شئت |
+| 7 | 00:30–00:34 | Camera zoom (×1.4, report column only: section list and tabs stay put) on the assessment checklist; the frame is placed once the zoom has settled | An automatic checklist flags the weak spots | قائمة تقييم آلية تنبّهك إلى مواطن الضعف |
+| 8 | 00:35–00:39 | Scroll to the APA write-up, highlighted (mentions 5000 subsamples) | And a ready-made APA-style write-up | وفقرة نتائج جاهزة بأسلوب APA |
+| 9 | 00:39–00:46 | Path coefficients → the Image → Loyalty row is highlighted and clicked → zoom on its bootstrap histogram | Click any path to see its bootstrap distribution and confidence interval | انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة |
+| 10 | 00:46–00:50 | Model tab: bootstrap coefficients (p-values) and R² on the canvas; the pointer rests on empty canvas | Coefficients and p-values on the path model | المعاملات وقيم p على نموذج المسار نفسه |
+| 11 | 00:50–00:56 | Calculate → IPMA dialog (the caption comes with it), target construct Value → zoom on the importance-performance map | The importance-performance map shows what to improve first | خريطة الأهمية والأداء تكشف أولويات التحسين |
+| 12 | 00:57–01:04 | Calculate menu → CB-SEM (maximum likelihood) → dialog → (run cut) Model fit (CB-SEM) table, rows χ² … NFI highlighted | CB-SEM too, with a full set of fit indices | وفيه أيضاً CB-SEM بمؤشرات مطابقة كاملة |
+| 13 | 01:04–01:10 | Back to the Bootstrapping report → Excel is clicked (a chip shows the exported file name) → Export report (HTML) is clicked and the exported file is shown in a window for ~2 s | Export all your results to Excel, or to an HTML report | صدّر كل النتائج إلى Excel أو تقرير HTML |
+| 14 | 01:10–01:15 | Appearance dialog, preset row highlighted → “Classic” preset → close; the restyled diagram is held | Restyle diagrams: presets, colors, fonts | نسّق الرسم كما تشاء: قوالب وألوان وخطوط |
+| 15 | 01:16–01:18 | One click on the theme button → dark mode (caption after the change) | And a comfortable dark mode | ووضع داكن مريح للعين |
+| 16 | 01:19–01:22 | Language button: the other UI language held ~1.6 s (the pointer follows the mirrored button), then back | A full interface in English and Arabic | واجهة كاملة بالعربية والإنجليزية |
+| 17 | 01:23–01:28 | Card: headline, 20 analysis pills, SmartPLS line and the independence note (26 px) | (card) From PLS-SEM to CB-SEM, all in one app | (بطاقة) من PLS-SEM إلى CB-SEM في برنامج واحد |
+| 18 | 01:28–01:33 | Card: free, open source, data stays on the device; MIT, browser, no accounts, web app, Windows · macOS · Linux | (card) Free. Open source. Your data never leaves your device. | (بطاقة) مجاني ومفتوح المصدر، وبياناتك لا تغادر جهازك |
+| 19 | 01:34–01:38 | End card: logo, CTA, URL, “Designed by Dr. Ahmed Youssef” | (card) Open it now. No sign-up, no install. + URL | (بطاقة) افتحه الآن، بلا تسجيل ولا تثبيت + الرابط |
 
 Recording-only tweaks (no app code is changed): the report's meta line (run date and the recording's clock time) is hidden
 with an injected style; the camera zoom wraps the report column's content in a scaled `<div>`; downloads are observed in the

@@ -71,26 +71,26 @@ const N = lang === 'ar'
   await card(R.T({
     ar: `<img class="anim" src="assets/logo.svg"><span class="tag anim">درس تعليمي</span><h1 class="anim">BabPls</h1><h2 class="anim">نموذجك الأول في PLS-SEM في سبع خطوات</h2><p class="anim">من استيراد البيانات إلى تقرير جاهز بأسلوب APA</p>`,
     en: `<img class="anim" src="assets/logo.svg"><span class="tag anim">Tutorial</span><h1 class="anim">BabPls</h1><h2 class="anim">Your first PLS-SEM model in 7 steps</h2><p class="anim">From importing data to an APA-style report</p>`
-  }), 2800, { ar: 'درس BabPls: نموذجك الأول في PLS-SEM في سبع خطوات، من استيراد البيانات إلى تقرير بأسلوب APA.', en: 'BabPls tutorial: your first PLS-SEM model in 7 steps, from importing data to an APA-style report.' });
+  }), 2800, { ar: 'درس BabPls: نموذجك الأول في PLS-SEM في سبع خطوات.', en: 'BabPls tutorial: your first PLS-SEM model in 7 steps, from importing data to an APA-style report.' });
   await card(R.T({
     ar: `<h2 class="anim">ماذا ستتعلم؟</h2><div class="pills anim"><span>1 · شاشة البدء</span><span>2 · استيراد البيانات</span><span>3 · بناء النموذج</span><span>4 · PLS-SEM ومعايير الجودة</span><span>5 · الإقلاع الذاتي</span><span>6 · التقرير والتصدير</span><span>7 · الأمثلة والدليل</span></div>`,
     en: `<h2 class="anim">What you will learn</h2><div class="pills anim"><span>1 · Start screen</span><span>2 · Import data</span><span>3 · Build the model</span><span>4 · PLS-SEM &amp; quality criteria</span><span>5 · Bootstrapping</span><span>6 · Report &amp; export</span><span>7 · Examples &amp; guide</span></div>`
-  }), 2900, { ar: 'ماذا ستتعلم؟ سبع خطوات، من شاشة البدء إلى الأمثلة والدليل.', en: 'What you will learn: seven steps, from the start screen to the examples and the guide.' });
+  }), 2900, { ar: 'ماذا ستتعلم؟ سبع خطوات.', en: 'What you will learn: seven steps, from the start screen to the examples and the guide.' });
   await R.hideCard(600);
 
   // ------------------------------------------------------- 1. start screen
   await step(1, 'شاشة البدء', 'Start screen');
   await R.moveXY(760, 300);
-  await say('افتح BabPls في المتصفح: بلا تثبيت ولا حساب، وبياناتك لا تغادر جهازك.', 'Open BabPls in your browser: no installation, no account, and your data stay on your computer.');
+  await say('افتح BabPls في المتصفح: بلا تثبيت، وبياناتك لا تغادر جهازك.', 'Open BabPls in your browser: no installation, no account, and your data stay on your computer.');
   await hl('.welcome .actions', 10);
-  await say('من شاشة البدء: افتح مثالاً جاهزاً، أو تصفّح بيانات الأمثلة، أو استورد بياناتك.', 'From the start screen, open a ready example, browse example data, or import your own.');
+  await say('من هنا: افتح مثالاً جاهزاً، أو استورد بياناتك.', 'From the start screen, open a ready example, browse example data, or import your own.');
   await R.moveTo('.welcome .actions [data-act=import]');
   await hl('.tabs', 4);
-  await say('الألسنة في الأعلى: البيانات، والنموذج، والنتائج، والدليل والمصادر.', 'The tabs at the top: Data, Model, Results, and Guide & references.');
+  await say('الألسنة: البيانات، والنموذج، والنتائج، والدليل.', 'The tabs at the top: Data, Model, Results, and Guide & references.');
   await R.moveTo('.tabs [data-view=help]');
   await hl('#dlapp', 6);
   await R.moveTo('#dlapp');
-  await say('تفضّل تطبيقاً مستقلاً؟ نزّل «تطبيق سطح المكتب» لويندوز أو ماك أو لينكس.', 'Prefer a desktop app? Download it for Windows, macOS or Linux.');
+  await say('وهنا «تطبيق سطح المكتب» لويندوز وماك ولينكس.', 'Prefer a desktop app? Download it for Windows, macOS or Linux.');
   await hl('#lang', 6);
   await R.moveTo('#lang');
   await say('وزر اللغة بجانبه يبدّل الواجهة إلى الإنجليزية.', 'The language button next to it switches the interface to Arabic.');
@@ -99,7 +99,7 @@ const N = lang === 'ar'
   // ------------------------------------------------------- 2. import data
   await step(2, 'استيراد البيانات', 'Import data');
   await hl('.tbar [data-act=import]', 6);
-  await say('اضغط «استيراد بيانات»: يقبل CSV وExcel وSPSS، والصف الأول أسماء المتغيرات.', 'Click Import data: CSV, Excel or SPSS, with the variable names in the first row.');
+  await say('اضغط «استيراد بيانات»: CSV أو Excel أو SPSS، والأسماء في الصف الأول.', 'Click Import data: CSV, Excel or SPSS, with the variable names in the first row.');
   await R.moveTo('.tbar [data-act=import]');
   // the import runs while the line is still being spoken (no frozen screen): the data are in the Data tab by its end
   { const w = due - Date.now(); if (w > 0) await R.wait(w); } // the caption's reading time only, not the end of the speech
@@ -112,14 +112,14 @@ const N = lang === 'ar'
   // the app opens the Model tab after an import: go to the Data tab first, then talk about it
   await R.click('.tabs [data-view=data]', { after: 400 });
   await R.hideCaption(200);
-  await say('مثالنا رضا العملاء: 300 مستجيب و24 متغيراً. لنفحص البيانات أولاً في لسان «البيانات».', 'Our example: customer satisfaction, 300 respondents, 24 variables. First, check the data in the Data tab.');
+  await say('مثالنا رضا العملاء: 300 مستجيب و24 متغيراً.', 'Our example: customer satisfaction, 300 respondents, 24 variables. First, check the data in the Data tab.');
   await hl('#dataview > .datahead + .datahead', 6);
-  await say('في الأعلى: عدد الصفوف والمتغيرات، ومجموع القيم المفقودة.', 'At the top: the number of rows and variables, and the total of missing values.');
+  await say('في الأعلى: الصفوف والمتغيرات والقيم المفقودة.', 'At the top: the number of rows and variables, and the total of missing values.');
   await hl('#dataview .card', 4);
-  await say('ثم الإحصاءات الوصفية لكل متغير: المتوسط والوسيط والانحراف والالتواء والتفلطح.', 'Then descriptive statistics for every variable: mean, median, SD, kurtosis and skewness.');
+  await say('ثم الإحصاءات الوصفية لكل متغير.', 'Then descriptive statistics for every variable: mean, median, SD, kurtosis and skewness.');
   await hl('#dataview tr[data-var="4"]', 2);
   await R.moveTo('#dataview tr[data-var="4"] td:nth-child(4)');
-  await say('عمود «المفقود» يبيّن عدد القيم الناقصة في كل متغير، مثل imag_2.', 'The Missing column counts the empty cells of each variable, such as imag_2.');
+  await say('وعمود «المفقود» يعدّ القيم الناقصة، مثل imag_2.', 'The Missing column counts the empty cells of each variable, such as imag_2.');
   await hold();
   await say('انقر على أي متغير لعرض توزيعه.', 'Click any variable to see its distribution.');
   await R.unhighlight();
@@ -131,7 +131,7 @@ const N = lang === 'ar'
   await R.hideCaption(200);
   await P.evaluate(() => document.querySelector('#dataview').scrollTo({ top: 0, behavior: 'smooth' })); await R.wait(800);
   await hl('#dataview > .datahead + .datahead .pill:nth-child(3)', 6);
-  await say('القيم المفقودة تُعالج افتراضياً بـ«الإحلال بالمتوسط»، ويمكنك اختيار «حذف الحالة كاملة» عند الحساب.', 'Missing values get mean replacement by default; you can choose casewise deletion when you run an analysis.');
+  await say('تُعالج القيم المفقودة بـ«الإحلال بالمتوسط»، أو بـ«حذف الحالة كاملة».', 'Missing values get mean replacement by default; you can choose casewise deletion when you run an analysis.');
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -139,22 +139,22 @@ const N = lang === 'ar'
   await step(3, 'بناء النموذج', 'Build the model');
   await R.click('.tabs [data-view=model]');
   await hl('#indlist', 4);
-  await say('في لسان النموذج تظهر مؤشرات بياناتك في القائمة الجانبية.', 'In the Model tab, the indicators of your data are listed in the side panel.');
+  await say('في لسان النموذج: مؤشراتك في القائمة الجانبية.', 'In the Model tab, the indicators of your data are listed in the side panel.');
   await hold(); await R.unhighlight();
-  await say('انقر أول مؤشر، ثم Shift مع النقر على آخره لتحديد المجموعة كلها.', 'Click the first indicator, then Shift-click the last one to select the whole block.');
+  await say('انقر أول مؤشر، ثم Shift مع آخره لتحديد المجموعة.', 'Click the first indicator, then Shift-click the last one to select the whole block.');
   await R.click('#indlist li[data-col=imag_1]');
   await R.moveTo('#indlist li[data-col=imag_5]');
   await P.keyboard.down('Shift'); await P.mouse.down(); await R.wait(80); await P.mouse.up(); await P.keyboard.up('Shift');
   await R.wait(400);
   await hold();
-  await say('ثم اسحبها إلى مساحة فارغة: يُنشأ متغير كامن يضمّ هذه المؤشرات.', 'Now drag them onto empty canvas: a construct is created with these indicators.');
+  await say('واسحبها إلى مساحة فارغة: يُنشأ متغير كامن يضمّها.', 'Now drag them onto empty canvas: a construct is created with these indicators.');
   const cb = await P.locator('#canvas').boundingBox();
   await R.moveTo('#indlist li[data-col=imag_3]');
   await P.mouse.down(); await R.wait(150);
   await P.mouse.move(cb.x + 350, cb.y + 265, { steps: 45 }); await R.wait(200); await P.mouse.up();
   await R.wait(600);
   await hold();
-  await say('اكتب له اسماً واضحاً في لوحة الخصائص، ثم اضغط Enter.', 'Give it a clear name in the properties panel, then press Enter.');
+  await say('اكتب له اسماً في لوحة الخصائص، ثم Enter.', 'Give it a clear name in the properties panel, then press Enter.');
   await R.type('#p_name', N.imag, { delay: 110 });
   await P.keyboard.press('Enter');
   await R.wait(500);
@@ -166,7 +166,7 @@ const N = lang === 'ar'
   await R.moveXY(cb.x + cb.width * 0.5, cb.y + cb.height * 0.82);
   await P.mouse.down(); await P.mouse.up(); await R.wait(400);
   await hl('#props [data-act=prefix]', 6);
-  await say('أسرع من ذلك: هذا الزر ينشئ كل المتغيرات الباقية من بادئات الأسماء دفعة واحدة.', 'Even faster: this button creates all remaining constructs from the name prefixes in one click.');
+  await say('أو أسرع: هذا الزر ينشئ البقية دفعة واحدة.', 'Even faster: this button creates all remaining constructs from the name prefixes in one click.');
   await R.moveTo('#props [data-act=prefix]');
   await hold();
   await R.unhighlight();
@@ -180,7 +180,7 @@ const N = lang === 'ar'
     await R.type('#p_name', nu, { delay: i ? 35 : 90 });
     await P.keyboard.press('Enter'); await R.wait(i ? 250 : 500);
     if (i === 0) { await hold(); await say('وسمِّ البقية بالطريقة نفسها.', 'Rename the others the same way: Quality, Value, Satisfaction, Loyalty.'); }
-    if (i === 2) { await hold(); await say('هذه الأسماء هي التي ستظهر في النتائج والتقارير.', 'These names are the ones you will see in the results and reports.'); }
+    if (i === 2) { await hold(); await say('وستظهر هذه الأسماء في النتائج.', 'These names are the ones you will see in the results and reports.'); }
   }
   await hold();
   await hl('.etools [data-tool=path]', 6);
@@ -189,23 +189,23 @@ const N = lang === 'ar'
   await R.unhighlight();
   await R.click(lv(N.imag), { after: 400 });
   await R.click(lv(N.expe), { after: 600 });
-  await say('ارسم بقية الفرضيات العشر بالطريقة نفسها.', 'Draw the rest of the ten hypothesised paths the same way.');
+  await say('وارسم بقية المسارات العشرة.', 'Draw the rest of the ten hypothesised paths the same way.');
   const paths = [[N.imag, N.sat], [N.imag, N.loy], [N.expe, N.qual], [N.expe, N.val], [N.expe, N.sat], [N.qual, N.val], [N.qual, N.sat], [N.val, N.sat], [N.sat, N.loy]];
   for (let q = 0; q < paths.length; q++) {
     const [a, b] = paths[q];
-    if (q === 5) { await hold(); await say('كل سهم يتجه من المتغير المؤثِّر إلى المتغير الذي يؤثّر فيه.', 'Each arrow runs from the predictor to the outcome it affects.'); }
+    if (q === 5) { await hold(); await say('كل سهم يتجه من المؤثِّر إلى المتأثِّر.', 'Each arrow runs from the predictor to the outcome it affects.'); }
     await R.moveTo(lv(a), { steps: 11, pause: 50 }); await P.mouse.down(); await P.mouse.up(); await R.wait(120);
     await R.moveTo(lv(b), { steps: 12, pause: 50 }); await P.mouse.down(); await P.mouse.up(); await R.wait(160);
   }
   await hold();
   await R.click('.etools [data-tool=select]', { after: 300 });
   await hl('.etools [data-act=layout]', 6);
-  await say('عُد إلى أداة التحديد، واضغط «ترتيب تلقائي» لترتيب النموذج من اليسار إلى اليمين.', 'Back to the Select tool, then Auto layout arranges the model from left to right.');
+  await say('ثم أداة التحديد، و«ترتيب تلقائي» يرتّب النموذج.', 'Back to the Select tool, then Auto layout arranges the model from left to right.');
   await R.click('.etools [data-act=layout]', { after: 800 });
   await R.unhighlight();
   await hold();
   // tidy: move the Quality construct down so the Image → Loyalty path no longer crosses its indicators, then fit
-  await say('اسحب أي متغير لتحسين الرسم، وزر ⤢ يلائم النموذج مع اللوحة.', 'Drag any construct to tidy the drawing; the ⤢ button centres the model on the canvas.');
+  await say('اسحب المتغيرات لتحسين الرسم، وزر ⤢ يلائمه مع اللوحة.', 'Drag any construct to tidy the drawing; the ⤢ button centres the model on the canvas.');
   const qp = await R.moveTo(lv(N.qual), { steps: 22 });
   await P.mouse.down(); await R.wait(120); await P.mouse.move(qp.x + 5, qp.y + 40, { steps: 30 }); await R.wait(120); await P.mouse.up(); await R.wait(400);
   await R.click('.etools [data-act=fit]', { after: 700 });
@@ -214,7 +214,7 @@ const N = lang === 'ar'
   await R.moveXY(ep.x, ep.y);
   await P.mouse.down(); await P.mouse.up(); await R.wait(400);
   await hl('#props .ok', 8);
-  await say('اللوحة تؤكد: ستة متغيرات كامنة وعشرة مسارات، والنموذج جاهز للحساب.', 'The panel confirms six constructs and ten paths: the model is ready to calculate.');
+  await say('ستة متغيرات كامنة وعشرة مسارات: النموذج جاهز.', 'The panel confirms six constructs and ten paths: the model is ready to calculate.');
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -222,17 +222,17 @@ const N = lang === 'ar'
   await step(4, 'PLS-SEM ومعايير الجودة', 'PLS-SEM & quality criteria');
   await R.click('#calcbtn', { after: 400 });
   await hl('#calcmenu', 4);
-  await say('قائمة «احسب» فيها كل التحليلات: PLS-SEM والإقلاع الذاتي وPLSpredict وIPMA وCB-SEM وغيرها.', 'The Calculate menu lists every analysis: PLS-SEM, bootstrapping, PLSpredict, IPMA, CB-SEM, and more.');
+  await say('قائمة «احسب» فيها كل التحليلات.', 'The Calculate menu lists every analysis: PLS-SEM, bootstrapping, PLSpredict, IPMA, CB-SEM, and more.');
   await R.moveTo('#calcmenu [data-run=pls]');
   await hold(); await R.unhighlight();
   await R.click('#calcmenu [data-run=pls]', { after: 600 });
-  await say('ابدأ بخوارزمية PLS-SEM، واترك الإعدادات الافتراضية: مخطط الترجيح «المسار» و«الإحلال بالمتوسط».', 'Start with the PLS-SEM algorithm and keep the defaults: path weighting, mean replacement.');
+  await say('ابدأ بخوارزمية PLS-SEM بإعداداتها الافتراضية.', 'Start with the PLS-SEM algorithm and keep the defaults: path weighting, mean replacement.');
   await R.moveTo('#rundlg button[type=submit]');
   await hold();
   await R.hideCaption(200);
   await R.click('#rundlg button[type=submit]', { after: 1000 });
   await hl('#resultsview .secnav', 2);
-  await say('النتائج في ثلاث مجموعات: النهائية، ومعايير الجودة، والتفاصيل. ابدأ بنموذج القياس: «التشبعات الخارجية».', 'Results come in three groups: final, quality criteria, details. Start with Outer loadings.');
+  await say('النتائج في ثلاث مجموعات. ابدأ بنموذج القياس: «التشبعات الخارجية».', 'Results come in three groups: final, quality criteria, details. Start with Outer loadings.');
   await R.moveTo('.secnav [data-sec=outer]');
   await hold(); await R.unhighlight();
   await R.click('.secnav [data-sec=outer]', { after: 500 });
@@ -240,42 +240,42 @@ const N = lang === 'ar'
   // bring the loy rows to the middle of the screen, well above the caption
   await into('#secout table tbody tr:nth-child(21)', 'center');
   await hl('#secout table tbody tr:nth-child(21)', 3);
-  await say('ينبغي ألا يقل التشبع عن 0.708، وأضعف التشبعات هنا loy_3 بقيمة 0.629.', 'Loadings should be at least 0.708. The weakest here is loy_3, at 0.629.');
+  await say('التشبع 0.708 فأكثر، وأضعفها هنا loy_3: ‏0.629.', 'Loadings should be at least 0.708. The weakest here is loy_3, at 0.629.');
   await R.moveTo('#secout table tbody tr:nth-child(21) td:nth-child(3)');
   await hold();
-  await say('بين 0.40 و0.70 لا تحذف المؤشر إلا إن حسّن ذلك الثبات أو AVE.', 'Between 0.40 and 0.70, delete an indicator only if that improves reliability or AVE.');
+  await say('بين 0.40 و0.70 لا تحذف المؤشر إلا إن حسّن الثبات أو AVE.', 'Between 0.40 and 0.70, delete an indicator only if that improves reliability or AVE.');
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=rel]', { after: 500 });
   await hl('#secout .tablewrap', 6);
-  await say('ينبغي أن يكون الثبات (α، rho_A، rho_c) بين 0.70 و0.95، وألا يقل AVE عن 0.50.', 'Reliability (α, rho_A, rho_c) should be 0.70 to 0.95, and AVE at least 0.50.');
+  await say('الثبات بين 0.70 و0.95، وAVE لا يقل عن 0.50.', 'Reliability (α, rho_A, rho_c) should be 0.70 to 0.95, and AVE at least 0.50.');
   await hold();
   await hl('#secout table tbody tr:nth-child(6)', 3);
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(2)');
-  await say(`ألفا كرونباخ لـ«${N.loy}» 0.638 وrho_A له 0.675، وكلاهما دون 0.70؛ أما rho_c فـ0.802 وهو مقبول.`, `For ${N.loy}, α is 0.638 and rho_A 0.675, both below 0.70, but rho_c is 0.802, which is acceptable.`);
-  await R.wait(R.voiced ? 2600 : 1400); // the cursor follows the narration: α, then rho_A, then rho_c
+  await say(`لـ«${N.loy}»: ألفا 0.638 وrho_A ‏0.675، دون 0.70؛ وrho_c ‏0.802 مقبول.`, `For ${N.loy}, α is 0.638 and rho_A 0.675, both below 0.70, but rho_c is 0.802, which is acceptable.`);
+  await R.wait(R.voiced ? (lang === 'ar' ? 4300 : 2600) : 1400); // the cursor follows the narration: α, then rho_A, then rho_c
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(3)');
-  if (R.voiced) { await R.wait(3000); await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(4)'); }
+  if (R.voiced) { await R.wait(lang === 'ar' ? 5600 : 3000); await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(4)'); }
   await hold();
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(5)');
-  await say('لذا ستعلّم قائمة التقييم ثباته للمراجعة. وكل قيم AVE فوق 0.50.', 'So the assessment checklist will flag its reliability. Every AVE is above 0.50.');
+  await say('فستعلّمه قائمة التقييم. وكل قيم AVE فوق 0.50.', 'So the assessment checklist will flag its reliability. Every AVE is above 0.50.');
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=htmt]', { after: 500 });
   await hl('#secout .chartbox svg', 6);
   { const c = P.locator('#secout .chartbox svg text', { hasText: /^0\.592$/ }).first(); if (await c.count()) await R.moveTo(c); }
-  await say('الصدق التمييزي: ينبغي أن تقل HTMT عن 0.85، أو 0.90 للمفاهيم المتقاربة، وأعلاها هنا 0.592.', 'Discriminant validity: HTMT should be below 0.85, or 0.90 for similar concepts. The highest here is 0.592.');
+  await say('الصدق التمييزي: HTMT دون 0.85، وأعلاها هنا 0.592.', 'Discriminant validity: HTMT should be below 0.85, or 0.90 for similar concepts. The highest here is 0.592.');
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=paths]', { after: 500 });
   await hl('#secout .tablewrap', 6);
-  await say('ثم النموذج الهيكلي: معاملات المسار، وR² وf² في القائمة نفسها.', 'Then the structural model: path coefficients, with R² and f² in the same list.');
+  await say('ثم النموذج الهيكلي: المسارات وR² وf².', 'Then the structural model: path coefficients, with R² and f² in the same list.');
   await R.moveTo('.secnav [data-sec=r2]');
   await hold(); await R.unhighlight();
   await R.hideCaption(200);
   await R.click('.tabs [data-view=model]', { after: 500 });
-  await say('والنتائج مرسومة على النموذج أيضاً: التشبعات ومعاملات المسار وR².', 'The estimates are also drawn on the model: loadings, path coefficients and R².');
+  await say('والنتائج مرسومة على النموذج أيضاً.', 'The estimates are also drawn on the model: loadings, path coefficients and R².');
   await R.moveXY(cb.x + cb.width * 0.55, cb.y + cb.height * 0.45);
   await hold();
   await hl('.etools [data-act=zin]', 6);
-  await say('كبّر بزر + (أو Ctrl مع عجلة الفأرة)، واسحب الخلفية لتحريك الرسم.', 'Zoom in with the + button (or Ctrl + mouse wheel) and drag the background to pan.');
+  await say('كبّر بزر +، واسحب الخلفية لتحريك الرسم.', 'Zoom in with the + button (or Ctrl + mouse wheel) and drag the background to pan.');
   for (let z = 0; z < 3; z++) await R.click('.etools [data-act=zin]', { after: 200, steps: z ? 6 : 24 });
   await R.unhighlight();
   // pan so that Satisfaction → Loyalty sits in the middle of the canvas
@@ -288,8 +288,8 @@ const N = lang === 'ar'
   await hold();
   const lab = P.locator('#canvas text', { hasText: /^0\.356$/ }).first();
   if (await lab.count()) await R.moveTo(lab, { fx: 0.5, fy: 1.3 });
-  await say(`مثلاً: معامل المسار ${N.sat} ← ${N.loy} هو 0.356، وR² لـ«${N.loy}» تحت اسمه.`, `For example, ${N.sat} → ${N.loy} is 0.356, and ${N.loy}’s R² is shown under its name.`);
-  await R.wait(R.voiced ? 3000 : 1800); // move to Loyalty when its R² is mentioned
+  await say(`مثلاً: المسار ${N.sat} ← ${N.loy} ‏0.356، وR² لـ«${N.loy}» تحت اسمه.`, `For example, ${N.sat} → ${N.loy} is 0.356, and ${N.loy}’s R² is shown under its name.`);
+  await R.wait(R.voiced ? (lang === 'ar' ? 5600 : 3000) : 1800); // move to Loyalty when its R² is mentioned
   await R.moveTo(lv(N.loy), { fy: 0.7 });
   await hold();
   await quiet();
@@ -299,7 +299,7 @@ const N = lang === 'ar'
   await R.click('#calcbtn', { after: 400 });
   await R.click('#calcmenu [data-run=bootstrap]', { after: 500 });
   await hl('#rundlg input[name=samples]', 6);
-  await say('لاختبار الدلالة شغّل «الإقلاع الذاتي»: 5000 عينة فرعية، وفترات مئينية، واختبار ذو طرفين عند 0.05.', 'To test significance, run Bootstrapping: 5,000 subsamples, percentile intervals, two-tailed at 0.05.');
+  await say('لاختبار الدلالة اختر «الإقلاع الذاتي»: 5000 عينة فرعية.', 'To test significance, run Bootstrapping: 5,000 subsamples, percentile intervals, two-tailed at 0.05.');
   await hold(); await R.unhighlight();
   await R.hideCaption(200);
   await R.moveTo('#rundlg button[type=submit]');
@@ -308,16 +308,17 @@ const N = lang === 'ar'
   // teaching captions while the run lasts (each shown only while it is still running)
   const busy = () => P.evaluate(() => !document.getElementById('busy').hidden);
   const runCaps = [
-    ['يجري الحساب على جهازك، وشريط التقدم في الأسفل، ويمكنك الإلغاء متى شئت.', 'The computation runs on your computer; the progress bar is at the bottom and you can cancel at any time.', '#cancelrun'],
+    ['يجري الحساب على جهازك، ويمكنك إلغاؤه متى شئت.', 'The computation runs on your computer; the progress bar is at the bottom and you can cancel at any time.', '#cancelrun'],
     ['كل عينة فرعية تُسحب بالإرجاع، ويُعاد تقدير النموذج عليها.', 'Each subsample is drawn with replacement and the model is re-estimated on it.', '#busybar'],
-    ['5000 إعادة تقدير تعطي كل تقدير خطأً معيارياً وقيمة t وفترة ثقة.', '5,000 re-estimates give each estimate a standard error, a t value and a confidence interval.', null],
-    ['وبذرة العشوائية ثابتة (1)، فإعادة التشغيل تعطي النتائج نفسها.', 'The random seed is fixed at 1, so running it again gives the same results.', null],
+    ['5000 تقدير تعطي كل معامل خطأً معيارياً وقيمة t.', '5,000 re-estimates give each estimate a standard error, a t value and a confidence interval.', null],
+    ['والبذرة ثابتة، فالإعادة تعطي النتائج نفسها.', 'The random seed is fixed at 1, so running it again gives the same results.', null],
     ['وعند انتهائه يُفتح لسان «النتائج» تلقائياً.', 'When it finishes, the Results tab opens by itself.', '#busybar']
   ];
   for (const [ar, en, sel] of runCaps) {
     if (!(await busy())) break;
     await say(ar, en);
-    if (sel && await busy()) { try { await R.moveTo(sel, { steps: 24 }); } catch (e) { /* finished meanwhile */ } }
+    // the element hides when the run ends: a short visibility wait (Playwright's default would hold the caption for 30 s)
+    if (sel && await busy()) { try { const el = P.locator(sel).first(); await el.scrollIntoViewIfNeeded({ timeout: 1500 }); await R.moveTo(el, { steps: 24 }); } catch (e) { /* finished meanwhile */ } }
     while (Date.now() < due && await busy()) await R.wait(100);
   }
   await P.waitForSelector('#busy', { state: 'hidden', timeout: 180000 });
@@ -327,19 +328,19 @@ const N = lang === 'ar'
   await R.wait(300);
   await R.click('.secnav [data-sec=b_path]', { after: 600 });
   await hl('#secout .tablewrap', 6);
-  await say('المسار دالّ إذا كانت P أقل من 0.05 ولم تتضمن فترة الثقة 95% الصفر.', 'A path is significant when P < 0.05 and the 95% confidence interval excludes zero.');
+  await say('المسار دالّ إذا كانت P دون 0.05 ولم تتضمن فترة الثقة الصفر.', 'A path is significant when P < 0.05 and the 95% confidence interval excludes zero.');
   await hold();
   await hl('#secout table tbody tr:nth-child(10)', 3);
   await R.moveTo('#secout table tbody tr:nth-child(10) td:nth-child(6)');
-  await say(`المسارات العشرة كلها دالة؛ فمسار ${N.sat} ← ${N.loy} معامله 0.356 وقيمة t له 7.34.`, `All ten paths are significant; for example ${N.sat} → ${N.loy} = 0.356, t = 7.34.`);
+  await say(`المسارات العشرة كلها دالة؛ فمسار ${N.sat} ← ${N.loy} قيمة t له 7.34.`, `All ten paths are significant; for example ${N.sat} → ${N.loy} = 0.356, t = 7.34.`);
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=b_specific]', { after: 600 });
   await hl('#secout .tablewrap', 6);
-  await say('الآثار غير المباشرة المحددة تختبر الوساطة: كل سلسلة مسارات مع دلالتها.', 'Specific indirect effects test mediation: every chain of paths with its significance.');
+  await say('والآثار غير المباشرة المحددة تختبر الوساطة.', 'Specific indirect effects test mediation: every chain of paths with its significance.');
   await hold();
   await hl('#secout table tbody tr:nth-child(12)', 3);
   await R.moveTo('#secout table tbody tr:nth-child(12) th', { fx: 0.3 });
-  await say(`مثلاً: أثر ${N.imag} في ${N.loy} عبر ${N.sat} يبلغ 0.051 وقيمة P له 0.009، فالوساطة دالة.`, `For example ${N.imag} → ${N.sat} → ${N.loy} = 0.051, P = 0.009: a significant mediation.`);
+  await say(`مثلاً: أثر ${N.imag} في ${N.loy} عبر ${N.sat} ‏0.051، وP ‏0.009: وساطة دالة.`, `For example ${N.imag} → ${N.sat} → ${N.loy} = 0.051, P = 0.009: a significant mediation.`);
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -347,7 +348,7 @@ const N = lang === 'ar'
   await step(6, 'التقرير والتصدير', 'Report & export');
   await R.click('.secnav [data-sec=b_writeup]', { after: 600 });
   await hl('#secout .card', 4);
-  await say('«قائمة التقييم» تفحص كل معيار وفق إرشادات Hair وآخرين (2019).', 'The assessment checklist checks every criterion against Hair et al. (2019).');
+  await say('«قائمة التقييم» تفحص كل معيار وفق Hair وآخرين (2019).', 'The assessment checklist checks every criterion against Hair et al. (2019).');
   await hold();
   await say('العلامة ✓ تعني سليم، و▲ يحتاج مراجعة، و✗ مشكلة.', 'A tick is fine, a triangle needs a look, a cross is a problem.');
   await hold();
@@ -355,15 +356,15 @@ const N = lang === 'ar'
   await say('▲ هنا لأربعة تشبعات دون 0.708.', 'A triangle here: four loadings below 0.708.');
   await hold();
   await hl('#secout .checklist li:nth-child(2)', 4);
-  await say(`و✗ لثبات «${N.loy}»: قيمة rho_A له دون 0.70.`, `A cross for ${N.loy}’s reliability: its rho_A is below 0.70.`);
+  await say(`و✗ لثبات «${N.loy}»: rho_A دون 0.70.`, `A cross for ${N.loy}’s reliability: its rho_A is below 0.70.`);
   await hold();
   await hl('#secout .checklist li:last-child', 4);
-  await say('و▲ لحجم العينة: 300 أقل بقليل من 305 اللازمة لأصغر مسار.', 'And a triangle for sample size: 300 is just under the 305 needed for the smallest path.');
+  await say('و▲ لحجم العينة: 300 أقل بقليل من 305.', 'And a triangle for sample size: 300 is just under the 305 needed for the smallest path.');
   await hold(); await R.unhighlight();
   await R.hideCaption(200);
   await R.scroll('#secout', 430, 16);
   await hl('#writeup', 6);
-  await say('وتحتها مسودة لكتابة النتائج بأسلوب APA، مبنية على أرقامك.', 'Below it, a draft APA-style write-up built from your numbers.');
+  await say('وتحتها مسودة للنتائج بأسلوب APA من أرقامك.', 'Below it, a draft APA-style write-up built from your numbers.');
   await hold();
   await say('راجعها وكيّفها لدراستك، ثم انسخها بزر «نسخ».', 'Check it, adapt it to your study, then copy it with the Copy button.');
   await R.moveTo('#secout [data-act=copywriteup]');
@@ -386,7 +387,7 @@ const N = lang === 'ar'
   await hold();
   await hl('.tbar [data-act=save]', 6);
   await R.moveTo('.tbar [data-act=save]');
-  await say('البيانات والنماذج تُحفظ تلقائياً في المتصفح، واضغط «حفظ» لتنزيل ملف المشروع كاملاً مع النتائج.', 'Data and models autosave in the browser; Save downloads the full project file with its results.');
+  await say('العمل يُحفظ تلقائياً في المتصفح، و«حفظ» ينزّل ملف المشروع مع نتائجه.', 'Data and models autosave in the browser; Save downloads the full project file with its results.');
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -394,16 +395,16 @@ const N = lang === 'ar'
   await step(7, 'الأمثلة والدليل', 'Examples & guide');
   await R.click('.tabs [data-view=help]', { after: 500 });
   await R.click('.secnav [data-help=examples]', { after: 600 });
-  await say('في «الدليل والمصادر» ← «كل الأمثلة»: بيانات جاهزة لكل تحليل في البرنامج.', 'In Guide & references, open All examples: ready data for every analysis in BabPls.');
+  await say('في «الدليل والمصادر» ← «كل الأمثلة»: بيانات جاهزة لكل تحليل.', 'In Guide & references, open All examples: ready data for every analysis in BabPls.');
   await hold();
   await R.click('#helpout [data-help="ex:wellbeing"]', { after: 700 });
-  await say('لكل مثال دليل: خطوات التشغيل، وكيف تفسّر النتيجة، وماذا يُظهر المثال.', 'Each example has a guide: how to run it, how to interpret it, and what it shows.');
+  await say('لكل مثال دليل: كيف تشغّله وكيف تفسّر نتيجته.', 'Each example has a guide: how to run it, how to interpret it, and what it shows.');
   await R.wait(600);
   await into('#helpout [data-exrun="wellbeing|0"]', 'center');
   await R.moveTo('#helpout [data-exrun="wellbeing|0"]');
   await hl('#helpout [data-exrun="wellbeing|0"]', 6);
   await hold();
-  await say('زر «شغّل هذا التحليل» يحمّل البيانات والنموذج ويفتح التحليل بإعداداته.', 'Run this analysis loads its data and model and opens it with its settings.');
+  await say('و«شغّل هذا التحليل» يحمّل البيانات والنموذج والإعدادات.', 'Run this analysis loads its data and model and opens it with its settings.');
   await hold();
   await R.unhighlight();
   await R.hideCaption(200);
@@ -412,18 +413,18 @@ const N = lang === 'ar'
   await R.click('.secnav [data-sec=slopes]', { after: 600 });
   await into('#secout .chartbox', 'center');
   await hl('#secout .chartbox svg', 6);
-  await say('وهذه نتيجته: الميول البسيطة تُظهر كيف يخفّف الدعم أثر عبء العمل في الإجهاد.', 'And here is the result: the simple slopes show how support buffers the effect of workload on stress.');
+  await say('والنتيجة: الدعم يخفّف أثر عبء العمل في الإجهاد.', 'And here is the result: the simple slopes show how support buffers the effect of workload on stress.');
   await hold(); await R.unhighlight();
   await R.hideCaption(200);
   await R.click('.tabs [data-view=help]', { after: 500 });
   await R.click('.secnav [data-help=start]', { after: 600 });
   await hl('#helpview .secnav', 2);
-  await say('«دليل المستخدم» يشرح البيانات وبناء النموذج وكل تحليل وقراءة النتائج.', 'The user guide covers data, model building, every analysis and reporting.');
+  await say('«دليل المستخدم» يشرح كل خطوة وكل تحليل.', 'The user guide covers data, model building, every analysis and reporting.');
   await R.moveTo('.secnav [data-help=report]');
   await hold(); await R.unhighlight();
   await R.hideCaption(200);
   await R.click('.secnav [data-help=methods]', { after: 600 });
-  await say('و«المنهجيات» تعرض صيغة كل طريقة ومصادرها، مع نحو 90 مرجعاً.', 'Methods shows the formulas and sources of each method, with about 90 references.');
+  await say('و«المنهجيات» تعرض الصيغ ونحو 90 مرجعاً.', 'Methods shows the formulas and sources of each method, with about 90 references.');
   await R.scroll('#helpout', 500, 18);
   await hold();
   await quiet();
@@ -433,7 +434,7 @@ const N = lang === 'ar'
   await card(R.T({
     ar: `<img class="anim" src="assets/logo.svg"><h1 class="anim">BabPls</h1><h2 class="anim">جرّبه الآن على بياناتك</h2><div class="pills anim"><span>مجاني ومفتوح المصدر (MIT)</span><span>يعمل في المتصفح</span><span>ويندوز وماك ولينكس</span></div><div class="url anim">motqenacademy-droid.github.io/babpls</div><p class="anim">تصميم: د. أحمد يوسف</p>`,
     en: `<img class="anim" src="assets/logo.svg"><h1 class="anim">BabPls</h1><h2 class="anim">Try it now with your own data</h2><div class="pills anim"><span>Free &amp; open source (MIT)</span><span>Runs in your browser</span><span>Windows, macOS, Linux</span></div><div class="url anim">motqenacademy-droid.github.io/babpls</div><p class="anim">Designed by Dr. Ahmed Youssef</p>`
-  }), 4200, { ar: 'جرّبه الآن على بياناتك: مجاني ومفتوح المصدر، في متصفحك أو على ويندوز وماك ولينكس. تصميم: د. أحمد يوسف.', en: 'Try it now with your own data: free and open source, in your browser or on Windows, macOS and Linux. Designed by Dr. Ahmed Youssef.' }, 'motqenacademy-droid.github.io/babpls');
+  }), 4200, { ar: 'جرّبه الآن على بياناتك: مجاني ومفتوح المصدر. تصميم: د. أحمد يوسف.', en: 'Try it now with your own data: free and open source, in your browser or on Windows, macOS and Linux. Designed by Dr. Ahmed Youssef.' }, 'motqenacademy-droid.github.io/babpls');
 
   const res = await R.finish();
   { // the title cards' lines join the in-app captions in the .srt

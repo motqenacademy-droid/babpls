@@ -89,7 +89,8 @@ async function start(o) {
   const voiced = o.voice !== false && hasVoice(o.lang);
   let lastSaid = null; // a caption re-shown with a ⬇ file-name line (same text) is not spoken twice
   let hold = Promise.resolve(0); // wall-clock ms until which the current narration is still speaking
-  const narrate = text => { const t = Date.now(); hold = synth(o.lang, text).then(r => (r ? t + (r.seconds + SPEECH_GAP) * 1000 : 0)); };
+  const gap = o.gap === undefined ? SPEECH_GAP : o.gap; // o.gap: seconds of silence after each line (audio.py keeps ≥ 0.25 between lines)
+  const narrate = text => { const t = Date.now(); hold = synth(o.lang, text).then(r => (r ? t + (r.seconds + gap) * 1000 : 0)); };
   const waitSpeech = async lead => { const until = await hold; const d = until - Date.now() - (lead || 0); if (d > 0) await page.waitForTimeout(d); }; // lead (ms): return that much before the end
   const R = {
     voiced,

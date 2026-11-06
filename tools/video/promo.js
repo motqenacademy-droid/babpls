@@ -8,14 +8,19 @@ const rec = require('./rec.js');
 const lang = process.argv[2] || 'en', port = process.argv[3] || '8771';
 const ROOT = path.resolve(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
+// Arabic narration pace for the promo (Piper length_scale; audio.py uses the same default for an Arabic promo)
+if (lang === 'ar' && !process.env.BABPLS_AR_SPEED) process.env.BABPLS_AR_SPEED = '0.8';
 
 (async () => {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   // frames go to a private temp folder (another recording may be running and cleaning media/ at the same time)
-  const R = await rec.start({ lang, url: `http://127.0.0.1:${port}/index.html`, out: OUT, frames: fs.mkdtempSync(path.join(os.tmpdir(), `babpls-promo-${lang}-`)) });
+  const R = await rec.start({ lang, url: `http://127.0.0.1:${port}/index.html`, out: OUT, gap: lang === 'ar' ? 0.25 : undefined, frames: fs.mkdtempSync(path.join(os.tmpdir(), `babpls-promo-${lang}-`)) });
   const t0 = Date.now(); // ≈ rec.js's own t0 (the .srt clock)
   const now = () => (Date.now() - t0) / 1000;
   const { page: P, T } = R;
+  // narrated Arabic: its voice is slower than the English one, so some captions start with the move that leads into their
+  // shot instead of after it (the speech then covers the zoom, scroll or tab switch); the English choreography is unchanged
+  const tight = R.voiced && lang === 'ar';
   // quicker pointer moves than rec.js's default (28 steps), so the montage keeps its pace on a busy machine
   const click0 = R.click, move0 = R.moveTo;
   R.click = (s, o) => click0(s, Object.assign({ steps: 10 }, o));
@@ -170,8 +175,10 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.hideCard(120); // the pointer heads for the gallery button while the card fades
 
   // 2. example gallery -------------------------------------------------------
+  const nine = { ar: 'تسعة أمثلة جاهزة تغطي التحليلات كلها', en: 'Nine ready-made examples covering every analysis' };
+  if (tight) await R.caption(nine); // narrated Arabic: the line starts as the pointer heads for the gallery button
   await R.click('#dataview [data-act=examples]', { after: 0 });
-  await R.caption({ ar: 'تسعة أمثلة جاهزة تغطي التحليلات كلها', en: 'Nine ready-made examples covering every analysis' });
+  if (!tight) await R.caption(nine);
   await R.highlight('.exgrid > section:first-child', 6);
   await R.wait(1900);
   await R.hideCaption(150);
@@ -202,10 +209,18 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.click('#rundlg button[type=submit]', { after: 150 });
   await outDlg();
   await capTop(true);
+  // narrated Arabic: the line takes ~4.5 s and the bar crawls at first, so the run's first seconds are cut and the line is
+  // spoken over a bar that is already well under way (the pointer then moves to «إلغاء» as the line names it)
+  if (tight) {
+    await cutOn();
+    await P.waitForFunction(() => parseFloat(document.getElementById('busybar').style.width) >= 35, null, { timeout: 120000, polling: 100 }).catch(() => {});
+    await cutOff();
+  }
   await R.caption({ ar: 'شريط تقدّم حيّ، ويمكنك الإلغاء متى شئت', en: 'Live progress, and you can cancel any time' });
   await R.highlight('#busy', 8);
   await R.moveTo('#busy', { fx: 0.4 });
-  await R.wait(1300);
+  await R.wait(tight ? 1500 : 1300);
+  if (tight) await R.moveTo('#cancelrun');
   // hold until the bar has visibly moved, at most ~1 s more
   await P.waitForFunction(() => parseFloat(document.getElementById('busybar').style.width) >= 12, null, { timeout: 1000, polling: 100 }).catch(() => {});
   await R.wait(200);
@@ -218,15 +233,19 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.wait(300);
 
   // 4. checklist and APA write-up ---------------------------------------------
+  const checklist = { ar: 'قائمة تقييم آلية تنبّهك إلى مواطن الضعف', en: 'An automatic checklist flags the weak spots' };
+  if (tight) await R.caption(checklist);
   await zoomOn('#secout .card:first-of-type ul', 1.4, lang === 'ar' ? 0.72 : 0.28);
   await hlIn('#secout .card:first-of-type ul', 6);
-  await R.caption({ ar: 'قائمة تقييم آلية تنبّهك إلى مواطن الضعف', en: 'An automatic checklist flags the weak spots' });
+  if (!tight) await R.caption(checklist);
   await R.moveTo('#secout .card:first-of-type li:nth-child(1)', { fx: lang === 'ar' ? 0.75 : 0.25 });
   await R.wait(1600);
   await R.unhighlight();
   await R.hideCaption(150);
+  const apa = { ar: 'وفقرة نتائج جاهزة بأسلوب APA', en: 'And a ready-made APA-style write-up' };
+  if (tight) await R.caption(apa);
   await zoomOut();
-  await R.caption({ ar: 'وفقرة نتائج جاهزة بأسلوب APA', en: 'And a ready-made APA-style write-up' });
+  if (!tight) await R.caption(apa);
   await scrollTo('#secout', '#writeup', 40);
   await R.highlight('#writeup', 6);
   await R.moveTo('#writeup', { fx: 0.5, fy: 0.3 });
@@ -235,8 +254,10 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.hideCaption(150);
 
   // 5. bootstrap distribution ------------------------------------------------
-  await R.click('.secnav [data-sec=b_path]', { after: 400 });
-  await R.caption({ ar: 'انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة', en: 'Click any path to see its bootstrap distribution and confidence interval' });
+  const pathCap = { ar: 'انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة', en: 'Click any path to see its bootstrap distribution and confidence interval' };
+  if (tight) await R.caption(pathCap);
+  await R.click('.secnav [data-sec=b_path]', { after: tight ? 250 : 400 });
+  if (!tight) await R.caption(pathCap);
   await scrollTo('#secout', '#secout tr[data-draw]:nth-child(9)', 300);
   await R.highlight('#secout tr[data-draw]:nth-child(9)', 4);
   await R.click('#secout tr[data-draw]:nth-child(9)', { after: 500, fx: 0.15 });
@@ -244,13 +265,15 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await scrollTo('#secout', '#drawbox', 20);
   await zoomOn('#drawbox svg', 1.6);
   await R.moveTo('#drawbox svg', { fx: 0.5, fy: 0.5 });
-  await R.wait(800);
+  await R.wait(tight ? 250 : 800);
   await R.hideCaption(150);
+  const onModel = { ar: 'المعاملات وقيم p على نموذج المسار نفسه', en: 'Coefficients and p-values on the path model' };
+  if (tight) await R.caption(onModel);
   await zoomOut();
 
   // 6. results on the path model ----------------------------------------------
   await R.click('.tabs [data-view=model]', { after: 400 });
-  await R.caption({ ar: 'المعاملات وقيم p على نموذج المسار نفسه', en: 'Coefficients and p-values on the path model' });
+  if (!tight) await R.caption(onModel);
   park = await P.evaluate(() => { // the point of the canvas farthest from any drawn shape (above the caption band)
     const c = document.getElementById('canvas').getBoundingClientRect(), A = c.width * c.height;
     const boxes = [...document.querySelectorAll('#canvas text, #canvas rect, #canvas ellipse, #canvas circle, #canvas path, #canvas line')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.width * r.height < A / 4);
@@ -267,8 +290,10 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
 
   // 7. IPMA (target: Value, whose map has room for every label); the caption comes with the map ----------------------
   await R.hideCaption(150);
+  const ipmaCap = { ar: 'خريطة الأهمية والأداء تكشف أولويات التحسين', en: 'The importance-performance map shows what to improve first' };
+  if (tight) await R.caption(ipmaCap); // narrated Arabic: from the Calculate menu on
   await runFromMenu('ipma', async () => { // the caption comes with the IPMA dialog (its title names the map), then stays on the map
-    await R.caption({ ar: 'خريطة الأهمية والأداء تكشف أولويات التحسين', en: 'The importance-performance map shows what to improve first' });
+    if (!tight) await R.caption(ipmaCap);
     await R.moveTo('#rundlg select[name=target]');
     await P.selectOption('#rundlg select[name=target]', { index: 2 }); // Value
     await R.wait(250);
@@ -277,18 +302,18 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await hlIn('#secout figure.chartbox svg', 6);
   const sv = await P.locator('#secout figure.chartbox svg').boundingBox();
   await R.moveXY(Math.min(1450, sv.x + sv.width + 120), sv.y + sv.height * 0.6, 8); // off the map
-  await R.wait(1000);
+  await R.wait(tight ? 400 : 1000);
   await R.unhighlight();
   await R.hideCaption(150);
   await zoomOut();
 
   // 8. CB-SEM fit: the menu entry is shown, the run is cut, then the fit table -------------------------------------
   await R.caption({ ar: 'وفيه أيضاً CB-SEM بمؤشرات مطابقة كاملة', en: 'CB-SEM too, with a full set of fit indices' });
-  await runFromMenu('cbsem', null, { menuHold: 300, cut: true });
+  await runFromMenu('cbsem', null, { menuHold: tight ? 150 : 300, cut: true });
   await R.click('.secnav [data-sec=cb_fit]', { after: 450 });
   await cutOff();
   await highlightRows('#secout .card', 12); // χ² … NFI
-  await R.wait(1500);
+  await R.wait(tight ? 700 : 1500);
   await R.unhighlight();
   await R.hideCaption(150);
 
@@ -298,7 +323,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.highlight('.restabs [data-act=excel]', 6);
   await R.click('.restabs [data-act=excel]', { after: 200 });
   const xl = await nextDownload(0);
-  if (xl) await fileChip('.restabs [data-act=excel]', xl.name, 950); else await R.wait(800);
+  if (xl) await fileChip('.restabs [data-act=excel]', xl.name, tight ? 750 : 950); else await R.wait(800);
   await R.highlight('.restabs [data-act=report]', 6);
   await R.click('.restabs [data-act=report]', { after: 400 });
   await R.unhighlight();
@@ -316,7 +341,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
     }, [html, name]);
     await cursor(false);
     await R.wait(500);
-    for (let i = 0; i < 16; i++) { await P.evaluate(() => { const f = document.querySelector('#vo-rep iframe'); f.contentWindow.scrollBy(0, 14); }); await R.wait(40); }
+    for (let i = 0, n = tight ? 12 : 16; i < n; i++) { await P.evaluate(() => { const f = document.querySelector('#vo-rep iframe'); f.contentWindow.scrollBy(0, 14); }); await R.wait(40); }
     await R.wait(200);
     await R.hideCaption(150);
     await P.evaluate(() => { const w = document.getElementById('vo-rep'); w.style.opacity = '0'; });
@@ -330,17 +355,19 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
 
   // 10. appearance ------------------------------------------------------------
   await P.evaluate(() => document.getElementById('theme').click()); // light → auto, follows the system (light here): nothing changes on screen
+  const styleCap = { ar: 'نسّق الرسم كما تشاء: قوالب وألوان وخطوط', en: 'Restyle diagrams: presets, colors, fonts' };
+  if (tight) await R.caption(styleCap);
   await R.click('.tabs [data-view=model]', { after: 300 });
-  await R.caption({ ar: 'نسّق الرسم كما تشاء: قوالب وألوان وخطوط', en: 'Restyle diagrams: presets, colors, fonts' });
+  if (!tight) await R.caption(styleCap);
   await R.click('[data-act=style]', { after: 400 });
   await intoDlg('#styledlg');
   await R.highlight('#styledlg .presets', 6);
-  await R.click('#styledlg [data-preset=classic]', { after: 1300 });
+  await R.click('#styledlg [data-preset=classic]', { after: tight ? 950 : 1300 });
   await R.unhighlight();
   await P.evaluate(() => document.querySelector('#styledlg form').requestSubmit());
   await outDlg();
   await R.moveXY(park.x, park.y, 10);
-  await R.wait(700);
+  await R.wait(tight ? 300 : 700);
 
   // 11. dark theme ----------------------------------------------------------------
   await R.hideCaption(150);
@@ -354,11 +381,11 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.click('#lang', { after: 250 });
   await fixTitle();
   await R.moveTo('#lang', { steps: 6 }); // the header mirrored under the pointer: back onto the language button
-  await R.wait(1600);
+  await R.wait(tight ? 1000 : 1600);
   await R.click('#lang', { after: 250, steps: 6 });
   await fixTitle();
   await R.moveTo('#lang', { steps: 6 });
-  await R.wait(550);
+  await R.wait(tight ? 300 : 550);
 
   // 13. feature pills ------------------------------------------------------------
   await R.hideCaption(200);

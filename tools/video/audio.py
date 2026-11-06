@@ -47,6 +47,8 @@ def duration(path):
 
 def main():
     video, lang, style = sys.argv[1], sys.argv[2], sys.argv[3]
+    if style == 'promo' and lang == 'ar':  # same narration speed as promo.js used while recording (voice.py cache key)
+        os.environ.setdefault('BABPLS_AR_SPEED', '0.8')
     use_voice = '--no-voice' not in sys.argv and voice.model_for(lang) is not None
     secs = duration(video)
     n = int(secs * SR)
