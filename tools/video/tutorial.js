@@ -40,7 +40,8 @@ const N = lang === 'ar'
   // captions: each stays on screen at least long enough to read (≈ 0.85 s + 0.22 s per word, 2.4–4.5 s); actions run meanwhile
   let due = 0, shown = 0;
   const words = s => s.split(/\s+/).filter(Boolean).length;
-  const hold = async () => { const w = due - Date.now(); if (w > 0) await R.wait(w); };
+  // with narration (English) an action that follows hold() also waits for the current line (it may start on its last few words)
+  const hold = async () => { const w = due - Date.now(); if (w > 0) await R.wait(w); await R.waitSpeech(900); };
   const say = async (ar, en) => { await hold(); const s = R.T({ ar, en }); await R.caption(s); shown = Date.now(); due = shown + Math.min(4500, Math.max(2400, 850 + 222 * words(s))); };
   const hl = async (sel, pad) => { await hold(); await R.highlight(sel, pad); };
   const quiet = async () => { await hold(); await R.hideCaption(); };
@@ -54,16 +55,27 @@ const N = lang === 'ar'
   const emptyAt = (x, y) => P.evaluate(([x0, y0]) => { const svg = document.querySelector('#canvas'); for (let r = 0; r < 400; r += 12) for (let a = 0; a < 6.28; a += 0.4) { const x = x0 + r * Math.cos(a), y = y0 + r * Math.sin(a), el = document.elementFromPoint(x, y); if (el && svg.contains(el) && !el.closest('g')) return { x, y }; } return { x: x0, y: y0 }; }, [x, y]);
   const lv = name => P.locator('#canvas g.lv', { hasText: name }).first();
   const step = (n, ar, en) => R.step({ ar: `${n}/7 · ${ar}`, en: `${n}/7 · ${en}` }); // same wording as the pills on the "What you will learn" card
+  // title cards: the spoken line (narrated when a voice is installed) also goes into the .srt; an optional URL line is shown
+  // in the .srt but not read aloud. The card stays at least `ms` and until the narration has finished.
+  const t0 = Date.now(), cardSubs = [], now = () => (Date.now() - t0) / 1000; // t0 ≈ rec.js's .srt clock (its first frame)
+  const card = async (html, ms, sub, url) => {
+    await R.card(html, 400);
+    const s = now(), line = R.T(sub);
+    await R.narrate(line);
+    await R.wait(Math.max(0, ms - 400));
+    await R.waitSpeech();
+    cardSubs.push({ start: s, end: now(), text: line + (url ? '\n' + url : '') });
+  };
 
   // ------------------------------------------------------------------ title
-  await R.card(R.T({
+  await card(R.T({
     ar: `<img class="anim" src="assets/logo.svg"><span class="tag anim">درس تعليمي</span><h1 class="anim">BabPls</h1><h2 class="anim">نموذجك الأول في PLS-SEM في سبع خطوات</h2><p class="anim">من استيراد البيانات إلى تقرير جاهز بأسلوب APA</p>`,
     en: `<img class="anim" src="assets/logo.svg"><span class="tag anim">Tutorial</span><h1 class="anim">BabPls</h1><h2 class="anim">Your first PLS-SEM model in 7 steps</h2><p class="anim">From importing data to an APA-style report</p>`
-  }), 2800);
-  await R.card(R.T({
+  }), 2800, { ar: 'درس BabPls: نموذجك الأول في PLS-SEM في سبع خطوات، من استيراد البيانات إلى تقرير بأسلوب APA.', en: 'BabPls tutorial: your first PLS-SEM model in 7 steps, from importing data to an APA-style report.' });
+  await card(R.T({
     ar: `<h2 class="anim">ماذا ستتعلم؟</h2><div class="pills anim"><span>1 · شاشة البدء</span><span>2 · استيراد البيانات</span><span>3 · بناء النموذج</span><span>4 · PLS-SEM ومعايير الجودة</span><span>5 · الإقلاع الذاتي</span><span>6 · التقرير والتصدير</span><span>7 · الأمثلة والدليل</span></div>`,
     en: `<h2 class="anim">What you will learn</h2><div class="pills anim"><span>1 · Start screen</span><span>2 · Import data</span><span>3 · Build the model</span><span>4 · PLS-SEM &amp; quality criteria</span><span>5 · Bootstrapping</span><span>6 · Report &amp; export</span><span>7 · Examples &amp; guide</span></div>`
-  }), 2900);
+  }), 2900, { ar: 'ماذا ستتعلم؟ سبع خطوات، من شاشة البدء إلى الأمثلة والدليل.', en: 'What you will learn: seven steps, from the start screen to the examples and the guide.' });
   await R.hideCard(600);
 
   // ------------------------------------------------------- 1. start screen
@@ -71,7 +83,7 @@ const N = lang === 'ar'
   await R.moveXY(760, 300);
   await say('افتح BabPls في المتصفح: بلا تثبيت ولا حساب، وبياناتك لا تغادر جهازك.', 'Open BabPls in your browser: no installation, no account, and your data stay on your computer.');
   await hl('.welcome .actions', 10);
-  await say('من شاشة البدء: افتح مثالاً جاهزاً، أو تصفّح بيانات الأمثلة، أو استورد بياناتك.', 'From the start screen, open a ready example, browse the example datasets, or import your own data.');
+  await say('من شاشة البدء: افتح مثالاً جاهزاً، أو تصفّح بيانات الأمثلة، أو استورد بياناتك.', 'From the start screen, open a ready example, browse example data, or import your own.');
   await R.moveTo('.welcome .actions [data-act=import]');
   await hl('.tabs', 4);
   await say('الألسنة في الأعلى: البيانات، والنموذج، والنتائج، والدليل والمصادر.', 'The tabs at the top: Data, Model, Results, and Guide & references.');
@@ -87,18 +99,19 @@ const N = lang === 'ar'
   // ------------------------------------------------------- 2. import data
   await step(2, 'استيراد البيانات', 'Import data');
   await hl('.tbar [data-act=import]', 6);
-  await say('اضغط «استيراد بيانات»: يقبل CSV وExcel وSPSS، والصف الأول أسماء المتغيرات.', 'Click Import data. CSV, Excel and SPSS files work; the first row holds the variable names.');
+  await say('اضغط «استيراد بيانات»: يقبل CSV وExcel وSPSS، والصف الأول أسماء المتغيرات.', 'Click Import data: CSV, Excel or SPSS, with the variable names in the first row.');
   await R.moveTo('.tbar [data-act=import]');
-  await hold();
+  // the import runs while the line is still being spoken (no frozen screen): the data are in the Data tab by its end
+  { const w = due - Date.now(); if (w > 0) await R.wait(w); } // the caption's reading time only, not the end of the speech
   await R.unhighlight();
   try {
     const [fc] = await Promise.all([P.waitForEvent('filechooser', { timeout: 5000 }), R.click('.tbar [data-act=import]', { after: 200 })]);
     await fc.setFiles(CSV);
   } catch (e) { await P.setInputFiles('#csvfile', CSV); }
-  await R.hideCaption(200);
   await R.wait(500);
   // the app opens the Model tab after an import: go to the Data tab first, then talk about it
   await R.click('.tabs [data-view=data]', { after: 400 });
+  await R.hideCaption(200);
   await say('مثالنا رضا العملاء: 300 مستجيب و24 متغيراً. لنفحص البيانات أولاً في لسان «البيانات».', 'Our example: customer satisfaction, 300 respondents, 24 variables. First, check the data in the Data tab.');
   await hl('#dataview > .datahead + .datahead', 6);
   await say('في الأعلى: عدد الصفوف والمتغيرات، ومجموع القيم المفقودة.', 'At the top: the number of rows and variables, and the total of missing values.');
@@ -118,7 +131,7 @@ const N = lang === 'ar'
   await R.hideCaption(200);
   await P.evaluate(() => document.querySelector('#dataview').scrollTo({ top: 0, behavior: 'smooth' })); await R.wait(800);
   await hl('#dataview > .datahead + .datahead .pill:nth-child(3)', 6);
-  await say('القيم المفقودة تُعالج افتراضياً بـ«الإحلال بالمتوسط»، ويمكنك اختيار «حذف الحالة كاملة» عند الحساب.', 'By default missing values get mean replacement; you can choose casewise deletion when you run an analysis.');
+  await say('القيم المفقودة تُعالج افتراضياً بـ«الإحلال بالمتوسط»، ويمكنك اختيار «حذف الحالة كاملة» عند الحساب.', 'Missing values get mean replacement by default; you can choose casewise deletion when you run an analysis.');
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -166,7 +179,7 @@ const N = lang === 'ar'
     await P.mouse.dblclick(pt.x, pt.y); await R.wait(250);
     await R.type('#p_name', nu, { delay: i ? 35 : 90 });
     await P.keyboard.press('Enter'); await R.wait(i ? 250 : 500);
-    if (i === 0) { await hold(); await say('وسمِّ البقية بالطريقة نفسها.', 'Rename the others the same way.'); }
+    if (i === 0) { await hold(); await say('وسمِّ البقية بالطريقة نفسها.', 'Rename the others the same way: Quality, Value, Satisfaction, Loyalty.'); }
     if (i === 2) { await hold(); await say('هذه الأسماء هي التي ستظهر في النتائج والتقارير.', 'These names are the ones you will see in the results and reports.'); }
   }
   await hold();
@@ -180,7 +193,7 @@ const N = lang === 'ar'
   const paths = [[N.imag, N.sat], [N.imag, N.loy], [N.expe, N.qual], [N.expe, N.val], [N.expe, N.sat], [N.qual, N.val], [N.qual, N.sat], [N.val, N.sat], [N.sat, N.loy]];
   for (let q = 0; q < paths.length; q++) {
     const [a, b] = paths[q];
-    if (q === 4) { await hold(); await say('كل سهم يتجه من المتغير المؤثِّر إلى المتغير الذي يؤثّر فيه.', 'Each arrow runs from the predictor to the outcome it affects.'); }
+    if (q === 5) { await hold(); await say('كل سهم يتجه من المتغير المؤثِّر إلى المتغير الذي يؤثّر فيه.', 'Each arrow runs from the predictor to the outcome it affects.'); }
     await R.moveTo(lv(a), { steps: 11, pause: 50 }); await P.mouse.down(); await P.mouse.up(); await R.wait(120);
     await R.moveTo(lv(b), { steps: 12, pause: 50 }); await P.mouse.down(); await P.mouse.up(); await R.wait(160);
   }
@@ -192,7 +205,7 @@ const N = lang === 'ar'
   await R.unhighlight();
   await hold();
   // tidy: move the Quality construct down so the Image → Loyalty path no longer crosses its indicators, then fit
-  await say('اسحب أي متغير لتحسين الرسم، وزر ⤢ يلائم النموذج مع اللوحة.', 'Drag any construct to tidy the drawing; the ⤢ button fits the model to the canvas.');
+  await say('اسحب أي متغير لتحسين الرسم، وزر ⤢ يلائم النموذج مع اللوحة.', 'Drag any construct to tidy the drawing; the ⤢ button centres the model on the canvas.');
   const qp = await R.moveTo(lv(N.qual), { steps: 22 });
   await P.mouse.down(); await R.wait(120); await P.mouse.move(qp.x + 5, qp.y + 40, { steps: 30 }); await R.wait(120); await P.mouse.up(); await R.wait(400);
   await R.click('.etools [data-act=fit]', { after: 700 });
@@ -209,7 +222,7 @@ const N = lang === 'ar'
   await step(4, 'PLS-SEM ومعايير الجودة', 'PLS-SEM & quality criteria');
   await R.click('#calcbtn', { after: 400 });
   await hl('#calcmenu', 4);
-  await say('قائمة «احسب» فيها كل التحليلات: PLS-SEM والإقلاع الذاتي وPLSpredict وIPMA وCB-SEM وغيرها.', 'Calculate lists every analysis: PLS-SEM, bootstrapping, PLSpredict, IPMA, CB-SEM and more.');
+  await say('قائمة «احسب» فيها كل التحليلات: PLS-SEM والإقلاع الذاتي وPLSpredict وIPMA وCB-SEM وغيرها.', 'The Calculate menu lists every analysis: PLS-SEM, bootstrapping, PLSpredict, IPMA, CB-SEM, and more.');
   await R.moveTo('#calcmenu [data-run=pls]');
   await hold(); await R.unhighlight();
   await R.click('#calcmenu [data-run=pls]', { after: 600 });
@@ -227,20 +240,21 @@ const N = lang === 'ar'
   // bring the loy rows to the middle of the screen, well above the caption
   await into('#secout table tbody tr:nth-child(21)', 'center');
   await hl('#secout table tbody tr:nth-child(21)', 3);
-  await say('ينبغي ألا يقل التشبع عن 0.708، وأضعف التشبعات هنا loy_3 بقيمة 0.629.', 'Loadings should be at least 0.708. The weakest here is loy_3 = 0.629.');
+  await say('ينبغي ألا يقل التشبع عن 0.708، وأضعف التشبعات هنا loy_3 بقيمة 0.629.', 'Loadings should be at least 0.708. The weakest here is loy_3, at 0.629.');
   await R.moveTo('#secout table tbody tr:nth-child(21) td:nth-child(3)');
   await hold();
   await say('بين 0.40 و0.70 لا تحذف المؤشر إلا إن حسّن ذلك الثبات أو AVE.', 'Between 0.40 and 0.70, delete an indicator only if that improves reliability or AVE.');
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=rel]', { after: 500 });
   await hl('#secout .tablewrap', 6);
-  await say('ينبغي أن يكون الثبات (α، rho_A، rho_c) بين 0.70 و0.95، وألا يقل AVE عن 0.50.', 'Reliability (α, rho_A, rho_c) should lie between 0.70 and 0.95, and AVE should be at least 0.50.');
+  await say('ينبغي أن يكون الثبات (α، rho_A، rho_c) بين 0.70 و0.95، وألا يقل AVE عن 0.50.', 'Reliability (α, rho_A, rho_c) should be 0.70 to 0.95, and AVE at least 0.50.');
   await hold();
   await hl('#secout table tbody tr:nth-child(6)', 3);
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(2)');
-  await say(`ألفا كرونباخ لـ«${N.loy}» 0.638 وrho_A له 0.675، وكلاهما دون 0.70؛ أما rho_c فـ0.802 وهو مقبول.`, `${N.loy}: α = 0.638 and rho_A = 0.675 fall below 0.70; rho_c = 0.802 is acceptable.`);
-  await R.wait(1400);
+  await say(`ألفا كرونباخ لـ«${N.loy}» 0.638 وrho_A له 0.675، وكلاهما دون 0.70؛ أما rho_c فـ0.802 وهو مقبول.`, `For ${N.loy}, α is 0.638 and rho_A 0.675, both below 0.70, but rho_c is 0.802, which is acceptable.`);
+  await R.wait(R.voiced ? 2600 : 1400); // the cursor follows the narration: α, then rho_A, then rho_c
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(3)');
+  if (R.voiced) { await R.wait(3000); await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(4)'); }
   await hold();
   await R.moveTo('#secout table tbody tr:nth-child(6) td:nth-child(5)');
   await say('لذا ستعلّم قائمة التقييم ثباته للمراجعة. وكل قيم AVE فوق 0.50.', 'So the assessment checklist will flag its reliability. Every AVE is above 0.50.');
@@ -248,7 +262,7 @@ const N = lang === 'ar'
   await R.click('.secnav [data-sec=htmt]', { after: 500 });
   await hl('#secout .chartbox svg', 6);
   { const c = P.locator('#secout .chartbox svg text', { hasText: /^0\.592$/ }).first(); if (await c.count()) await R.moveTo(c); }
-  await say('الصدق التمييزي: ينبغي أن تقل HTMT عن 0.85، أو 0.90 للمفاهيم المتقاربة، وأعلاها هنا 0.592.', 'Discriminant validity: HTMT should stay below 0.85 (0.90 for similar concepts). The highest here is 0.592.');
+  await say('الصدق التمييزي: ينبغي أن تقل HTMT عن 0.85، أو 0.90 للمفاهيم المتقاربة، وأعلاها هنا 0.592.', 'Discriminant validity: HTMT should be below 0.85, or 0.90 for similar concepts. The highest here is 0.592.');
   await hold(); await R.unhighlight(); await R.hideCaption(150);
   await R.click('.secnav [data-sec=paths]', { after: 500 });
   await hl('#secout .tablewrap', 6);
@@ -261,7 +275,7 @@ const N = lang === 'ar'
   await R.moveXY(cb.x + cb.width * 0.55, cb.y + cb.height * 0.45);
   await hold();
   await hl('.etools [data-act=zin]', 6);
-  await say('كبّر بزر + (أو Ctrl مع عجلة الفأرة)، واسحب الخلفية لتحريك الرسم.', 'Zoom in with + (or Ctrl + mouse wheel) and drag the background to pan.');
+  await say('كبّر بزر + (أو Ctrl مع عجلة الفأرة)، واسحب الخلفية لتحريك الرسم.', 'Zoom in with the + button (or Ctrl + mouse wheel) and drag the background to pan.');
   for (let z = 0; z < 3; z++) await R.click('.etools [data-act=zin]', { after: 200, steps: z ? 6 : 24 });
   await R.unhighlight();
   // pan so that Satisfaction → Loyalty sits in the middle of the canvas
@@ -275,7 +289,7 @@ const N = lang === 'ar'
   const lab = P.locator('#canvas text', { hasText: /^0\.356$/ }).first();
   if (await lab.count()) await R.moveTo(lab, { fx: 0.5, fy: 1.3 });
   await say(`مثلاً: معامل المسار ${N.sat} ← ${N.loy} هو 0.356، وR² لـ«${N.loy}» تحت اسمه.`, `For example, ${N.sat} → ${N.loy} is 0.356, and ${N.loy}’s R² is shown under its name.`);
-  await R.wait(1800);
+  await R.wait(R.voiced ? 3000 : 1800); // move to Loyalty when its R² is mentioned
   await R.moveTo(lv(N.loy), { fy: 0.7 });
   await hold();
   await quiet();
@@ -297,7 +311,7 @@ const N = lang === 'ar'
     ['يجري الحساب على جهازك، وشريط التقدم في الأسفل، ويمكنك الإلغاء متى شئت.', 'The computation runs on your computer; the progress bar is at the bottom and you can cancel at any time.', '#cancelrun'],
     ['كل عينة فرعية تُسحب بالإرجاع، ويُعاد تقدير النموذج عليها.', 'Each subsample is drawn with replacement and the model is re-estimated on it.', '#busybar'],
     ['5000 إعادة تقدير تعطي كل تقدير خطأً معيارياً وقيمة t وفترة ثقة.', '5,000 re-estimates give each estimate a standard error, a t value and a confidence interval.', null],
-    ['وبذرة العشوائية ثابتة (1)، فإعادة التشغيل تعطي النتائج نفسها.', 'The random seed is fixed (1), so running it again gives the same results.', null],
+    ['وبذرة العشوائية ثابتة (1)، فإعادة التشغيل تعطي النتائج نفسها.', 'The random seed is fixed at 1, so running it again gives the same results.', null],
     ['وعند انتهائه يُفتح لسان «النتائج» تلقائياً.', 'When it finishes, the Results tab opens by itself.', '#busybar']
   ];
   for (const [ar, en, sel] of runCaps) {
@@ -313,7 +327,7 @@ const N = lang === 'ar'
   await R.wait(300);
   await R.click('.secnav [data-sec=b_path]', { after: 600 });
   await hl('#secout .tablewrap', 6);
-  await say('المسار دالّ إذا كانت P أقل من 0.05 ولم تتضمن فترة الثقة 95% الصفر.', 'A path is significant when P < 0.05 and the 95% confidence interval does not include zero.');
+  await say('المسار دالّ إذا كانت P أقل من 0.05 ولم تتضمن فترة الثقة 95% الصفر.', 'A path is significant when P < 0.05 and the 95% confidence interval excludes zero.');
   await hold();
   await hl('#secout table tbody tr:nth-child(10)', 3);
   await R.moveTo('#secout table tbody tr:nth-child(10) td:nth-child(6)');
@@ -361,16 +375,18 @@ const N = lang === 'ar'
   await say(exText.ar, exText.en);
   const fx = await download('.restabs [data-act=excel]');
   if (fx) await R.caption(exText, 0, '⬇ ' + fx);
+  if (fx && R.voiced) await R.wait(1500);
   await hold();
   await hl('.restabs [data-act=report]', 6);
   const repText = { ar: '«تصدير التقرير» يحفظ تقرير HTML كاملاً بالجداول والرسوم.', en: 'Export report saves a complete HTML report with all tables and charts.' };
   await say(repText.ar, repText.en);
   const fr = await download('.restabs [data-act=report]');
   if (fr) await R.caption(repText, 0, '⬇ ' + fr);
+  if (fr && R.voiced) await R.wait(1500); // the file name line stays readable (narration already finished)
   await hold();
   await hl('.tbar [data-act=save]', 6);
   await R.moveTo('.tbar [data-act=save]');
-  await say('البيانات والنماذج تُحفظ تلقائياً في المتصفح، واضغط «حفظ» لتنزيل ملف المشروع كاملاً مع النتائج.', 'Data and models autosave in the browser; click Save to download the full project file with its results.');
+  await say('البيانات والنماذج تُحفظ تلقائياً في المتصفح، واضغط «حفظ» لتنزيل ملف المشروع كاملاً مع النتائج.', 'Data and models autosave in the browser; Save downloads the full project file with its results.');
   await hold(); await R.unhighlight();
   await quiet();
 
@@ -378,7 +394,7 @@ const N = lang === 'ar'
   await step(7, 'الأمثلة والدليل', 'Examples & guide');
   await R.click('.tabs [data-view=help]', { after: 500 });
   await R.click('.secnav [data-help=examples]', { after: 600 });
-  await say('في «الدليل والمصادر» ← «كل الأمثلة»: بيانات جاهزة لكل تحليل في البرنامج.', 'Guide & references → All examples: ready data for every analysis in BabPls.');
+  await say('في «الدليل والمصادر» ← «كل الأمثلة»: بيانات جاهزة لكل تحليل في البرنامج.', 'In Guide & references, open All examples: ready data for every analysis in BabPls.');
   await hold();
   await R.click('#helpout [data-help="ex:wellbeing"]', { after: 700 });
   await say('لكل مثال دليل: خطوات التشغيل، وكيف تفسّر النتيجة، وماذا يُظهر المثال.', 'Each example has a guide: how to run it, how to interpret it, and what it shows.');
@@ -387,7 +403,7 @@ const N = lang === 'ar'
   await R.moveTo('#helpout [data-exrun="wellbeing|0"]');
   await hl('#helpout [data-exrun="wellbeing|0"]', 6);
   await hold();
-  await say('زر «شغّل هذا التحليل» يحمّل البيانات والنموذج ويفتح التحليل بإعداداته.', 'Run this analysis loads the data and the model and opens the analysis with its settings.');
+  await say('زر «شغّل هذا التحليل» يحمّل البيانات والنموذج ويفتح التحليل بإعداداته.', 'Run this analysis loads its data and model and opens it with its settings.');
   await hold();
   await R.unhighlight();
   await R.hideCaption(200);
@@ -414,11 +430,19 @@ const N = lang === 'ar'
   await R.step('');
 
   // ------------------------------------------------------------------ end card
-  await R.card(R.T({
+  await card(R.T({
     ar: `<img class="anim" src="assets/logo.svg"><h1 class="anim">BabPls</h1><h2 class="anim">جرّبه الآن على بياناتك</h2><div class="pills anim"><span>مجاني ومفتوح المصدر (MIT)</span><span>يعمل في المتصفح</span><span>ويندوز وماك ولينكس</span></div><div class="url anim">motqenacademy-droid.github.io/babpls</div><p class="anim">تصميم: د. أحمد يوسف</p>`,
     en: `<img class="anim" src="assets/logo.svg"><h1 class="anim">BabPls</h1><h2 class="anim">Try it now with your own data</h2><div class="pills anim"><span>Free &amp; open source (MIT)</span><span>Runs in your browser</span><span>Windows, macOS, Linux</span></div><div class="url anim">motqenacademy-droid.github.io/babpls</div><p class="anim">Designed by Dr. Ahmed Youssef</p>`
-  }), 4200);
+  }), 4200, { ar: 'جرّبه الآن على بياناتك: مجاني ومفتوح المصدر، في متصفحك أو على ويندوز وماك ولينكس. تصميم: د. أحمد يوسف.', en: 'Try it now with your own data: free and open source, in your browser or on Windows, macOS and Linux. Designed by Dr. Ahmed Youssef.' }, 'motqenacademy-droid.github.io/babpls');
 
   const res = await R.finish();
+  { // the title cards' lines join the in-app captions in the .srt
+    const srtFile = OUT.replace(/\.mp4$/, '.srt');
+    const parseT = v => { const m = v.match(/(\d+):(\d+):(\d+),(\d+)/); return +m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] / 1000; };
+    const ts = v => { const ms = Math.max(0, Math.round(v * 1000)); return new Date(ms).toISOString().slice(11, 23).replace('.', ','); };
+    const subs = fs.readFileSync(srtFile, 'utf8').trim().split(/\n\s*\n/).filter(Boolean).map(b => { const L = b.split('\n'); const [x, z] = L[1].split(' --> '); return { start: parseT(x), end: parseT(z), text: L.slice(2).join('\n') }; });
+    const all = subs.concat(cardSubs).sort((x, y) => x.start - y.start);
+    fs.writeFileSync(srtFile, all.map((c, i) => `${i + 1}\n${ts(c.start)} --> ${ts(c.end)}\n${c.text}\n`).join('\n'));
+  }
   console.log(JSON.stringify({ out: res.out, seconds: Math.round(res.seconds), frames: res.frames, errors: res.errors }));
 })().catch(e => { console.error(e); process.exit(1); });

@@ -2,7 +2,7 @@
 // Usage (with the app served on PORT): node tools/video/promo.js ar|en [port]
 // Output: media/BabPls-promo-<lang>.mp4, .srt (in-app captions and title cards) and -thumb.png (the hook card)
 'use strict';
-const path = require('path'), fs = require('fs'), { execFileSync } = require('child_process');
+const path = require('path'), fs = require('fs'), os = require('os'), { execFileSync } = require('child_process');
 const rec = require('./rec.js');
 
 const lang = process.argv[2] || 'en', port = process.argv[3] || '8771';
@@ -11,7 +11,8 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
 
 (async () => {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  const R = await rec.start({ lang, url: `http://127.0.0.1:${port}/index.html`, out: OUT });
+  // frames go to a private temp folder (another recording may be running and cleaning media/ at the same time)
+  const R = await rec.start({ lang, url: `http://127.0.0.1:${port}/index.html`, out: OUT, frames: fs.mkdtempSync(path.join(os.tmpdir(), `babpls-promo-${lang}-`)) });
   const t0 = Date.now(); // ≈ rec.js's own t0 (the .srt clock)
   const now = () => (Date.now() - t0) / 1000;
   const { page: P, T } = R;
@@ -28,7 +29,8 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   // the screencast lag behind the script's clock. `cuts` keeps the script-clock times to re-anchor the subtitles.
   const cuts = [];
   await P.evaluate(() => { const m = document.createElement('div'); m.id = 'vo-cut'; m.style.cssText = 'position:absolute;left:0;bottom:0;width:8px;height:8px;background:#f0f;z-index:9;pointer-events:none;display:none'; document.getElementById('vo-root').appendChild(m); }); // inside the overlay, so it follows it into open dialogs
-  async function cutOn() { await P.evaluate(() => { document.getElementById('vo-cut').style.display = 'block'; }); cuts.push([now(), null]); }
+  // a cut never shortens a spoken line: the narration (rec.js, when a voice is installed) finishes before the cut begins
+  async function cutOn() { await R.waitSpeech(); await P.evaluate(() => { document.getElementById('vo-cut').style.display = 'block'; }); cuts.push([now(), null]); }
   async function cutOff() { cuts[cuts.length - 1][1] = now(); await P.evaluate(() => { document.getElementById('vo-cut').style.display = 'none'; }); }
   let park = null;       // a resting place for the pointer on empty canvas (measured in scene 6)
   const cardSubs = [];   // title cards also go into the .srt
@@ -62,6 +64,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
     await R.click(`#calcmenu [data-run="${kind}"]`, { after: 300 });
     await intoDlg('#rundlg');
     if (before) await before();
+    if (opt && opt.cut) await R.waitSpeech(); // the narration ends on the dialog, not on a progress bar that is cut anyway
     await R.click('#rundlg button[type=submit]', { after: 150 });
     if (opt && opt.cut) await cutOn(); // the run itself is cut (the caller ends the cut)
     await outDlg();
@@ -143,12 +146,18 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
     await R.wait(150);
     await P.mouse.move(b.x + b.width * 0.5, 470); await P.evaluate(() => document.getElementById('vo-noripple').remove()); await cursor(true);
   }
+  // a title card: its sub-text goes into the .srt and is spoken (without the URL line); the card stays at least `ms`
+  // and until the narration has finished
   async function card(html, ms, sub, opt) {
+    const instant = opt && opt.instant, lead = instant ? 50 : 400; // a fading card is read once it is mostly in
+    if (instant) { await cutOn(); await P.evaluate(() => { document.getElementById('vo-card').style.transition = 'none'; }); }
+    await R.card(html, lead);
+    if (instant) { await P.evaluate(() => { document.getElementById('vo-card').style.transition = ''; }); await cutOff(); }
     const s = now();
-    if (opt && opt.instant) { await cutOn(); await P.evaluate(() => { document.getElementById('vo-card').style.transition = 'none'; }); }
-    await R.card(html, opt && opt.instant ? 50 : ms);
-    if (opt && opt.instant) { await P.evaluate(() => { document.getElementById('vo-card').style.transition = ''; }); await cutOff(); await R.wait(ms - 50); }
-    if (sub) cardSubs.push({ start: opt && opt.instant ? now() - (ms - 50) / 1000 : s + 0.4, end: now(), text: T(sub) });
+    if (sub) await R.narrate(T(sub).split('\n').filter(l => !/\.github\.io|https?:\/\//.test(l)).join(' '));
+    await R.wait(ms - lead);
+    await R.waitSpeech();
+    if (sub) cardSubs.push({ start: s, end: now(), text: T(sub) });
   }
 
   // 1. hook (shown at once: the frames before it are trimmed, so frame 0 is the card) -------------------------
@@ -213,7 +222,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await hlIn('#secout .card:first-of-type ul', 6);
   await R.caption({ ar: 'قائمة تقييم آلية تنبّهك إلى مواطن الضعف', en: 'An automatic checklist flags the weak spots' });
   await R.moveTo('#secout .card:first-of-type li:nth-child(1)', { fx: lang === 'ar' ? 0.75 : 0.25 });
-  await R.wait(2000);
+  await R.wait(1600);
   await R.unhighlight();
   await R.hideCaption(150);
   await zoomOut();
@@ -221,13 +230,13 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await scrollTo('#secout', '#writeup', 40);
   await R.highlight('#writeup', 6);
   await R.moveTo('#writeup', { fx: 0.5, fy: 0.3 });
-  await R.wait(1700);
+  await R.wait(1300);
   await R.unhighlight();
   await R.hideCaption(150);
 
   // 5. bootstrap distribution ------------------------------------------------
   await R.click('.secnav [data-sec=b_path]', { after: 400 });
-  await R.caption({ ar: 'انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة', en: 'Click a path to see its bootstrap distribution' });
+  await R.caption({ ar: 'انقر على مسار لترى توزيع الإقلاع الذاتي وفترة الثقة', en: 'Click any path to see its bootstrap distribution and confidence interval' });
   await scrollTo('#secout', '#secout tr[data-draw]:nth-child(9)', 300);
   await R.highlight('#secout tr[data-draw]:nth-child(9)', 4);
   await R.click('#secout tr[data-draw]:nth-child(9)', { after: 500, fx: 0.15 });
@@ -235,7 +244,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await scrollTo('#secout', '#drawbox', 20);
   await zoomOn('#drawbox svg', 1.6);
   await R.moveTo('#drawbox svg', { fx: 0.5, fy: 0.5 });
-  await R.wait(1000);
+  await R.wait(800);
   await R.hideCaption(150);
   await zoomOut();
 
@@ -259,7 +268,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   // 7. IPMA (target: Value, whose map has room for every label); the caption comes with the map ----------------------
   await R.hideCaption(150);
   await runFromMenu('ipma', async () => { // the caption comes with the IPMA dialog (its title names the map), then stays on the map
-    await R.caption({ ar: 'خريطة الأهمية والأداء تكشف أولويات التحسين', en: 'IPMA shows what to improve first' });
+    await R.caption({ ar: 'خريطة الأهمية والأداء تكشف أولويات التحسين', en: 'The importance-performance map shows what to improve first' });
     await R.moveTo('#rundlg select[name=target]');
     await P.selectOption('#rundlg select[name=target]', { index: 2 }); // Value
     await R.wait(250);
@@ -268,7 +277,7 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await hlIn('#secout figure.chartbox svg', 6);
   const sv = await P.locator('#secout figure.chartbox svg').boundingBox();
   await R.moveXY(Math.min(1450, sv.x + sv.width + 120), sv.y + sv.height * 0.6, 8); // off the map
-  await R.wait(1300);
+  await R.wait(1000);
   await R.unhighlight();
   await R.hideCaption(150);
   await zoomOut();
@@ -279,12 +288,12 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await R.click('.secnav [data-sec=cb_fit]', { after: 450 });
   await cutOff();
   await highlightRows('#secout .card', 12); // χ² … NFI
-  await R.wait(1900);
+  await R.wait(1500);
   await R.unhighlight();
   await R.hideCaption(150);
 
   // 9. exports: back to the bootstrap report (this also puts its estimates back on the diagram), then the HTML report --
-  await R.caption({ ar: 'صدّر كل النتائج إلى Excel أو تقرير HTML', en: 'Export everything to Excel or an HTML report' });
+  await R.caption({ ar: 'صدّر كل النتائج إلى Excel أو تقرير HTML', en: 'Export all your results to Excel, or to an HTML report' });
   await R.click('.restabs [data-kind=bootstrap]', { after: 250 });
   await R.highlight('.restabs [data-act=excel]', 6);
   await R.click('.restabs [data-act=excel]', { after: 200 });
@@ -331,13 +340,13 @@ const OUT = path.join(ROOT, 'media', `BabPls-promo-${lang}.mp4`);
   await P.evaluate(() => document.querySelector('#styledlg form').requestSubmit());
   await outDlg();
   await R.moveXY(park.x, park.y, 10);
-  await R.wait(1000);
+  await R.wait(700);
 
   // 11. dark theme ----------------------------------------------------------------
   await R.hideCaption(150);
   await R.click('#theme', { after: 250 }); // auto → dark
   await R.caption({ ar: 'ووضع داكن مريح للعين', en: 'And a comfortable dark mode' });
-  await R.wait(2200);
+  await R.wait(1900);
 
   // 12. language --------------------------------------------------------------
   await R.hideCaption(150);
