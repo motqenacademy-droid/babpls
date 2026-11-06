@@ -4,7 +4,15 @@
 // Usage: const R = await rec.start({ lang, url, out }); ... await R.finish();
 'use strict';
 const { chromium } = require('playwright');
-const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
+const fs = require('fs'), path = require('path'), { execFileSync, execFile } = require('child_process');
+
+// Narration (optional): each caption is also spoken by tools/video/voice.py (Piper, offline). Speech is synthesised in
+// the background so the screen never freezes, and the next caption, hidden caption or title card waits until the speech
+// has finished, so the video's timing follows the narration. BABPLS_PY = a Python with piper-tts (see README.md).
+const PY = process.env.BABPLS_PY || 'python3', VOICE = path.join(__dirname, 'voice.py');
+const hasVoice = lang => { try { return execFileSync(PY, [VOICE, 'has', lang]).toString().trim() === '1'; } catch (e) { return false; } };
+const synth = (lang, text) => new Promise(res => execFile(PY, [VOICE, 'synth', lang, text], (err, out) => { try { res(err ? null : JSON.parse(out)); } catch (e) { res(null); } }));
+const SPEECH_GAP = 0.35; // seconds of silence after each spoken line
 
 const W = 1920, H = 1080, ZOOM = 1.25; // the page is laid out at 1536×864 CSS px and rendered at 1.25× = 1920×1080 device px, so the UI reads well on video
 const FONT_DIR = 'tools/video/fonts/'; // served by the same static server as the app
@@ -78,14 +86,22 @@ async function start(o) {
   // the video's time zero is the first captured frame, so caption times are measured from it too
   const caps = [], vnow = () => Date.now() / 1000 - (shots.length ? shots[0].t : Date.now() / 1000);
   const capOn = text => { const now = vnow(); if (caps.length && caps[caps.length - 1].end === null) caps[caps.length - 1].end = now; if (text) caps.push({ start: now, end: null, text }); };
+  const voiced = o.voice !== false && hasVoice(o.lang);
+  let lastSaid = null; // a caption re-shown with a ⬇ file-name line (same text) is not spoken twice
+  let hold = Promise.resolve(0); // wall-clock ms until which the current narration is still speaking
+  const narrate = text => { const t = Date.now(); hold = synth(o.lang, text).then(r => (r ? t + (r.seconds + SPEECH_GAP) * 1000 : 0)); };
+  const waitSpeech = async lead => { const until = await hold; const d = until - Date.now() - (lead || 0); if (d > 0) await page.waitForTimeout(d); }; // lead (ms): return that much before the end
   const R = {
+    voiced,
+    async narrate(text) { await waitSpeech(); if (voiced && text) narrate(R.T(text)); },
+    waitSpeech,
     page, errors, lang: o.lang,
     T: v => (typeof v === 'string' ? v : v[o.lang]),
     wait: ms => page.waitForTimeout(ms),
-    async caption(text, ms, sub) { capOn(R.T(text) + (sub ? '\n' + R.T(sub) : '')); await page.evaluate(([t, s]) => { const c = document.getElementById('vo-cap'); c.innerHTML = ''; c.textContent = t; if (s) { const sm = document.createElement('small'); sm.textContent = s; c.appendChild(sm); } c.classList.add('on'); }, [R.T(text), sub ? R.T(sub) : '']); if (ms) await page.waitForTimeout(ms); },
-    async hideCaption(ms) { capOn(null); await page.evaluate(() => document.getElementById('vo-cap').classList.remove('on')); await page.waitForTimeout(ms || 350); },
+    async caption(text, ms, sub) { await waitSpeech(); const said = R.T(text) + (sub && !/^⬇/.test(R.T(sub)) ? '. ' + R.T(sub) : ''); if (voiced && said !== lastSaid) narrate(said); lastSaid = said; capOn(R.T(text) + (sub ? '\n' + R.T(sub) : '')); await page.evaluate(([t, s]) => { const c = document.getElementById('vo-cap'); c.innerHTML = ''; c.textContent = t; if (s) { const sm = document.createElement('small'); sm.textContent = s; c.appendChild(sm); } c.classList.add('on'); }, [R.T(text), sub ? R.T(sub) : '']); if (ms) await page.waitForTimeout(ms); },
+    async hideCaption(ms) { await waitSpeech(); capOn(null); await page.evaluate(() => document.getElementById('vo-cap').classList.remove('on')); await page.waitForTimeout(ms || 350); },
     async step(text) { await page.evaluate(t => { const s = document.getElementById('vo-step'); s.textContent = t; s.classList.toggle('on', !!t); }, text ? R.T(text) : ''); },
-    async card(html, ms) { await page.evaluate(h => { const c = document.getElementById('vo-card'); c.innerHTML = h; c.classList.add('on'); document.getElementById('vo-cursor').style.visibility = 'hidden'; }, html); await page.waitForTimeout(ms || 3000); },
+    async card(html, ms) { await waitSpeech(); await page.evaluate(h => { const c = document.getElementById('vo-card'); c.innerHTML = h; c.classList.add('on'); document.getElementById('vo-cursor').style.visibility = 'hidden'; }, html); await page.waitForTimeout(ms || 3000); },
     async hideCard(ms) { await page.evaluate(() => document.getElementById('vo-card').classList.remove('on')); await page.waitForTimeout(ms || 600); },
     async highlight(sel, pad) { await page.evaluate(([s, p]) => { const el = document.querySelector(s), hl = document.querySelector('.vo-hl'); if (!el) { hl.classList.remove('on'); return; } const r = el.getBoundingClientRect(); p = p || 8; Object.assign(hl.style, { left: r.left - p + 'px', top: r.top - p + 'px', width: r.width + 2 * p + 'px', height: r.height + 2 * p + 'px' }); hl.classList.add('on'); }, [sel, pad]); await page.waitForTimeout(450); },
     async unhighlight() { await page.evaluate(() => document.querySelector('.vo-hl').classList.remove('on')); await page.waitForTimeout(300); },
@@ -104,6 +120,7 @@ async function start(o) {
     async type(sel, text, opt) { await R.click(sel); await page.keyboard.press('Control+A'); await page.keyboard.type(text, { delay: (opt && opt.delay) || 70 }); await page.waitForTimeout(300); },
     async scroll(sel, dy, steps) { const n = steps || 12; for (let i = 0; i < n; i++) { await page.evaluate(([s, d]) => { const el = s ? document.querySelector(s) : document.scrollingElement; if (el) el.scrollBy(0, d); }, [sel, dy / n]); await page.waitForTimeout(40); } await page.waitForTimeout(300); },
     async finish() {
+      await waitSpeech();
       await page.waitForTimeout(500);
       recording = false; try { await cdp.send('Page.stopScreencast'); } catch (e) { /* ignore */ }
       const tEnd = shots.length ? shots[shots.length - 1].t + 0.5 : 0;
