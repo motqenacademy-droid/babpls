@@ -1,5 +1,5 @@
 /* Runs heavy BabPls analyses off the main thread. */
-importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js', 'stats.js', 'amos.js', 'process2.js');
+importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js', 'stats.js', 'stats2.js', 'amos.js', 'process2.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;
   const E = self.YPEngine;
