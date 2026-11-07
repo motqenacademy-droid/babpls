@@ -22,6 +22,15 @@
     if (v) Object.keys(v).forEach(x => { s = s.split('{' + x + '}').join(v[x]); });
     return s;
   }
+  // ------------------------------------------------------------ plugins
+  // Families of analyses live in their own files (engine: E.tasks[kind]; UI: window.YP_PLUGINS entries, loaded before
+  // this file). A plugin: { id, i18n:{en,ar}, refs:{key:APA}, methods:[...], menu:[{group, items:[kind]}],
+  // tasks:{kind:{title, fields, defaults, noModel, noData, matrixOK, doc}}, fields:{key:(ctx)=>html},
+  // readForm:(fd, kind, ctx)=>opts, sections:{resultKind:(r, ui)=>[sec]}, order:[kind] }.
+  const PLUGINS = (window.YP_PLUGINS || []).slice();
+  PLUGINS.forEach(p => { if (p.i18n) ['en', 'ar'].forEach(l => Object.assign(I18N[l], p.i18n[l] || {})); });
+  const PFIELDS = Object.assign({}, ...PLUGINS.map(p => p.fields || {}));
+  const PSECTIONS = Object.assign({}, ...PLUGINS.map(p => p.sections || {}));
   function applyLang() {
     document.documentElement.lang = S.lang; document.documentElement.dir = S.lang === 'ar' ? 'rtl' : 'ltr';
     $$('[data-i]').forEach(el => { el.textContent = t(el.dataset.i); });
@@ -83,7 +92,8 @@
     const tbls = (body.match(/id="tb\d+"/g) || []).map(x => x.slice(4, -1));
     const btn = tbls.length ? `<span class="cardtools">${tbls.map(id => `<button class="mini" data-csv="${id}" title="${esc(t('csv'))}">CSV</button><button class="mini" data-copy="${id}">${esc(t('copy'))}</button>`).join('')}</span>` : '';
     const doc = opts.doc ? `<button class="mini" data-doc="${opts.doc}" title="${esc(t('method_ref'))}">📖</button>` : '';
-    return `<section class="card"><header><h3>${esc(title)}</h3>${doc}${btn}</header>${opts.note ? `<p class="note">${opts.note}</p>` : ''}${body}</section>`;
+    const info = opts.doc && methodById(opts.doc) ? `<button class="infobtn" data-info="${opts.doc}" title="${esc(t('info_origin'))}" aria-label="${esc(t('info_origin'))}">!</button>` : '';
+    return `<section class="card"><header><h3>${esc(title)}</h3>${info}${doc}${btn}</header>${opts.note ? `<p class="note">${opts.note}</p>` : ''}${body}</section>`;
   }
 
   // ---------------------------------------------------------- persistence
@@ -227,32 +237,34 @@
 
   // ------------------------------------------------------------- analyses
   const TASKS = {
-    pls: { title: 'an_pls', fields: ['scheme', 'missing', 'maxIter', 'consistent', 'weightVar'] },
-    plsc: { title: 'an_plsc', task: 'pls', fields: ['scheme', 'missing', 'maxIter', 'weightVar'], preset: { consistent: true } },
-    bootstrap: { title: 'an_bootstrap', fields: ['samples', 'ci', 'test', 'alpha', 'seed', 'scheme', 'missing', 'consistent', 'weightVar'] },
-    blindfolding: { title: 'an_blindfolding', fields: ['distance', 'scheme', 'missing'] },
-    predict: { title: 'an_predict', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
-    ipma: { title: 'an_ipma', fields: ['target', 'scaleMin', 'scaleMax', 'scheme', 'missing'] },
-    mga: { title: 'an_mga', fields: ['groupVar', 'permutations', 'bootSamples', 'seed', 'scheme', 'missing', 'consistent'] },
-    nca: { title: 'an_nca', fields: ['permutations', 'scheme', 'missing'] },
-    regression: { title: 'an_regression', fields: ['regY', 'regX', 'regBoot', 'seed'], noModel: true },
-    cca: { title: 'an_cca', fields: ['samples', 'seed', 'scheme', 'missing'] },
-    cbsemmg: { title: 'an_cbsemmg', fields: ['groupVar', 'missing'] },
-    compare: { title: 'an_compare', fields: ['cmpMethod', 'scheme', 'missing'], noModel: true },
-    cbsem: { title: 'an_cbsem', fields: ['cbBoot', 'seed', 'missing'] },
-    gsca: { title: 'an_gsca', fields: ['samples', 'seed', 'missing'] },
-    cvpat: { title: 'an_cvpat', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
-    logistic: { title: 'an_logistic', fields: ['logY', 'logX'], noModel: true },
-    samplesize: { title: 'an_samplesize', fields: ['ssPmin', 'ssAlpha', 'ssPower'], noModel: true, noData: true },
-    fimix: { title: 'an_fimix', fields: ['maxK', 'K', 'starts', 'seed', 'scheme', 'missing'] },
-    pos: { title: 'an_pos', fields: ['K', 'starts', 'seed', 'scheme', 'missing'] },
-    cta: { title: 'an_cta', fields: ['samples', 'alpha', 'seed', 'missing'] },
-    copula: { title: 'an_copula', fields: ['samples', 'seed', 'scheme', 'missing'] },
-    process: { title: 'an_process', fields: ['pmodel', 'procX', 'procM', 'procW', 'procY', 'samples', 'seed', 'center'], noModel: true }
+    pls: { doc: 'pls', title: 'an_pls', fields: ['scheme', 'missing', 'maxIter', 'consistent', 'weightVar'] },
+    plsc: { doc: 'plsc', title: 'an_plsc', task: 'pls', fields: ['scheme', 'missing', 'maxIter', 'weightVar'], preset: { consistent: true } },
+    bootstrap: { doc: 'bootstrap', title: 'an_bootstrap', fields: ['samples', 'ci', 'test', 'alpha', 'seed', 'scheme', 'missing', 'consistent', 'weightVar'] },
+    blindfolding: { doc: 'blindfolding', title: 'an_blindfolding', fields: ['distance', 'scheme', 'missing'] },
+    predict: { doc: 'predict', title: 'an_predict', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
+    ipma: { doc: 'ipma', title: 'an_ipma', fields: ['target', 'scaleMin', 'scaleMax', 'scheme', 'missing'] },
+    mga: { doc: 'mga', title: 'an_mga', fields: ['groupVar', 'permutations', 'bootSamples', 'seed', 'scheme', 'missing', 'consistent'] },
+    nca: { doc: 'nca', title: 'an_nca', fields: ['permutations', 'scheme', 'missing'] },
+    regression: { doc: 'regression', title: 'an_regression', fields: ['regY', 'regX', 'regBoot', 'seed'], noModel: true },
+    cca: { doc: 'cca', title: 'an_cca', fields: ['samples', 'seed', 'scheme', 'missing'] },
+    cbsemmg: { doc: 'cbsemmg', title: 'an_cbsemmg', fields: ['groupVar', 'missing'] },
+    compare: { doc: 'modelselection', title: 'an_compare', fields: ['cmpMethod', 'scheme', 'missing'], noModel: true },
+    cbsem: { doc: 'cbsem', title: 'an_cbsem', fields: ['cbBoot', 'seed', 'missing'] },
+    gsca: { doc: 'gsca', title: 'an_gsca', fields: ['samples', 'seed', 'missing'] },
+    cvpat: { doc: 'cvpat', title: 'an_cvpat', fields: ['folds', 'reps', 'seed', 'scheme', 'missing'] },
+    logistic: { doc: 'logistic', title: 'an_logistic', fields: ['logY', 'logX'], noModel: true },
+    samplesize: { doc: 'samplesize', title: 'an_samplesize', fields: ['ssPmin', 'ssAlpha', 'ssPower'], noModel: true, noData: true },
+    fimix: { doc: 'fimix', title: 'an_fimix', fields: ['maxK', 'K', 'starts', 'seed', 'scheme', 'missing'] },
+    pos: { doc: 'pos', title: 'an_pos', fields: ['K', 'starts', 'seed', 'scheme', 'missing'] },
+    cta: { doc: 'cta', title: 'an_cta', fields: ['samples', 'alpha', 'seed', 'missing'] },
+    copula: { doc: 'copula', title: 'an_copula', fields: ['samples', 'seed', 'scheme', 'missing'] },
+    process: { doc: 'process', title: 'an_process', fields: ['pmodel', 'procX', 'procM', 'procW', 'procY', 'samples', 'seed', 'center'], noModel: true }
   };
   const DEF = { samples: 5000, ci: 'percentile', test: 'two', alpha: 0.05, seed: 1, distance: 7, folds: 10, reps: 10, permutations: 1000, scaleMin: '', scaleMax: '', maxK: 4, K: 2, starts: 10, pmodel: 4, center: true, weightVar: '', bootSamples: 1000, cbBoot: 0, ssPmin: 0.2, ssAlpha: 0.05, ssPower: 0.8, regBoot: 0, cmpMethod: 'pls' };
+  PLUGINS.forEach(p => Object.keys(p.tasks || {}).forEach(k => { TASKS[k] = Object.assign({ plugin: p.id }, p.tasks[k]); Object.assign(DEF, p.tasks[k].defaults || {}); }));
   function fieldHTML(k, task) {
-    const st = Object.assign({}, S.settings, DEF, S['last_' + task] || {});
+    const st = Object.assign({}, S.settings, DEF, (TASKS[task] && TASKS[task].defaults) || {}, S['last_' + task] || {});
+    if (PFIELDS[k]) return PFIELDS[k](fieldCtx(k, st));
     const num = (min, max, step) => `<input type="number" name="${k}" value="${esc(st[k])}" min="${min}" max="${max}" step="${step || 1}">`;
     const pick = v => ((Array.isArray(st[k]) ? st[k].includes(v) : String(st[k]) === String(v)) ? ' selected' : '');
     const opt = (vals) => `<select name="${k}">${vals.map(v => `<option value="${v}"${String(st[k]) === String(v) ? ' selected' : ''}>${t('opt_' + v)}</option>`).join('')}</select>`;
@@ -321,17 +333,32 @@
     };
     sel.addEventListener('change', draw); draw();
   }
+  // helpers handed to plugin field renderers
+  function fieldCtx(k, st) {
+    const nums = () => S.ds ? S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num') : [];
+    const cats = () => S.ds ? S.ds.names.filter((n, j) => { if (S.ds.kinds[j] === 'cat') return true; const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; }) : [];
+    const sel = (v, x) => ((Array.isArray(v) ? v.includes(x) : String(v) === String(x)) ? ' selected' : '');
+    return {
+      key: k, st, value: st[k], t, esc, S, E, nums, cats, all: () => S.ds ? S.ds.names.slice() : [], lvs: () => processVars().filter(v => v.startsWith('LV: ')),
+      label: (inner, key) => `<label>${t(key || 'f_' + k)}${inner}</label>`,
+      num: (min, max, step) => `<label>${t('f_' + k)}<input type="number" name="${k}" value="${esc(st[k] === undefined ? '' : st[k])}" min="${min}" max="${max}" step="${step || 1}"></label>`,
+      select: (vals, o) => { o = o || {}; const lab = o.labels || (v => t('opt_' + v)); return `<label>${t(o.key || 'f_' + k)}<select name="${k}"${o.multiple ? ` multiple size="${o.size || 8}"` : ''}>${o.none ? `<option value="">${t('none')}</option>` : ''}${vals.map(v => `<option value="${esc(v)}"${sel(st[k], v)}>${esc(lab(v))}</option>`).join('')}</select>${o.multiple ? `<small>${t('multi_hint')}</small>` : ''}${o.hint ? `<small>${esc(o.hint)}</small>` : ''}</label>`; },
+      vars: (o) => { o = o || {}; const list = o.list || nums(); return `<label>${t(o.key || 'f_' + k)}<select name="${k}"${o.multiple ? ` multiple size="${o.size || 8}"` : ''}>${o.none ? `<option value="">${t('none')}</option>` : ''}${list.map(v => `<option${sel(st[k], v)}>${esc(v)}</option>`).join('')}</select>${o.multiple ? `<small>${t('multi_hint')}</small>` : ''}</label>`; },
+      check: () => `<label class="check"><input type="checkbox" name="${k}"${st[k] ? ' checked' : ''}> ${t('f_' + k)}</label>`,
+      text: (ph) => `<label>${t('f_' + k)}<input name="${k}" value="${esc(st[k] === undefined ? '' : st[k])}" placeholder="${esc(ph || '')}"></label>`
+    };
+  }
   function openRun(kind) {
     const def = TASKS[kind];
     if (!S.ds && !def.noData) { toast(t('no_data'), 'bad'); return; }
-    if (S.fromMatrix && !['pls', 'plsc', 'cbsem', 'compare', 'samplesize'].includes(kind)) { toast(t('matrix_only'), 'bad'); return; }
+    if (S.fromMatrix && !['pls', 'plsc', 'cbsem', 'compare', 'samplesize'].includes(kind) && !def.matrixOK) { toast(t('matrix_only'), 'bad'); return; }
     if (kind === 'compare') { syncModel(); if (S.models.length < 2) { toast(t('compare_two_models'), 'bad'); return; } }
     if (!def.noModel) {
       const errs = E.validate(editor.model, S.ds);
       if (errs.length) { toast(errText(errs[0]), 'bad'); setView('model'); return; }
     }
     const dlg = $('#rundlg');
-    $('#runtitle').textContent = t(def.title);
+    $('#runtitle').innerHTML = esc(t(def.title)) + (def.doc && methodById(def.doc) ? ` <button type="button" class="infobtn" data-info="${def.doc}" title="${esc(t('info_origin'))}" aria-label="${esc(t('info_origin'))}">!</button>` : '');
     $('#rundesc').textContent = t(def.title + '_d');
     $('#runfields').innerHTML = def.fields.map(k => fieldHTML(k, kind)).join('');
     groupPicker(dlg);
@@ -364,6 +391,7 @@
       bootSamples: fd.bootSamples === undefined ? 1000 : +fd.bootSamples
     };
     if (fd.gA !== undefined) opts.groups = [+fd.gA, +fd.gB];
+    if (TASKS[kind].plugin) { opts.fd = fd; const p = PLUGINS.find(x => x.id === TASKS[kind].plugin); if (p && p.readForm) Object.assign(opts, p.readForm(fd, kind, { S, E, editor, processVars })); }
     if (kind === 'ipma' && (fd.scaleMin !== '' || fd.scaleMax !== '')) {
       opts.ranges = {}; editor.model.constructs.forEach(c => c.indicators.forEach(n => { opts.ranges[n] = { min: fd.scaleMin === '' ? NaN : +fd.scaleMin, max: fd.scaleMax === '' ? NaN : +fd.scaleMax }; }));
     }
@@ -386,7 +414,8 @@
       const local = () => setTimeout(() => {
         try {
           let r;
-          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mgaFull(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), gsca: () => E.gsca(S.ds, model, settings, opts), cvpat: () => E.cvpat(S.ds, model, settings, opts), logistic: () => E.logistic(S.ds, model, settings, opts), samplesize: () => E.sampleSize(opts), cbsem: () => E.cbsemModerated(S.ds, model, settings, opts), cca: () => E.fitTest(S.ds, model, settings, opts), cbsemmg: () => E.cbsemMG(S.ds, model, settings, opts), compare: () => E.compareModels(S.ds, opts.models, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task];
+          const fn = { pls: () => E.runPLS(S.ds, model, settings), bootstrap: () => E.bootstrap(S.ds, model, settings, opts), blindfolding: () => E.blindfolding(S.ds, model, settings, opts), predict: () => E.plspredict(S.ds, model, settings, opts), ipma: () => E.ipma(S.ds, model, settings, opts), mga: () => E.mgaFull(S.ds, model, settings, opts), nca: () => E.nca(S.ds, model, settings, opts), regression: () => E.regression(S.ds, opts), gsca: () => E.gsca(S.ds, model, settings, opts), cvpat: () => E.cvpat(S.ds, model, settings, opts), logistic: () => E.logistic(S.ds, model, settings, opts), samplesize: () => E.sampleSize(opts), cbsem: () => E.cbsemModerated(S.ds, model, settings, opts), cca: () => E.fitTest(S.ds, model, settings, opts), cbsemmg: () => E.cbsemMG(S.ds, model, settings, opts), compare: () => E.compareModels(S.ds, opts.models, settings, opts), fimix: () => E.fimix(S.ds, model, settings, opts), pos: () => E.pos(S.ds, model, settings, opts), cta: () => E.cta(S.ds, model, settings, opts), copula: () => E.copula(S.ds, model, settings, opts), process: () => E.processModel(S.ds, model, settings, opts) }[task] || (E.tasks && E.tasks[task] ? () => E.tasks[task](S.ds, model, settings, opts) : null);
+          if (!fn) throw new Error('unknown task ' + task);
           r = fn(); resolve(r);
         } catch (e) { reject({ error: e.message, details: e.details }); }
       }, 60);
@@ -451,7 +480,7 @@
   }
 
   // ---------------------------------------------------------- results
-  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'cca', 'blindfolding', 'predict', 'cvpat', 'ipma', 'mga', 'nca', 'cta', 'copula', 'fimix', 'pos', 'compare', 'cbsem', 'cbsemmg', 'gsca', 'process', 'regression', 'logistic', 'samplesize'];
+  const KIND_ORDER = ['pls', 'plsc', 'bootstrap', 'cca', 'blindfolding', 'predict', 'cvpat', 'ipma', 'mga', 'nca', 'cta', 'copula', 'fimix', 'pos', 'compare', 'cbsem', 'cbsemmg', 'gsca', 'process', 'regression', 'logistic', 'samplesize'].concat(...PLUGINS.map(p => p.order || Object.keys(p.tasks || {})));
   function renderResults() {
     const el = $('#resultsview'), kinds = KIND_ORDER.filter(k => S.results[k]);
     if (!kinds.length) { el.innerHTML = `<div class="empty"><p>${t('no_results')}</p><button class="primary" data-run="pls">${t('an_pls')}</button></div>`; return; }
@@ -514,6 +543,7 @@
       case 'copula': return copulaSections(r);
       case 'process': return processSections(r);
     }
+    if (PSECTIONS[r.kind]) return PSECTIONS[r.kind](r, UI);
     return [];
   }
 
@@ -680,6 +710,8 @@
   }
   const pcell = p => cell(fp(p) + ' ' + stars(p), p < 0.05 ? 'good' : '', p);
   const thr = (v, ok, label) => cell(f(v), ok ? 'good' : 'warn', v);
+  // toolkit handed to plugin result renderers
+  const UI = { t, f, fp, esc, stars, table, cell, chart, card, sec, pcell, C, E, S, matrixTable: (...a) => matrixTable(...a), lang: () => S.lang, toast };
   function cbsemSections(r) {
     const F = r.fit;
     const fitRows = [
@@ -1195,26 +1227,54 @@
       <h4>BabPls</h4><button data-help="about" class="${S.help === 'about' ? 'on' : ''}">${t('about')}</button></nav>`;
     // short author-year label from an APA entry: "Hair et al., 2022"
     const cite = k => {
-      const r = D.refs[k].replace(/<[^>]+>/g, ''), yr = (r.match(/\((\d{4}[a-z]?)\)/) || [])[1] || '';
+      const r = allRefs()[k].replace(/<[^>]+>/g, ''), yr = (r.match(/\((\d{4}[a-z]?)\)/) || [])[1] || '';
       const names = r.split(/\(\d{4}[a-z]?\)/)[0].split(/,\s*/).map(x => x.replace(/^&\s*/, '').trim()).filter(x => x && !/^([A-Z]\.\s?-?)+|\(Eds?\.\)/.test(x));
       const who = names.length > 2 ? names[0] + ' et al.' : names.join(' & ');
       return `<a href="#ref-${k}" data-ref="${k}">${esc(who + ', ' + yr)}</a>`;
     };
     let body;
-    if (S.help === 'methods') body = `<h2>${t('methods')}</h2><p class="note">${t('methods_note')}</p>` + D.methods.map(m => `<section class="card method" id="m-${m.id}"><header><h3>${esc(m[L].title)}</h3></header><p>${esc(m[L].text)}</p><div class="formula">${m.formula}</div><p class="refs">${t('sources')}: ${m.refs.map(cite).join(L === 'ar' ? '؛ ' : '; ')}</p></section>`).join('');
-    else if (S.help === 'biblio') body = `<h2>${t('bibliography')}</h2><ol class="biblio">${Object.keys(D.refs).sort().map(k => `<li id="ref-${k}" dir="ltr">${D.refs[k]}</li>`).join('')}</ol>`;
+    if (S.help === 'methods') body = `<h2>${t('methods')}</h2><p class="note">${t('methods_note')}</p>` + allMethods().map(m => { const x = m[L] || m.en; return `<section class="card method" id="m-${m.id}"><header><h3>${esc(x.title)}</h3><button class="infobtn" data-info="${m.id}" title="${esc(t('info_origin'))}" aria-label="${esc(t('info_origin'))}">!</button></header>${x.origin ? `<p class="origin"><b>${t('info_origin')}:</b> ${esc(x.origin)}</p>` : ''}<p>${esc(x.text)}</p>${m.formula ? `<div class="formula">${m.formula}</div>` : ''}<p class="refs">${t('sources')}: ${(m.refs || []).filter(k => allRefs()[k]).map(cite).join(L === 'ar' ? '؛ ' : '; ')}</p></section>`; }).join('');
+    else if (S.help === 'biblio') { const R = allRefs(); body = `<h2>${t('bibliography')}</h2><ol class="biblio">${Object.keys(R).sort().map(k => `<li id="ref-${k}" dir="ltr">${R[k]}</li>`).join('')}</ol>`; }
     else if (S.help === 'examples') body = examplesIndex();
     else if (S.help.startsWith('ex:') && (window.YP_EXAMPLES || []).some(x => 'ex:' + x.id === S.help)) body = exampleHTML(window.YP_EXAMPLES.find(x => 'ex:' + x.id === S.help));
     else if (S.help === 'about') body = `<div class="about"><img src="assets/logo.svg" alt="" width="64" height="64"><h2>BabPls ${D.version}</h2>${D.about[L].split('{v}').join(D.version)}</div>`;
     else { const g = D.guide.find(x => x.id === S.help) || D.guide[0]; body = `<h2>${esc(g[L].title)}</h2><div class="guide">${g[L].html}</div>`; }
     el.innerHTML = `<div class="resbody">${nav}<div class="secout helpout" id="helpout">${body}</div></div>`;
   }
+  function allMethods() { const D = window.YPDocs; return D.methods.concat(...PLUGINS.map(p => p.methods || [])); }
+  function methodById(id) { return allMethods().find(m => m.id === id); }
+  function allRefs() { return Object.assign({}, window.YPDocs.refs, ...PLUGINS.map(p => p.refs || {})); }
+  // "!" popover: where a test comes from (origin), what it does, its formula and sources
+  function openInfo(id, anchor) {
+    const m = methodById(id); if (!m) return;
+    const L = S.lang, R = allRefs(), x = m[L] || m.en;
+    let pop = $('#infopop'); if (!pop) { pop = document.createElement('div'); pop.id = 'infopop'; pop.className = 'infopop'; pop.setAttribute('role', 'dialog'); document.body.appendChild(pop); }
+    pop.innerHTML = `<header><b>${esc(x.title)}</b><button class="x" data-act="infoclose" aria-label="${esc(t('close'))}">×</button></header>
+      ${x.origin ? `<p class="origin"><b>${t('info_origin')}:</b> ${esc(x.origin)}</p>` : ''}<p>${esc(x.text)}</p>
+      ${m.formula ? `<div class="formula">${m.formula}</div>` : ''}
+      <p class="refs">${(m.refs || []).filter(k => R[k]).map(k => `<span dir="ltr">${R[k]}</span>`).join('<br>')}</p>
+      <button class="mini" data-doc="${id}">📖 ${t('methods')}</button>`;
+    pop.hidden = false;
+    const dlg = anchor && anchor.closest('dialog'); (dlg || document.body).appendChild(pop);
+    const r = anchor ? anchor.getBoundingClientRect() : { left: 40, bottom: 80 }, w = Math.min(520, window.innerWidth - 24);
+    pop.style.width = w + 'px'; pop.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left - 20)) + 'px'; pop.style.top = (r.bottom + 8) + 'px';
+    requestAnimationFrame(() => { const b = pop.getBoundingClientRect(); if (b.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, window.innerHeight - b.height - 8) + 'px'; });
+  }
+  function closeInfo() { const p = $('#infopop'); if (p) p.hidden = true; }
   function openDoc(id) {
     S.help = 'methods'; setView('help');
     requestAnimationFrame(() => { const m = document.getElementById('m-' + id); if (m) { m.scrollIntoView({ block: 'start' }); m.classList.add('flash'); setTimeout(() => m.classList.remove('flash'), 1600); } });
   }
 
   // ------------------------------------------------------------ views
+  // plugin analyses join the Calculate menu under their own headings
+  function buildPluginMenu() {
+    const m = $('#calcmenu'); if (!m || m.dataset.plugins) return; m.dataset.plugins = '1';
+    PLUGINS.forEach(p => (p.menu || []).forEach(g => {
+      const h = document.createElement('h5'); h.dataset.i = g.group; m.appendChild(h);
+      g.items.forEach(k => { const b = document.createElement('button'); b.dataset.run = k; b.dataset.i = TASKS[k].title; m.appendChild(b); });
+    }));
+  }
   function setView(v) {
     S.view = v;
     $$('.tabs [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -1368,7 +1428,9 @@
       if (b.dataset.mtab !== undefined) { const i = +b.dataset.mtab; if (i === S.cur && e.detail === 2) { const nm = window.prompt(t('rename_model'), S.models[i].name); if (nm && nm.trim()) { S.models[i].name = nm.trim(); renderModelTabs(); autosave(); } } else if (i !== S.cur) useModel(i); }
       if (b.dataset.mdel !== undefined) { const i = +b.dataset.mdel; if (S.models.length > 1 && confirm(t('confirm_delete_model', { m: S.models[i].name }))) { syncModel(); S.models.splice(i, 1); S.cur = Math.max(0, Math.min(S.cur - (i < S.cur ? 1 : 0), S.models.length - 1)); editor.setModel(S.models[S.cur].model); renderModelTabs(); autosave(); } }
       if (b.dataset.help) { S.help = b.dataset.help; renderHelp(); $('#helpout').scrollTop = 0; }
-      if (b.dataset.doc) openDoc(b.dataset.doc);
+      if (b.dataset.info) { e.preventDefault(); openInfo(b.dataset.info, b); return; }
+      if (b.dataset.doc) { closeInfo(); openDoc(b.dataset.doc); }
+      if (b.dataset.act === 'infoclose') { closeInfo(); return; }
       if (b.dataset.exload) loadExampleSet(b.dataset.exload);
       if (b.dataset.exrun) { const [id, q] = b.dataset.exrun.split('|'); runExample(id, +q); }
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
@@ -1443,10 +1505,12 @@
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installbtn').hidden = false; });
   window.addEventListener('appinstalled', () => { $('#installbtn').hidden = true; toast(t('installed'), 'good'); });
   $('#installbtn').addEventListener('click', async () => { if (!installEvt) { setView('help'); S.help = 'desktop'; renderHelp(); return; } installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installbtn').hidden = true; });
-  prefs(false); applyTheme(); applyAppearance(); bind(); bindStyle();
+  prefs(false); applyTheme(); applyAppearance(); buildPluginMenu(); bind(); bindStyle();
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo(); });
+  document.addEventListener('mousedown', e => { const p = $('#infopop'); if (p && !p.hidden && !e.target.closest('#infopop,[data-info]')) closeInfo(); });
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
   if (!restored) { editor.setModel(null); refreshAll(); }
   if (restored && editor.model.constructs.length) setView('model');
-  window.BabPls = { S, editor, run: openRun };
+  window.BabPls = { S, editor, run: openRun, info: openInfo, plugins: PLUGINS, tasks: TASKS };
 })();

@@ -1,5 +1,5 @@
 /* Runs heavy BabPls analyses off the main thread. */
-importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js');
+importScripts('engine.js', 'advanced.js', 'advanced2.js', 'advanced3.js', 'stats.js', 'amos.js', 'process2.js');
 self.onmessage = function (ev) {
   const { id, task, ds, model, settings, opts } = ev.data;
   const E = self.YPEngine;
@@ -28,7 +28,9 @@ self.onmessage = function (ev) {
       case 'cta': result = E.cta(ds, model, settings, opts, progress); break;
       case 'copula': result = E.copula(ds, model, settings, opts, progress); break;
       case 'process': result = E.processModel(ds, model, settings, opts, progress); break;
-      default: throw new Error('unknown task ' + task);
+      default:
+        if (E.tasks && E.tasks[task]) { result = E.tasks[task](ds, model, settings, opts, progress); break; }
+        throw new Error('unknown task ' + task);
     }
     self.postMessage({ id, result });
   } catch (e) {
