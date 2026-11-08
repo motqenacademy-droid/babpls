@@ -139,43 +139,52 @@
   }
 
   // ------------------------------------------------------ distributions
+  // log-gamma: shift to x >= 10, then the Stirling series (relative error < 1e-15)
   function lgamma(x) {
-    const g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
-      -176.61503916999185, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
     if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
-    x -= 1; let a = c[0]; const t = x + g + 0.5;
-    for (let i = 1; i < g + 2; i++) a += c[i] / (x + i);
-    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+    let shift = 0; while (x < 10) { shift += Math.log(x); x += 1; }
+    const z = 1 / (x * x);
+    const ser = (1 / 12 + z * (-1 / 360 + z * (1 / 1260 + z * (-1 / 1680 + z * (1 / 1188 + z * (-691 / 360360 + z / 156)))))) / x;
+    return (x - 0.5) * Math.log(x) - x + 0.5 * Math.log(2 * Math.PI) + ser - shift;
   }
   function betacf(a, b, x) {
     let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
     if (Math.abs(d) < 1e-300) d = 1e-300; d = 1 / d; let h = d;
-    for (let m = 1; m <= 300; m++) {
+    for (let m = 1; m <= 100000; m++) {
       const m2 = 2 * m; let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
       d = 1 + aa * d; if (Math.abs(d) < 1e-300) d = 1e-300; c = 1 + aa / c; if (Math.abs(c) < 1e-300) c = 1e-300;
       d = 1 / d; h *= d * c;
       aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
       d = 1 + aa * d; if (Math.abs(d) < 1e-300) d = 1e-300; c = 1 + aa / c; if (Math.abs(c) < 1e-300) c = 1e-300;
       d = 1 / d; const del = d * c; h *= del;
-      if (Math.abs(del - 1) < 3e-16) break;
+      if (Math.abs(del - 1) < 1e-16) break;
     }
     return h;
   }
   function ibeta(x, a, b) { // regularised incomplete beta
     if (x <= 0) return 0; if (x >= 1) return 1;
-    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log1p(-x));
     return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
   }
   function tTwoTailedP(t, df) { if (!isFinite(t)) return isNaN(t) ? NaN : 0; return ibeta(df / (df + t * t), df / 2, 0.5); }
   function fP(F, d1, d2) { if (!(F > 0)) return 1; return ibeta(d2 / (d2 + d1 * F), d2 / 2, d1 / 2); }
-  function erf(x) {
-    const s = Math.sign(x); x = Math.abs(x);
-    const t = 1 / (1 + 0.3275911 * x);
-    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
-    return s * y;
+  // incomplete gamma Q(1/2, x²) gives erfc with full relative precision in both tails
+  function gammaQhalf(x2) {
+    const a = 0.5; if (x2 <= 0) return 1;
+    if (x2 < a + 1) { let ap = a, sum = 1 / a, del = sum; for (let n = 0; n < 100000; n++) { ap += 1; del *= x2 / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-17) break; } return 1 - sum * Math.exp(-x2 + a * Math.log(x2) - lgamma(a)); }
+    let b = x2 + 1 - a, c = 1e300, d = 1 / b, h = d;
+    for (let i = 1; i < 100000; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300; c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-16) break; }
+    return Math.exp(-x2 + a * Math.log(x2) - lgamma(a)) * h;
   }
-  function pnorm(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
-  function qnorm(p) { // Acklam
+  function erf(x) { if (isNaN(x)) return NaN; const q = gammaQhalf(x * x); return x < 0 ? q - 1 : 1 - q; }
+  function pnorm(z) { if (isNaN(z)) return NaN; if (z === Infinity) return 1; if (z === -Infinity) return 0; const q = 0.5 * gammaQhalf(z * z / 2); return z < 0 ? q : 1 - q; }
+  function qnorm(p) { // Acklam's approximation refined by Halley steps (full double precision)
+    if (!(p > 0) || !(p < 1)) return p <= 0 ? -Infinity : p >= 1 ? Infinity : NaN;
+    let x = qnorm0(p);
+    for (let k = 0; k < 2; k++) { const e = pnorm(x) - p, u = e * Math.sqrt(2 * Math.PI) * Math.exp(x * x / 2); x = x - u / (1 + x * u / 2); }
+    return x;
+  }
+  function qnorm0(p) { // Acklam
     if (p <= 0) return -Infinity; if (p >= 1) return Infinity;
     const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
     const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];

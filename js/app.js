@@ -8,11 +8,27 @@
   // the app was called YouPls before 0.8.0: carry the browser's saved project and preferences over once
   try { [['youpls.project.v1', STORE], ['youpls.prefs.v1', PREF]].forEach(([o, n]) => { const v = localStorage.getItem(o); if (v !== null && localStorage.getItem(n) === null) localStorage.setItem(n, v); if (v !== null) localStorage.removeItem(o); }); } catch (e) { /* storage unavailable */ }
 
+  // ------------------------------------------------- table & figure style (APA 7 by default)
+  // Formatting keys (dec, pDec, apa, minus, ital, captions, spanners, notesBelow) are applied when the output is built;
+  // the rest becomes the generated stylesheet #tscss (tsCSS). Sizes are points, as in a word processor.
+  const TS_BASE = { preset: 'apa', font: 'calibri', size: 11, ink: '', headBg: '', headInk: '', accent: '', rules: 'apa', zebra: false, flags: 'text', pad: 'normal', captions: true, notesBelow: true, spanners: true, ital: true, apa: true, minus: true, dec: 2, pDec: 3, figPal: 'apa', figFont: 'calibri', figSize: 11, figGrid: false, figBg: 'white' };
+  const TS_PRESETS = {
+    apa: {},
+    journal: { font: 'serif', size: 10, rules: 'booktabs', figPal: 'gray', figFont: 'serif', figSize: 10 },
+    journal_sans: { font: 'sans', size: 9.5, rules: 'booktabs', pad: 'compact', figPal: 'okabe', figFont: 'sans', figSize: 10, figGrid: true },
+    compact: { font: 'system', size: 9, rules: 'rows', pad: 'compact', figSize: 10 },
+    modern: { font: 'system', size: 10, rules: 'rows', zebra: true, headBg: '#1d4ed8', headInk: '#ffffff', accent: '#1d4ed8', flags: 'shade', figPal: 'okabe', figFont: 'system', figGrid: true, figBg: 'theme' },
+    classic: { font: 'system', size: 10, rules: 'grid', captions: false, notesBelow: false, spanners: false, ital: false, apa: false, minus: false, dec: 3, flags: 'shade', figPal: 'theme', figFont: 'system', figGrid: true, figBg: 'theme' }
+  };
+  const tsPreset = k => Object.assign({}, TS_BASE, TS_PRESETS[k] || {}, { preset: TS_PRESETS[k] ? k : 'apa' });
+  const tsMerge = o => { const b = tsPreset(o && TS_PRESETS[o.preset] ? o.preset : 'apa'); Object.keys(TS_BASE).forEach(k => { if (o && o[k] !== undefined && typeof o[k] === typeof TS_BASE[k]) b[k] = o[k]; }); if (o && o.preset === 'custom') b.preset = 'custom'; return b; };
+  const FMT = C.fmt;
+
   const S = {
     name: 'Untitled', csv: '', dataName: '', ds: null, desc: null,
     settings: Object.assign({}, E.DEFAULTS), results: {}, view: 'data', current: null, section: null,
     selCols: [], lang: 'ar', theme: 'auto', showResults: true, dataSel: null,
-    ap: { palette: 'theme', decimals: 3, uiFont: 'system', uiScale: 100 }, help: 'start',
+    ap: { palette: 'theme', decimals: 2, uiFont: 'system', uiScale: 100 }, ts: tsPreset('apa'), help: 'start',
     models: [], cur: 0, history: [], fromMatrix: null, cmp: null
   };
 
@@ -40,15 +56,18 @@
   }
   function prefs(save) {
     try {
-      if (save) localStorage.setItem(PREF, JSON.stringify({ lang: S.lang, theme: S.theme, uiFont: S.ap.uiFont, uiScale: S.ap.uiScale }));
-      else { const p = JSON.parse(localStorage.getItem(PREF) || '{}'); if (p.lang) S.lang = p.lang; if (p.theme) S.theme = p.theme; if (p.uiFont) S.ap.uiFont = p.uiFont; if (p.uiScale) S.ap.uiScale = +p.uiScale; }
+      if (save) localStorage.setItem(PREF, JSON.stringify({ lang: S.lang, theme: S.theme, uiFont: S.ap.uiFont, uiScale: S.ap.uiScale, ts: S.ts }));
+      else { const p = JSON.parse(localStorage.getItem(PREF) || '{}'); if (p.lang) S.lang = p.lang; if (p.theme) S.theme = p.theme; if (p.uiFont) S.ap.uiFont = p.uiFont; if (p.uiScale) S.ap.uiScale = +p.uiScale; if (p.ts) S.ts = tsMerge(p.ts); }
     } catch (e) { /* storage unavailable */ }
   }
   function applyTheme() { if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme; }
 
   // ------------------------------------------------------------ utilities
   const f = (v, d) => { if (v === null || v === undefined || !isFinite(v)) return '–'; const k = d === undefined ? S.ap.decimals : d, out = Number(v).toFixed(k); return /^-0\.?0*$/.test(out) ? out.slice(1) : out; };
-  const fp = v => (!isFinite(v)) ? '–' : (v < 0.001 ? '0.000' : v.toFixed(3));
+  // p values: plain digits here ("0.000" = below the smallest printable value); result tables re-typeset them as
+  // "< .001" (YPFormat.text), prose uses pEq ("= .023" / "< .001")
+  const fp = v => { const d = S.ts.pDec; return (!isFinite(v)) ? '–' : (v < Math.pow(10, -d) ? (0).toFixed(d) : v.toFixed(d)); };
+  const pEq = v => { const s = FMT.pval(v, { dec: S.ts.pDec, zero: !S.ts.apa }); return s[0] === '<' || s === '–' ? s : '= ' + s; };
   const stars = p => !isFinite(p) ? '' : p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : '';
   function toast(msg, kind) {
     const el = document.createElement('div'); el.className = 'toast ' + (kind || ''); el.textContent = msg;
@@ -64,43 +83,102 @@
   // ASCII-only file names: some browsers silently replace non-ASCII names with "download"
   const slug = s => String(s).normalize('NFKD').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'babpls';
 
-  // Tables are registered so their CSV can be exported.
-  const TABLES = new Map(); let tableSeq = 0;
+  // Tables are registered so their CSV can be exported and they can be copied.
+  // While result or report output is built (rt()), tables and figures follow the table & figure style: APA 7 number
+  // formatting by column kind (YPFormat), italic statistical symbols, confidence-interval spanners, "Table n"/"Figure n"
+  // captions (numbered per view by numberOutput) and notes below. table() options: title (file name), caption (human
+  // title; default: the card title), bounded (true or column indexes: values cannot exceed 1, no leading zero),
+  // kinds (per column 'p' | 'bounded' | 'stat' | ''), names (headers are names: no symbol detection), cls, rowAttr.
+  const TABLES = new Map(); let tableSeq = 0, RT = false;
+  const isCell = c => c && typeof c === 'object' && 'v' in c;
+  function rt(fn) {
+    const was = RT, o = Object.assign({}, C.opts); RT = true;
+    Object.assign(C.opts, { title: !S.ts.captions, minus: S.ts.minus, dec: S.ts.dec });
+    try { return fn(); } finally { RT = was; Object.assign(C.opts, o); }
+  }
   function table(head, rows, o) {
     o = o || {};
-    const id = 'tb' + (++tableSeq);
-    const rawRows = rows.map(r => r.map(c => (c && typeof c === 'object' && 'v' in c) ? c.raw !== undefined ? c.raw : c.v : c));
-    TABLES.set(id, { title: o.title || 'table', csv: toCSV(head, rawRows), head, rows: rawRows });
-    let h = `<div class="tablewrap"><table class="grid${o.cls ? ' ' + o.cls : ''}" id="${id}"><thead><tr>${head.map(x => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
+    const id = 'tb' + (++tableSeq), st = S.ts;
+    const rawRows = rows.map(r => r.map(c => isCell(c) ? c.raw !== undefined ? c.raw : c.v : c));
+    const extra = [t('loading'), t('std_estimate')];
+    const kinds = head.map((h, j) => (o.kinds && o.kinds[j] !== undefined) ? o.kinds[j] : (o.names && j) ? '' : FMT.colKind(h, extra));
+    if (o.bounded) kinds.forEach((k, j) => { if (j && k !== 'p' && k !== 'stat' && (o.bounded === true || o.bounded.includes(j))) kinds[j] = 'bounded'; });
+    const stub = head[0] === '' && !o.names; // first column lists statistics (fit tables): their rows carry the kind
+    TABLES.set(id, { title: o.title || 'table', csv: toCSV(head, rawRows), head, rows: rawRows, kinds });
+    // display text of every cell (re-typeset in result output), significance stars split off for decimal alignment
+    const stars = new Set(), sigCol = new Set();
+    const disp = rows.map(r => {
+      const rk = stub ? FMT.colKind(isCell(r[0]) ? r[0].v : r[0]) : '';
+      return r.map((c, j) => {
+        let v = isCell(c) ? c.v : c; v = v === null || v === undefined ? '' : String(v);
+        if (!RT || j === 0) return { v, sig: '' };
+        const kind = kinds[j] === 'p' || rk === 'p' ? 'p' : kinds[j] || rk;
+        const out = FMT.text(v, kind === 'stat' ? '' : kind, { apa: st.apa, minus: st.minus, pDec: st.pDec, raw: isCell(c) ? c.raw : undefined });
+        const m = out.match(FMT.SIG);
+        if (m) { stars.add(m[1].length); sigCol.add(j); return { v: out.slice(0, -m[0].length), sig: m[1] }; }
+        return { v: out, sig: '' };
+      });
+    });
+    const ital = (h, j) => RT && st.ital && !(o.names && j) ? FMT.italic(h) : esc(h);
+    const sp = RT && st.spanners ? FMT.spans(head, { ci: t('apa_ci'), ll: t('apa_ll'), ul: t('apa_ul') }) : null;
+    let thead;
+    if (sp) thead = `<tr>${sp.map(g => g.sub ? `<th colspan="2" class="span" scope="colgroup">${esc(g.label)}</th>` : `<th rowspan="2" scope="col"${g.from ? ' class="num"' : ''}>${ital(g.label, g.from)}</th>`).join('')}</tr><tr>${sp.filter(g => g.sub).map(g => g.sub.map(x => `<th class="num sub" scope="col">${esc(x)}</th>`).join('')).join('')}</tr>`;
+    else thead = `<tr>${head.map((x, j) => `<th scope="col"${j ? ' class="num"' : ''}>${ital(x, j)}</th>`).join('')}</tr>`;
+    let h = `<div class="tablewrap${rows.length > 40 ? ' long' : ''}"><table class="grid${o.cls ? ' ' + o.cls : ''}" id="${id}"><thead>${thead}</thead><tbody>`;
+    const numish = v => !RT || v === '' || v === '–' || /\d/.test(v) && !/[A-Za-z؀-ۿ]{2}/.test(v);
     rows.forEach((r, i) => {
       h += `<tr${o.rowAttr ? ' ' + o.rowAttr(i) : ''}>` + r.map((c, j) => {
-        if (c && typeof c === 'object' && 'v' in c) return `<td class="${c.cls || ''}${j ? ' num' : ''}">${esc(c.v)}</td>`;
-        return j === 0 ? `<th scope="row">${esc(c)}</th>` : `<td class="num">${esc(c)}</td>`;
+        const d = disp[i][j], sig = sigCol.has(j) ? `<span class="sig">${d.sig}</span>` : '';
+        const cls = (isCell(c) && c.cls ? c.cls + ' ' : '') + (j ? numish(d.v) ? 'num' : 'txt' : '');
+        if (j === 0 && !isCell(c)) return `<th scope="row">${stub && RT && st.ital ? FMT.italic(d.v) : esc(d.v)}</th>`;
+        return `<td class="${cls.trim()}">${esc(d.v)}${sig}</td>`;
       }).join('') + '</tr>';
     });
-    return h + '</tbody></table></div>';
+    h += '</tbody></table></div>';
+    const tools = `<span class="ttools"><button class="mini" data-copy="${id}" title="${esc(t('copy_table'))}" aria-label="${esc(t('copy_table'))}">⧉ ${esc(t('copy'))}</button><button class="mini" data-csv="${id}" title="${esc(t('csv'))}" aria-label="${esc(t('csv'))}">CSV</button></span>`;
+    const prob = stars.size ? `<p class="tnote prob">${probNote([...stars].sort())}</p>` : '';
+    return `<div class="tblock" data-tb="${id}"><div class="tcap"><b class="tnum">${esc(t('apa_table'))}</b>${tools}<i class="ttl">${esc(o.caption || '')}</i></div>${h}<div class="tnotes">${prob}</div></div>`;
+  }
+  // APA probability note for the significance levels used in a table
+  function probNote(levels) {
+    const z = S.ts.apa ? '' : '0';
+    return `<span dir="ltr">${levels.map(k => `${'*'.repeat(k)}<i>p</i> &lt; ${z}${['.05', '.01', '.001'][k - 1]}.`).join(' ')}</span>`;
   }
   const cell = (v, cls, raw) => ({ v, cls, raw });
   let chartSeq = 0;
   function chart(svg, title) {
     if (!svg) return '';
-    const id = 'ch' + (++chartSeq);
-    return `<figure class="chartbox" id="${id}" data-title="${esc(title || 'chart')}">${svg}<figcaption><button class="mini" data-act="svg">SVG</button><button class="mini" data-act="png">PNG</button></figcaption></figure>`;
+    const id = 'ch' + (++chartSeq), lab = (svg.match(/aria-label="([^"]*)"/) || [])[1] || '';
+    const tools = `<span class="ttools"><button class="mini" data-act="copyfig" title="${esc(t('copy_figure'))}" aria-label="${esc(t('copy_figure'))}">⧉ ${esc(t('copy'))}</button><button class="mini" data-act="svg" aria-label="SVG">SVG</button><button class="mini" data-act="png" aria-label="PNG">PNG</button></span>`;
+    return `<figure class="chartbox" id="${id}" data-title="${esc(title || 'chart')}"><div class="fcap"><b class="fnum">${esc(t('apa_figure'))}</b>${tools}<i class="ftl">${lab}</i></div><div class="fbody">${svg}</div></figure>`;
   }
   function card(title, body, opts) {
     opts = opts || {};
-    const tbls = (body.match(/id="tb\d+"/g) || []).map(x => x.slice(4, -1));
-    const btn = tbls.length ? `<span class="cardtools">${tbls.map(id => `<button class="mini" data-csv="${id}" title="${esc(t('csv'))}">CSV</button><button class="mini" data-copy="${id}">${esc(t('copy'))}</button>`).join('')}</span>` : '';
     const doc = opts.doc ? `<button class="mini" data-doc="${opts.doc}" title="${esc(t('method_ref'))}">📖</button>` : '';
     const info = opts.doc && methodById(opts.doc) ? `<button class="infobtn" data-info="${opts.doc}" title="${esc(t('info_origin'))}" aria-label="${esc(t('info_origin'))}">!</button>` : '';
-    return `<section class="card"><header><h3>${esc(title)}</h3>${info}${doc}${btn}</header>${opts.note ? `<p class="note">${opts.note}</p>` : ''}${body}</section>`;
+    let note = opts.note ? `<p class="note">${opts.note}</p>` : '';
+    if (opts.note && RT && S.ts.notesBelow) { // APA: "Note." below the table (the only table of the card) or below the card
+      const gen = `<p class="tnote gen"><i>${esc(t('apa_note'))}</i> ${opts.note}</p>`, k = (body.match(/<div class="tnotes">/g) || []).length;
+      body = k === 1 ? body.replace('<div class="tnotes">', '<div class="tnotes">' + gen) : body + `<div class="tnotes">${gen}</div>`;
+      note = '';
+    }
+    return `<section class="card" data-title="${esc(title)}"><header><h3>${esc(title)}</h3>${info}${doc}</header>${note}${body}</section>`;
+  }
+  // "Table n" / "Figure n" numbers per view, titles from the enclosing card (APA title case in English)
+  function numberOutput(root, fallback) {
+    let nt = 0, nf = 0;
+    const title = (el, own) => { const x = own.textContent.trim() || ((el.closest('[data-title]:not(figure)') || {}).dataset || {}).title || fallback || ''; own.textContent = S.lang === 'ar' ? x : FMT.titleCase(x); };
+    $$('.tblock, figure.chartbox', root).forEach(b => {
+      if (b.classList.contains('tblock')) { b.querySelector('.tnum').textContent = t('apa_table') + ' ' + (++nt); title(b, b.querySelector('.ttl')); }
+      else { const n = b.querySelector('.fnum'); if (!n) return; n.textContent = t('apa_figure') + ' ' + (++nf); title(b, b.querySelector('.ftl')); }
+    });
   }
 
   // ---------------------------------------------------------- persistence
   function syncModel() { if (!S.models.length) S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.models[S.cur].model = editor.model; }
   function projectJSON(full) {
     syncModel();
-    const p = { format: 'babpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ap.decimals } };
+    const p = { format: 'babpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ts.dec, tables: S.ts } };
     if (full) { // reports are saved in the project file (not in the browser autosave); history entries that are current results are stored as references
       p.results = S.results;
       p.history = S.history.map(h => { const k = Object.keys(S.results).find(q => S.results[q] === h.r); return k ? { id: h.id, label: h.label, ref: k } : h; });
@@ -122,7 +200,12 @@
     S.results = p.results || {}; S.history = (p.history || []).map(h => (h.ref ? { id: h.id, label: h.label, r: S.results[h.ref] } : h)).filter(h => h.r); S.current = null; S.cmp = null;
     S.fromMatrix = (p.data && p.data.fromMatrix) || null;
     if (p.data && p.data.csv) setData(p.data.csv, p.data.name, true); else { S.csv = ''; S.ds = null; S.dataName = ''; }
-    if (p.appearance) { S.ap.palette = p.appearance.palette || 'theme'; S.ap.decimals = isFinite(p.appearance.decimals) ? +p.appearance.decimals : 3; applyAppearance(); }
+    if (p.appearance) {
+      S.ap.palette = p.appearance.palette || 'theme';
+      if (p.appearance.tables) S.ts = tsMerge(p.appearance.tables); // projects from before 0.8.2 keep the browser's style; a changed decimals setting still applies
+      else if (isFinite(p.appearance.decimals) && +p.appearance.decimals !== 3) { S.ts.dec = +p.appearance.decimals; S.ts.preset = 'custom'; }
+      applyAppearance(); applyTS();
+    }
     S.models = p.models && p.models.length ? p.models : [{ name: t('model') + ' 1', model: p.model }]; S.cur = Math.min(p.cur || 0, S.models.length - 1);
     editor.history = []; editor.setModel(S.models[S.cur].model);
     if (p.view) editor.view = p.view;
@@ -366,7 +449,7 @@
     dlg.showModal();
   }
   function readForm(dlg, kind) {
-    const fd = {}; $$('input,select', $('#runfields')).forEach(el => {
+    const fd = {}; $$('input,select,textarea', $('#runfields')).forEach(el => {
       if (el.type === 'checkbox') fd[el.name] = el.checked;
       else if (el.multiple) fd[el.name] = Array.from(el.selectedOptions).map(o => o.value);
       else fd[el.name] = el.value;
@@ -487,13 +570,16 @@
     if (!S.current || !S.results[S.current]) S.current = kinds[0];
     const r = S.cmp ? S.cmp : S.results[S.current];
     TABLES.clear();
+    rt(() => {
     const rank = { g_final: 0, g_quality: 1, g_data: 2 }; // stable sort so each group heading appears once
     const secs = sections(S.current, r).map((x, i) => [x, i]).sort((a, b) => ((rank[a[0].group] ?? 3) - (rank[b[0].group] ?? 3)) || a[1] - b[1]).map(x => x[0]);
     if (!S.section || !secs.some(s => s.id === S.section)) S.section = secs[0].id;
     const sec = secs.find(s => s.id === S.section);
     el.innerHTML = `<div class="restabs" role="tablist">${kinds.map(k => `<button role="tab" data-kind="${k}" class="${k === S.current ? 'on' : ''}">${t(TASKS[k].title)}</button>`).join('')}
-        <span class="grow"></span><button data-act="cmpreports">⇄ ${t('compare_reports')}</button><button data-act="excel">⬇ Excel</button><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
-      <div class="resbody"><nav class="secnav">${groupNav(secs)}</nav><div class="secout" id="secout">${metaLine(r)}${sec.html()}</div></div>`;
+        <span class="grow"></span><button data-act="tstyle" title="${esc(t('ts_title'))}">🎨 ${t('ts_open')}</button><button data-act="cmpreports">⇄ ${t('compare_reports')}</button><button data-act="excel">⬇ Excel</button><button data-act="report">${t('export_report')}</button><button data-act="rerun">${t('rerun')}</button></div>
+      <div class="resbody"><nav class="secnav">${groupNav(secs)}</nav><div class="secout rt" id="secout"><div class="sechead">${metaLine(r)}<button class="mini" data-act="copyall" title="${esc(t('copy_all_d'))}">⧉ ${t('copy_all')}</button><button class="mini" data-act="tstyle" title="${esc(t('ts_title'))}">🎨 ${t('ts_open')}</button></div>${sec.html()}</div></div>`;
+      numberOutput($('#secout'), sec.title);
+    });
   }
   function groupNav(secs) {
     let h = '', g = null;
@@ -516,7 +602,7 @@
     return table([''].concat(colNames), rowNames.map((rn, i) => [rn].concat(colNames.map((_, j) => {
       const v = M[i][j]; if (opt.skip && opt.skip(i, j)) return cell('', 'blank');
       return cell(f(v), opt.cls ? opt.cls(v, i, j) : '', isFinite(v) ? v : '');
-    }))), { title: opt.title });
+    }))), { title: opt.title, caption: opt.caption, names: true, bounded: opt.bounded });
   }
 
   function sections(kind, r) {
@@ -556,12 +642,12 @@
     // path coefficients
     s.push(sec('g_final', 'paths', t('path_coefs'), () => {
       const items = []; N.forEach((n, j) => r.pred[j].forEach(i => items.push({ label: N[i] + ' → ' + n, value: r.paths[j][i] })));
-      return card(t('path_coefs'), matrixTable(N, N, N.map((_, i) => N.map((__, j) => r.paths[j][i])), { skip: (i, j) => !has(i, j), title: 'paths' }) + chart(C.bars(items, { title: t('path_coefs') }), 'paths'), { note: t('matrix_note'), doc: 'pls' });
+      return card(t('path_coefs'), matrixTable(N, N, N.map((_, i) => N.map((__, j) => r.paths[j][i])), { skip: (i, j) => !has(i, j), title: 'paths', bounded: true }) + chart(C.bars(items, { title: t('path_coefs') }), 'paths'), { note: t('matrix_note'), doc: 'pls' });
     }));
     s.push(sec('g_final', 'effects', t('total_effects'), () => {
       const rows = []; N.forEach((n, j) => N.forEach((m, i) => { const tot = r.total[j][i]; if (i !== j && Math.abs(tot) > 1e-12) rows.push([m + ' → ' + n, f(r.paths[j][i]), f(tot - r.paths[j][i]), f(tot)]); }));
-      let h = card(t('total_effects'), table([t('relationship'), t('direct'), t('indirect_total'), t('total')], rows, { title: 'effects' }), { doc: 'effects' });
-      if (r.specific.length) h += card(t('specific_indirect'), table([t('path'), t('value')], r.specific.map(x => [x.path.join(' → '), f(x.value)]), { title: 'specific' }));
+      let h = card(t('total_effects'), table([t('relationship'), t('direct'), t('indirect_total'), t('total')], rows, { title: 'effects', bounded: true }), { doc: 'effects' });
+      if (r.specific.length) h += card(t('specific_indirect'), table([t('path'), t('value')], r.specific.map(x => [x.path.join(' → '), f(x.value)]), { title: 'specific', bounded: true }));
       return h;
     }));
     s.push(sec('g_final', 'outer', t('outer_loadings'), () => {
@@ -574,7 +660,7 @@
       const items = []; N.forEach((n, j) => r.pred[j].forEach(i => items.push({ label: N[i] + ' → ' + n, value: r.f2[i][j] })));
       return card(t('f2'), matrixTable(N, N, r.f2, { skip: (i, j) => !has(i, j), title: 'f2', cls: v => v >= 0.35 ? 'good' : v >= 0.02 ? '' : 'warn' }) + chart(C.bars(items, { title: 'f²', thresholds: [{ value: 0.02, label: '0.02' }, { value: 0.15, label: '0.15' }, { value: 0.35, label: '0.35' }] }), 'f2'), { note: t('f2_note'), doc: 'f2' });
     }));
-    s.push(sec('g_final', 'lvcorr', t('lv_corr'), () => card(t('lv_corr'), chart(C.heatmap(N, N, r.lvCorr, { lower: true }), 'lvcorr') + matrixTable(N, N, r.lvCorr, { title: 'lvcorr' }))));
+    s.push(sec('g_final', 'lvcorr', t('lv_corr'), () => card(t('lv_corr'), chart(C.heatmap(N, N, r.lvCorr, { lower: true, title: t('lv_corr') }), 'lvcorr') + matrixTable(N, N, r.lvCorr, { title: 'lvcorr', bounded: true }))));
     if (r.inter.length) s.push(sec('g_final', 'slopes', t('simple_slopes'), () => r.inter.map(it => {
       const b = k => r.stats['path|' + k] || 0;
       const bx = b(it.x + ' -> ' + it.y), bm = b(it.m + ' -> ' + it.y), bi = b(it.name + ' -> ' + it.y);
@@ -595,16 +681,16 @@
     }));
     s.push(sec('g_quality', 'htmt', 'HTMT', () => {
       const n = real.map(j => N[j]), M = real.map(i => real.map(j => r.htmt[i][j]));
-      return card(t('htmt'), chart(C.heatmap(n, n, M, { lower: true, hideDiag: true, threshold: 0.85, min: 0, max: 1 }), 'htmt') + matrixTable(n, n, M, { skip: (i, j) => j >= i, cls: v => v >= 0.9 ? 'bad' : v >= 0.85 ? 'warn' : 'good', title: 'htmt' }), { note: t('htmt_note'), doc: 'htmt' });
+      return card(t('htmt'), chart(C.heatmap(n, n, M, { lower: true, hideDiag: true, threshold: 0.85, min: 0, max: 1, title: 'HTMT' }), 'htmt') + matrixTable(n, n, M, { skip: (i, j) => j >= i, cls: v => v >= 0.9 ? 'bad' : v >= 0.85 ? 'warn' : 'good', title: 'htmt' }), { note: t('htmt_note'), doc: 'htmt' });
     }));
     s.push(sec('g_quality', 'fl', t('fornell'), () => {
       const n = real.map(j => N[j]), M = real.map(i => real.map(j => r.fornell[i][j]));
-      return card(t('fornell'), matrixTable(n, n, M, { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(M[i][i], M[j][j]) ? 'bad' : ''), title: 'fornell' }), { note: t('fl_note'), doc: 'fl' });
+      return card(t('fornell'), matrixTable(n, n, M, { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(M[i][i], M[j][j]) ? 'bad' : ''), title: 'fornell', bounded: true }), { note: t('fl_note'), doc: 'fl' });
     }));
     s.push(sec('g_quality', 'cross', t('cross_loadings'), () => {
       const own = {}; N.forEach((n, j) => r.indicators[j].forEach(ind => { if (!r.isInter[j]) own[ind] = j; }));
       const rows = r.crossNames.map((ind, a) => [ind].concat(real.map(j => cell(f(r.cross[a][j]), own[ind] === j ? 'diag' : (Math.abs(r.cross[a][j]) > Math.abs(r.cross[a][own[ind]]) ? 'bad' : ''), r.cross[a][j]))));
-      return card(t('cross_loadings'), table([t('indicator')].concat(real.map(j => N[j])), rows, { title: 'cross' }), { note: t('cross_note'), doc: 'cross' });
+      return card(t('cross_loadings'), table([t('indicator')].concat(real.map(j => N[j])), rows, { title: 'cross', names: true, bounded: true }), { note: t('cross_note'), doc: 'cross' });
     }));
     s.push(sec('g_quality', 'vif', t('collinearity'), () => {
       const rows = []; N.forEach((n, j) => r.indicators[j].forEach((ind, q) => rows.push([ind, n, cell(f(r.outerVIF[j][q]), r.outerVIF[j][q] >= 5 ? 'bad' : r.outerVIF[j][q] >= 3 ? 'warn' : '', r.outerVIF[j][q])])));
@@ -635,7 +721,7 @@
         const lo = ((r.alpha / 2) * 100).toFixed(1) + '%', hi = ((1 - r.alpha / 2) * 100).toFixed(1) + '%';
         const tbl = table([t('parameter'), t('original'), t('sample_mean'), t('std_dev'), 'T', 'P', `${hiLabel} ${lo}`, `${hiLabel} ${hi}`],
           rows.map(x => [x.label, f(x.original), f(x.mean), f(x.sd), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), g === 'htmt' ? '' : (x.p < r.alpha ? 'good' : ''), x.p), f(x.lo), cell(f(x.hi), g === 'htmt' && x.hi >= 1 ? 'bad' : g === 'htmt' && x.hi >= 0.85 ? 'warn' : '', x.hi)]),
-          { title: 'boot_' + g, cls: 'clickable', rowAttr: i => `data-draw="${r.rows.indexOf(rows[i])}"` });
+          { title: 'boot_' + g, cls: 'clickable', rowAttr: i => `data-draw="${r.rows.indexOf(rows[i])}"`, bounded: ['path', 'total', 'indirect', 'specific', 'loading', 'r2', 'r2adj', 'alpha', 'rhoA', 'rhoC', 'ave'].includes(g) });
         return card(t('bg_' + g), tbl + `<div id="drawbox" class="note">${t('click_row_hist')}</div>` + ciChart(rows, g), { note: (g === 'htmt' ? t('htmt_boot_note') : t('boot_note', { b: r.samples, f: r.failed, test: t('opt_' + r.test) })), doc: r.ci === 'bca' ? 'bca' : 'bootstrap' });
       }));
     });
@@ -654,8 +740,8 @@
       const y = 30 + i * 24, sig = g !== 'htmt' && (x.lo > 0 || x.hi < 0);
       s += `<text x="${lw - 6}" y="${y + 4}" text-anchor="end">${esc(x.label)}</text><line x1="${X(x.lo)}" x2="${X(x.hi)}" y1="${y}" y2="${y}" stroke="${sig ? 'var(--c1)' : 'var(--muted)'}" stroke-width="3"/><circle cx="${X(x.original)}" cy="${y}" r="4.5" fill="${sig ? 'var(--c1)' : 'var(--muted)'}"/>`;
     });
-    [lo, (lo + hi) / 2, hi].forEach(v => { s += `<text x="${X(v)}" y="${h - 12}" text-anchor="middle">${v.toFixed(2)}</text>`; });
-    return chart(`<svg class="chart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><style>.chart text{font-family:system-ui,sans-serif;font-size:11px;fill:var(--ink,#222)}</style><text x="${w / 2}" y="14" text-anchor="middle" style="font-weight:600;font-size:13px">${esc(t('ci_plot'))}</text>${s}</svg>`, 'ci');
+    [lo, (lo + hi) / 2, hi].forEach(v => { s += `<text x="${X(v)}" y="${h - 12}" text-anchor="middle">${C.opts.minus ? v.toFixed(2).replace(/^-/, FMT.MINUS) : v.toFixed(2)}</text>`; });
+    return chart(`<svg class="chart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(t('ci_plot'))}"><style>.chart text{font-family:system-ui,sans-serif;font-size:11px;fill:var(--ink,#222)}</style>${C.opts.title ? `<text class="tt" x="${w / 2}" y="14" text-anchor="middle" style="font-weight:600;font-size:13px">${esc(t('ci_plot'))}</text>` : ''}${s}</svg>`, 'ci');
   }
 
   function predictSections(r) {
@@ -711,7 +797,8 @@
   const pcell = p => cell(fp(p) + ' ' + stars(p), p < 0.05 ? 'good' : '', p);
   const thr = (v, ok, label) => cell(f(v), ok ? 'good' : 'warn', v);
   // toolkit handed to plugin result renderers
-  const UI = { t, f, fp, esc, stars, table, cell, chart, card, sec, pcell, C, E, S, matrixTable: (...a) => matrixTable(...a), lang: () => S.lang, toast };
+  // fmt: YPFormat (APA number formatting); pEq(p) gives "= .023" / "< .001" for prose; ts(): the table & figure style
+  const UI = { t, f, fp, pEq, esc, stars, table, cell, chart, card, sec, pcell, C, E, S, fmt: FMT, ts: () => S.ts, matrixTable: (...a) => matrixTable(...a), lang: () => S.lang, toast };
   function cbsemSections(r) {
     const F = r.fit;
     const fitRows = [
@@ -728,12 +815,12 @@
       sec('g_final', 'cb_load', t('outer_loadings'), () => card(t('outer_loadings'), table([t('construct'), t('indicator'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')].concat(r.boot ? ['Boot SE', '2.5%', '97.5%'] : []), r.loadings.map(l => [l.construct, l.indicator, f(l.est), l.fixed ? t('fixed') : f(l.se), l.fixed ? '' : f(l.z), l.fixed ? cell('') : pcell(l.p), cell(f(l.std), l.std < 0.7 ? 'warn' : '', l.std)].concat(r.boot ? [f(l.bootSE), f(l.lo), f(l.hi)] : [])), { title: 'cbsem_loadings' }) +
         chart(C.bars(r.loadings.map(l => ({ label: l.indicator, value: l.std })), { title: t('std_estimate'), thresholds: [{ value: 0.7, label: '0.70' }] }), 'cbsem_loadings'), { note: t('cb_load_note'), doc: 'cbsem' })),
       sec('g_final', 'cb_r2', t('r2'), () => card(t('r2'), table([t('construct'), 'R²'], r.r2.map(x => [x.construct, f(x.r2)]), { title: 'cbsem_r2' }), { doc: 'cbsem' })),
-      sec('g_final', 'cb_eff', t('total_effects'), () => card(t('total_effects') + ' (' + t('std_estimate') + ')', table([t('relationship'), t('direct'), t('indirect_total'), t('total')], r.effects.map(e => [e.from + ' → ' + e.to, f(e.direct), f(e.indirect), f(e.total)]), { title: 'cbsem_effects' }), { doc: 'effects' })),
+      sec('g_final', 'cb_eff', t('total_effects'), () => card(t('total_effects') + ' (' + t('std_estimate') + ')', table([t('relationship'), t('direct'), t('indirect_total'), t('total')], r.effects.map(e => [e.from + ' → ' + e.to, f(e.direct), f(e.indirect), f(e.total)]), { title: 'cbsem_effects', bounded: true }), { doc: 'effects' })),
       sec('g_quality', 'cb_rel', t('reliability'), () => card(t('reliability'), table([t('construct'), 'CR', 'AVE', '√AVE'], r.reliability.map(x => [x.construct, cell(f(x.cr), x.cr >= 0.7 ? 'good' : 'warn', x.cr), cell(f(x.ave), x.ave >= 0.5 ? 'good' : 'bad', x.ave), f(Math.sqrt(x.ave))]), { title: 'cbsem_reliability' }) +
-        matrixTable(N, N, r.lvcorr.map((row, i) => row.map((v, j) => (i === j ? Math.sqrt(r.reliability[i].ave) : v))), { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(Math.sqrt(r.reliability[i].ave), Math.sqrt(r.reliability[j].ave)) ? 'bad' : ''), title: 'cbsem_fornell' }), { note: t('cb_rel_note'), doc: 'ave' })),
+        matrixTable(N, N, r.lvcorr.map((row, i) => row.map((v, j) => (i === j ? Math.sqrt(r.reliability[i].ave) : v))), { skip: (i, j) => j > i, cls: (v, i, j) => i === j ? 'diag' : (Math.abs(v) > Math.min(Math.sqrt(r.reliability[i].ave), Math.sqrt(r.reliability[j].ave)) ? 'bad' : ''), title: 'cbsem_fornell', caption: t('fornell'), bounded: true }), { note: t('cb_rel_note'), doc: 'ave' })),
       sec('g_data', 'cb_var', t('cb_variances'), () => card(t('cb_variances'), table(['', t('type'), t('estimate'), 'SE', 'z', 'p', t('std_estimate')], r.covs.map(c => [c.a === c.b ? c.a : c.a + ' ↔ ' + c.b, t('cbk_' + c.kind), cell(f(c.est), c.kind !== 'cov' && c.est < 0 ? 'bad' : '', c.est), f(c.se), f(c.z), pcell(c.p), f(c.std)]).concat(r.resid.map(x => [x.indicator, t('cbk_error'), cell(f(x.est), x.est < 0 ? 'bad' : '', x.est), f(x.se), f(x.z), pcell(x.p), f(x.std)])), { title: 'cbsem_variances' }))),
       sec('g_quality', 'cb_mi', t('cb_mi'), () => card(t('cb_mi'), table([t('parameter'), t('type'), 'MI', 'p', 'EPC', t('std_epc')], (r.mi || []).filter(x => x.mi >= 3.84).slice(0, 40).map(x => [x.label, t('mi_' + x.type), cell(f(x.mi, 2), x.mi >= 10 ? 'warn' : '', x.mi), fp(x.p), f(x.epc), f(x.sepc)]), { title: 'cbsem_mi' }), { note: t('cb_mi_note'), doc: 'cbmi' })),
-      sec('g_data', 'cb_res', t('cb_residuals'), () => card(t('cb_residuals'), chart(C.heatmap(r.indicators, r.indicators, r.resCorr, { lower: true, hideDiag: true, min: -0.2, max: 0.2 }), 'residuals'), { note: t('cb_res_note') }))
+      sec('g_data', 'cb_res', t('cb_residuals'), () => card(t('cb_residuals'), chart(C.heatmap(r.indicators, r.indicators, r.resCorr, { lower: true, hideDiag: true, min: -0.2, max: 0.2, title: t('cb_residuals') }), 'residuals'), { note: t('cb_res_note') }))
     ];
   }
   function segSections(r) {
@@ -793,16 +880,16 @@
     if (S.ds) o.currentN = S.ds.n;
     return o;
   }
-  function bootTable(rows, title) {
-    return table([t('parameter'), t('original'), t('sample_mean'), t('std_dev'), 'T', 'P', '2.5%', '97.5%'], rows.map(x => [x.label, f(x.original), f(x.mean), f(x.sd), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.lo), f(x.hi)]), { title });
+  function bootTable(rows, title, bounded) {
+    return table([t('parameter'), t('original'), t('sample_mean'), t('std_dev'), 'T', 'P', '2.5%', '97.5%'], rows.map(x => [x.label, f(x.original), f(x.mean), f(x.sd), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.lo), f(x.hi)]), { title, bounded });
   }
   function gscaSections(r) {
     const grp = g => r.rows.filter(x => x.group === g), fitRow = k => r.rows.find(x => x.key === 'fit|' + k);
     return [
       sec('g_quality', 'gs_fit', t('model_fit'), () => card(t('model_fit') + ' (GSCA)', table(['', t('value'), '2.5%', '97.5%'], ['FIT', 'AFIT', 'GFI', 'SRMR'].map(k => { const x = fitRow(k); return [k, f(x.original), f(x.lo), f(x.hi)]; }), { title: 'gsca_fit' }), { note: t('gsca_fit_note', { b: r.samples, i: r.iterations }), doc: 'gsca' })),
-      sec('g_final', 'gs_path', t('path_coefs'), () => card(t('path_coefs'), bootTable(grp('path'), 'gsca_paths') + chart(C.bars(grp('path').map(x => ({ label: x.label, value: x.original })), { title: t('path_coefs') }), 'gsca_paths'), { doc: 'gsca' }) + card('R²', bootTable(grp('r2'), 'gsca_r2'))),
-      sec('g_final', 'gs_w', t('outer_model'), () => card(t('bg_weight'), bootTable(grp('weight'), 'gsca_weights')) + card(t('bg_loading'), bootTable(grp('loading'), 'gsca_loadings'))),
-      sec('g_data', 'gs_corr', t('lv_corr'), () => card(t('lv_corr'), matrixTable(r.constructs, r.constructs, r.lvCorr, { title: 'gsca_lvcorr' })))
+      sec('g_final', 'gs_path', t('path_coefs'), () => card(t('path_coefs'), bootTable(grp('path'), 'gsca_paths', true) + chart(C.bars(grp('path').map(x => ({ label: x.label, value: x.original })), { title: t('path_coefs') }), 'gsca_paths'), { doc: 'gsca' }) + card('R²', bootTable(grp('r2'), 'gsca_r2', true))),
+      sec('g_final', 'gs_w', t('outer_model'), () => card(t('bg_weight'), bootTable(grp('weight'), 'gsca_weights')) + card(t('bg_loading'), bootTable(grp('loading'), 'gsca_loadings', true))),
+      sec('g_data', 'gs_corr', t('lv_corr'), () => card(t('lv_corr'), matrixTable(r.constructs, r.constructs, r.lvCorr, { title: 'gsca_lvcorr', bounded: true })))
     ];
   }
   function cvpatSections(r) {
@@ -885,11 +972,30 @@
   // ------------------------------------------------------- Excel export of all results
   function exportExcel() {
     const kinds = KIND_ORDER.filter(k => S.results[k]); if (!kinds.length) return;
-    const sheets = [], toNum = v => (typeof v === 'string' && /^-?\d+(\.\d+)?(e[-+]?\d+)?$/i.test(v.trim()) ? Number(v) : v);
+    const st = S.ts, sheets = [], toNum = v => (typeof v === 'string' && /^\s*[-−]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?\s*$/i.test(v) ? Number(v.replace('−', '-')) : v);
+    const z = n => '0'.repeat(n), dfmt = st.apa ? '.' + z(st.dec) : '0.' + z(st.dec), dfmt0 = '0.' + z(st.dec);
+    const pfmt = `[<${(Math.pow(10, -st.pDec)).toFixed(st.pDec)}]"<${st.apa ? '' : '0'}.${z(st.pDec - 1)}1";${st.apa ? '' : '0'}.${z(st.pDec)}`;
+    const ruled = st.rules !== 'none', grid = st.rules === 'grid';
+    let nt = 0;
     kinds.forEach(k => {
       sections(k, S.results[k]).forEach(sc => {
-        TABLES.clear(); sc.html();
-        Array.from(TABLES.values()).forEach((tb, i) => sheets.push({ name: (t(TASKS[k].title).replace(/\s*\(.*$/, '').slice(0, 12) + ' ' + sc.title).slice(0, 31 - (i ? 3 : 0)) + (i ? ' ' + (i + 1) : ''), rows: [tb.head.map(String)].concat(tb.rows.map(r => r.map(toNum))) }));
+        TABLES.clear();
+        const box = document.createElement('div'); box.innerHTML = rt(() => sc.html());
+        $$('.tblock', box).forEach((b, i) => {
+          const tb = TABLES.get(b.dataset.tb); if (!tb) return;
+          const ttl = b.querySelector('.ttl').textContent.trim() || ((b.closest('[data-title]') || {}).dataset || {}).title || sc.title;
+          const rows = [], last = tb.rows.length - 1;
+          if (st.captions) { rows.push([{ v: t('apa_table') + ' ' + (++nt), s: { b: 1 } }]); rows.push([{ v: S.lang === 'ar' ? ttl : FMT.titleCase(ttl), s: { i: 1 } }]); }
+          const hs = j => ({ b: grid || st.preset === 'modern' || !st.apa ? 1 : 0, fill: grid || !!st.headBg, bt: ruled ? (st.rules === 'booktabs' ? 2 : 1) : 0, bb: ruled ? 1 : 0, al: j ? 'center' : '' });
+          rows.push(tb.head.map((h, j) => ({ v: String(h), s: hs(j) })));
+          tb.rows.forEach((r, ri) => rows.push(r.map((v0, j) => {
+            const v = toNum(v0), kind = tb.kinds[j], s = { bb: ri === last && ruled ? (st.rules === 'booktabs' ? 2 : 1) : grid ? 1 : 0 };
+            if (typeof v === 'number' && isFinite(v) && j) s.fmt = kind === 'p' ? pfmt : (Number.isInteger(v) && !/\./.test(String(v0))) ? '' : kind === 'bounded' ? dfmt : dfmt0;
+            return { v, s };
+          })));
+          const notes = b.querySelector('.tnotes').textContent.trim(); if (notes) rows.push([]), rows.push([{ v: notes, s: { i: 0 } }]);
+          sheets.push({ name: (t(TASKS[k].title).replace(/\s*\(.*$/, '').slice(0, 12) + ' ' + sc.title).slice(0, 31 - (i ? 3 : 0)) + (i ? ' ' + (i + 1) : ''), rows, styled: true, freeze: st.captions ? 3 : 1 });
+        });
       });
     });
     const u8 = window.YPIO.writeXLSX(sheets, S.lang === 'ar');
@@ -1022,7 +1128,7 @@
 
   function regSections(r) {
     return [sec('g_final', 'reg', t('an_regression'), () => card(r.y + ' ~ ' + r.terms.slice(1).map(x => x.name).join(' + '),
-      `<p class="meta">N = ${r.n} · R² = ${f(r.r2)} · ${t('r2adj')} = ${f(r.r2adj)} · F(${r.df1}, ${r.df2}) = ${f(r.F, 2)} · p = ${fp(r.pF)}</p>` +
+      `<p class="meta">N = ${r.n} · R² = ${f(r.r2)} · ${t('r2adj')} = ${f(r.r2adj)} · <i>F</i>(${r.df1}, ${r.df2}) = ${f(r.F, 2)} · <i>p</i> ${pEq(r.pF)}</p>` +
       table([t('term'), 'B', 'β', 'SE', 't', 'p', 'VIF'].concat(r.bootSamples ? ['Boot SE', 'Boot p', '2.5%', '97.5%'] : []), r.terms.map(x => [x.name, f(x.b), f(x.beta), f(x.se), f(x.t), cell(fp(x.p) + ' ' + stars(x.p), x.p < 0.05 ? 'good' : '', x.p), f(x.vif)].concat(r.bootSamples ? [f(x.bootSE), pcell(x.bootP), f(x.lo), f(x.hi)] : [])), { title: 'regression' }) +
       (r.bootSamples ? `<p class="meta">${t('reg_boot_note', { b: r.bootSamples, lo: f(r.r2Lo), hi: f(r.r2Hi) })}</p>` : '') +
       chart(C.scatter(r.residuals.map(p => ({ x: p[0], y: p[1] })), { title: t('residual_plot'), xLabel: t('fitted'), yLabel: t('residual') }), 'residuals'), { doc: 'regression' }))];
@@ -1034,28 +1140,128 @@
     const rank = { g_final: 0, g_quality: 1, g_data: 2 }; // stable sort so each group heading appears once
     const secs = sections(S.current, r).map((x, i) => [x, i]).sort((a, b) => ((rank[a[0].group] ?? 3) - (rank[b[0].group] ?? 3)) || a[1] - b[1]).map(x => x[0]);
     const css = Array.from(document.styleSheets).map(ss => { try { return Array.from(ss.cssRules).map(x => x.cssText).join('\n'); } catch (e) { return ''; } }).join('\n');
-    const body = secs.map(s => `<h2 class="rep">${esc(s.title)}</h2>` + s.html()).join('');
-    const html = `<!doctype html><html lang="${S.lang}" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BabPls – ${esc(S.name)}</title><style>${css}\nbody{padding:24px;max-width:1100px;margin:auto;overflow:auto;height:auto}.cardtools,figcaption{display:none}</style></head><body><h1>BabPls · ${esc(S.name)}</h1>${metaLine(r)}${body}<p class="note">${t('generated_by')}</p></body></html>`;
+    TABLES.clear();
+    const box = document.createElement('div'); box.className = 'rt';
+    box.innerHTML = rt(() => secs.map(s => `<h2 class="rep">${esc(s.title)}</h2>` + s.html()).join(''));
+    numberOutput(box); // tables and figures are numbered through the whole report
+    const html = `<!doctype html><html lang="${S.lang}" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}"${S.theme !== 'auto' ? ` data-theme="${S.theme}"` : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BabPls – ${esc(S.name)}</title><style>${css}\nbody{padding:24px;max-width:1100px;margin:auto;overflow:auto;height:auto}.ttools,.cardtools,figcaption{display:none}.tablewrap{max-height:none}</style></head><body><h1>BabPls · ${esc(S.name)}</h1>${metaLine(r)}<div class="rt">${box.innerHTML}</div><p class="note">${t('generated_by')}</p></body></html>`;
     download(slug(S.name) + '_' + S.current + '.html', html, 'text/html;charset=utf-8');
     renderResults();
   }
+  // figures are exported with the figure style baked in (fonts, gridlines, palette, background)
+  function figBox(fig) { return fig.querySelector('.fbody') || fig; }
   function svgOf(fig) {
-    const svg = fig.querySelector('svg').cloneNode(true);
-    const cs = getComputedStyle(document.documentElement);
-    const vars = ['--ink', '--line', '--grid', '--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--neg', '--warn', '--muted', '--bg2', '--good-bg', '--bad-bg', '--edge', '--accent'];
-    svg.setAttribute('style', vars.map(v => `${v}:${cs.getPropertyValue(v)}`).join(';') + ';background:' + cs.getPropertyValue('--bg'));
+    const svg = fig.querySelector('svg').cloneNode(true), box = figBox(fig);
+    const cs = getComputedStyle(box), st = S.ts;
+    const vars = ['--ink', '--line', '--grid', '--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--neg', '--warn', '--muted', '--bg2', '--good-bg', '--bad-bg', '--edge', '--accent', '--hm-pos', '--hm-neg'];
+    const bg = figBg(box);
+    svg.setAttribute('style', vars.map(v => `${v}:${cs.getPropertyValue(v)}`).join(';') + (bg ? ';background:' + bg : ''));
+    if (fig.closest('.rt')) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      el.textContent = `.chart text{font-family:${TFONTS[st.figFont] || 'sans-serif'} !important;font-size:${st.figSize}px !important}.chart .tt{font-size:${st.figSize + 2}px !important}${st.figGrid ? '' : '.chart .gd{display:none}'}`;
+      svg.appendChild(el);
+    }
     return new XMLSerializer().serializeToString(svg);
   }
+  function figBg(box) {
+    if (box.closest && box.closest('.rt')) { if (S.ts.figBg === 'transparent') return ''; if (S.ts.figBg === 'white') return '#ffffff'; }
+    return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
+  }
+  function chartPNG(fig, scale) {
+    return new Promise((ok, bad) => {
+      const src = svgOf(fig), svg = fig.querySelector('svg'), w = +svg.getAttribute('width'), h = +svg.getAttribute('height'), k = scale || 2, img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = w * k; c.height = h * k;
+        const g = c.getContext('2d'), bg = figBg(figBox(fig)); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height); } g.scale(k, k); g.drawImage(img, 0, 0);
+        c.toBlob(b => (b ? ok(b) : bad(new Error('png'))), 'image/png');
+      };
+      img.onerror = bad;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
+    });
+  }
   function exportChart(fig, kind) {
-    const src = svgOf(fig), name = slug(fig.dataset.title);
-    if (kind === 'svg') { download(name + '.svg', src, 'image/svg+xml'); return; }
-    const img = new Image(), svg = fig.querySelector('svg'), w = +svg.getAttribute('width'), h = +svg.getAttribute('height');
-    img.onload = () => {
-      const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2;
-      const g = c.getContext('2d'); g.fillStyle = getComputedStyle(document.body).backgroundColor; g.fillRect(0, 0, c.width, c.height); g.scale(2, 2); g.drawImage(img, 0, 0);
-      c.toBlob(b => download(name + '.png', b));
-    };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
+    const name = slug(fig.dataset.title);
+    if (kind === 'svg') { download(name + '.svg', svgOf(fig), 'image/svg+xml'); return; }
+    if (kind === 'copyfig') { copyFigure(fig); return; }
+    if (kind === 'png') chartPNG(fig).then(b => download(name + '.png', b));
+  }
+
+  // ---------------------------------------------------------- copy to the clipboard
+  // Tables go as rich HTML (formatting survives a paste into Word / Google Docs; Excel reads the x:num values) plus a
+  // tab-separated plain-text version of the raw values; figures go as PNG images.
+  function clipWrite(items, text) {
+    const nav = navigator.clipboard;
+    if (nav && nav.write && window.ClipboardItem) return nav.write([new ClipboardItem(items)]);
+    if (nav && text !== undefined) return Promise.resolve(text).then(x => nav.writeText(x));
+    return Promise.reject(new Error('clipboard'));
+  }
+  const blobOf = (x, type) => Promise.resolve(x).then(v => (v instanceof Blob ? v : new Blob([v], { type })));
+  const tsvOf = tb => [tb.head].concat(tb.rows).map(r => r.map(v => String(v === null || v === undefined ? '' : v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  function copyHTMLDoc(inner) { return `<html><head><meta charset="utf-8"></head><body>${inner}</body></html>`; }
+  // a table block as self-contained HTML with inline APA (or chosen) formatting on white paper
+  function tableCopyHTML(block) {
+    const st = S.ts, tb = TABLES.get(block.dataset.tb) || { rows: [], kinds: [] }, rtl = S.lang === 'ar', dir = rtl ? 'rtl' : 'ltr';
+    const ff = (TFONTS[st.font] || 'Arial,sans-serif').replace(/"/g, "'"), fs = st.size + 'pt', ink = st.ink && !/^#f/i.test(st.ink) ? st.ink : '#000000';
+    const rc = st.accent || ink, R = RULES[st.rules] || RULES.apa, w = x => x ? `${x}pt solid ${rc}` : '';
+    const pad = st.pad === 'compact' ? '1pt 5pt' : '2pt 7pt', start = rtl ? 'right' : 'left';
+    const base = `font-family:${ff};font-size:${fs};color:${ink};`;
+    const cap = st.captions ? `<p style="margin:0;${base}"><b>${esc(block.querySelector('.tnum').textContent)}</b></p><p style="margin:0 0 6pt;${base}"><i>${esc(block.querySelector('.ttl').textContent)}</i></p>` : '';
+    const tbl = block.querySelector('table'), hrows = Array.from(tbl.tHead.rows), brows = Array.from(tbl.tBodies[0].rows);
+    const clean = el => el.innerHTML.replace(/<span class="sig">(.*?)<\/span>/g, '$1').replace(/<button[^>]*>.*?<\/button>/g, '');
+    const css = o => Object.entries(o).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => `${k}:${v}`).join(';');
+    let h = `<table dir="${dir}" style="border-collapse:collapse;${base}border-spacing:0">`;
+    hrows.forEach((tr, ri) => {
+      h += '<tr>' + Array.from(tr.cells).map(c => {
+        const span = c.classList.contains('span'), lastRow = ri === hrows.length - 1 || +c.rowSpan > 1;
+        const o = { padding: pad, 'text-align': c.cellIndex === 0 && ri === 0 ? start : 'center', 'vertical-align': 'bottom', 'font-weight': st.apa && !st.headBg ? 'normal' : 'bold',
+          'border-top': ri === 0 ? w(R.top) : '', 'border-bottom': span ? w(R.span || R.head) : lastRow ? w(R.head) : '', border: R.cell ? `${R.cell}pt solid ${rc}` : '',
+          background: st.headBg || '', color: st.headBg ? (st.headInk || '#ffffff') : '' };
+        return `<th${c.colSpan > 1 ? ` colspan="${c.colSpan}"` : ''}${c.rowSpan > 1 ? ` rowspan="${c.rowSpan}"` : ''} style="${css(o)}">${clean(c)}</th>`;
+      }).join('') + '</tr>';
+    });
+    brows.forEach((tr, ri) => {
+      const last = ri === brows.length - 1, zebra = st.zebra && ri % 2 === 1 ? '#f2f2f2' : '';
+      h += '<tr>' + Array.from(tr.cells).map((c, j) => {
+        const raw = (tb.rows[ri] || [])[j], num = c.classList.contains('num');
+        const flag = st.flags === 'shade' ? ['good', 'bad', 'warn'].find(k => c.classList.contains(k)) : '';
+        const o = { padding: pad, 'text-align': num ? 'right' : start, 'white-space': 'nowrap', 'border-bottom': last ? w(R.bottom) : R.row ? `${R.row}pt solid #bfbfbf` : '', border: R.cell ? `${R.cell}pt solid ${rc}` : '',
+          background: flag ? { good: '#d1fae5', bad: '#fee2e2', warn: '#fef3c7' }[flag] : zebra, 'font-weight': c.classList.contains('diag') ? 'bold' : '' };
+        const xn = num && typeof raw === 'number' && isFinite(raw) ? ` x:num="${raw}"` : '';
+        return `<${c.tagName.toLowerCase()}${xn}${num ? ' dir="ltr"' : ''} style="${css(o)}">${clean(c)}</${c.tagName.toLowerCase()}>`;
+      }).join('') + '</tr>';
+    });
+    h += '</table>';
+    const notes = Array.from(block.querySelectorAll('.tnote')).map(n => `<p style="margin:4pt 0 0;${base}">${n.innerHTML}</p>`).join('');
+    return `<div dir="${dir}" style="${base}">${cap}${h}${notes}</div>`;
+  }
+  function blockText(block) {
+    const tb = TABLES.get(block.dataset.tb); if (!tb) return '';
+    const cap = S.ts.captions ? block.querySelector('.tnum').textContent + '\n' + block.querySelector('.ttl').textContent + '\n' : '';
+    return cap + tsvOf(tb);
+  }
+  function copyTable(id) {
+    const block = document.querySelector(`.tblock[data-tb="${id}"]`), tb = TABLES.get(id); if (!tb) return;
+    const html = block ? tableCopyHTML(block) : '';
+    clipWrite({ 'text/html': blobOf(copyHTMLDoc(html), 'text/html'), 'text/plain': blobOf(tsvOf(tb), 'text/plain') }, tsvOf(tb))
+      .then(() => toast(t('copied_table'), 'good'), () => toast(t('copy_failed'), 'bad'));
+  }
+  function copyFigure(fig) {
+    clipWrite({ 'image/png': chartPNG(fig) }).then(() => toast(t('copied_figure'), 'good'), () => toast(t('copy_failed'), 'bad'));
+  }
+  // every table and figure of the shown section, in order (figures as embedded PNG images)
+  function copyAll(root) {
+    const parts = $$('.tblock, figure.chartbox', root || $('#secout')); if (!parts.length) return;
+    const nT = parts.filter(p => p.classList.contains('tblock')).length;
+    const rd = b => new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
+    const built = Promise.all(parts.map(p => {
+      if (p.classList.contains('tblock')) return Promise.resolve({ html: tableCopyHTML(p), text: blockText(p) });
+      const svg = p.querySelector('svg'), st = S.ts, ff = (TFONTS[st.font] || 'Arial').replace(/"/g, "'"), base = `font-family:${ff};font-size:${st.size}pt;color:#000;margin:0`;
+      const cap = st.captions ? `<p style="${base}"><b>${esc(p.querySelector('.fnum').textContent)}</b></p><p style="${base};margin-bottom:6pt"><i>${esc(p.querySelector('.ftl').textContent)}</i></p>` : '';
+      return chartPNG(p).then(rd).then(u => ({ html: `<div>${cap}<p style="margin:0"><img src="${u}" width="${svg.getAttribute('width')}" height="${svg.getAttribute('height')}" alt="${esc(p.querySelector('.ftl').textContent)}"></p></div>`, text: st.captions ? p.querySelector('.fnum').textContent + '\n' + p.querySelector('.ftl').textContent : '' }));
+    }));
+    const sep = '<p style="margin:0">&nbsp;</p>';
+    clipWrite({ 'text/html': built.then(a => new Blob([copyHTMLDoc(a.map(x => x.html).join(sep))], { type: 'text/html' })), 'text/plain': built.then(a => new Blob([a.map(x => x.text).filter(Boolean).join('\n\n')], { type: 'text/plain' })) }, built.then(a => a.map(x => x.text).join('\n\n')))
+      .then(() => toast(t('copied_all', { t: nT, f: parts.length - nT }), 'good'), () => toast(t('copy_failed'), 'bad'));
   }
   function exportModelImage(kind) {
     const svg = $('#canvas'), g = svg.querySelector('g');
@@ -1089,6 +1295,54 @@
     gray: ['#262626', '#737373', '#a3a3a3', '#404040', '#8a8a8a', '#c4c4c4']
   };
   const FONTS = window.YPEditor.FONTS;
+  // fonts for tables and figures: Calibri 11 / Arial 11 / Times New Roman 12 are the APA 7 suggestions
+  const TFONTS = Object.assign({ calibri: 'Calibri,Carlito,"Segoe UI",Arial,"Noto Sans Arabic",sans-serif' }, FONTS);
+  // rule weights in points: top of the header, below the header, below a spanner, bottom of the table, between rows, every cell
+  const RULES = { apa: { top: 0.75, head: 0.75, span: 0.75, bottom: 0.75 }, booktabs: { top: 1.5, head: 0.75, span: 0.5, bottom: 1.5 }, rows: { top: 0.75, head: 1.5, bottom: 0.75, row: 0.5 }, grid: { cell: 0.75 }, none: {} };
+  const FIGPAL = { apa: ['#4a4a4a', '#9a9a9a', '#cccccc', '#1a1a1a', '#737373', '#b3b3b3'], apaDark: ['#cfcfcf', '#8f8f8f', '#5e5e5e', '#f0f0f0', '#adadad', '#737373'] };
+  // the generated stylesheet of result tables and figures (scope .rt: the results view and exported reports)
+  function tsCSS(st) {
+    const F = TFONTS[st.font] || 'inherit', ink = st.ink || 'var(--ink)', rc = st.accent || ink, R = RULES[st.rules] || RULES.apa;
+    const px = v => (v * 4 / 3).toFixed(2) + 'px', b = v => v ? `${px(v)} solid ${rc}` : '0', pad = st.pad === 'compact' ? '2px 8px' : '5px 12px';
+    let c = `.rt .tcap,.rt .tnotes,.rt .fcap{font-family:${F};font-size:${st.size}pt}
+.rt .tablewrap{border:0;border-radius:0}
+.rt table.grid{font-family:${F};font-size:${st.size}pt;color:${ink};border-collapse:${R.cell ? 'collapse' : 'separate'};border-spacing:0;width:max-content;min-width:${st.rules === 'grid' ? '100%' : '0'}}
+.rt .grid th,.rt .grid td{border:0;padding:${pad};background:var(--panel);color:${ink}}
+.rt .grid thead th{background:${st.headBg || 'var(--panel)'};color:${st.headBg ? st.headInk || '#fff' : st.headInk || ink};font-weight:${st.apa && !st.headBg ? 'normal' : '600'};text-align:center;vertical-align:bottom}
+.rt .grid thead tr:first-child th:first-child{text-align:start}
+.rt .grid tbody th{font-weight:normal}
+.rt .grid thead tr:first-child th{border-top:${b(R.top)}}
+.rt .grid thead tr:last-child th,.rt .grid thead th[rowspan]{border-bottom:${b(R.head)}}
+.rt .grid thead th.span{border-bottom:${b(R.span || R.head)}}
+.rt .grid tbody tr:last-child>*{border-bottom:${b(R.bottom)}}
+.rt .grid td.num{text-align:right;direction:ltr}
+.rt .grid td.txt{text-align:start}
+`;
+    if (R.row) c += `.rt .grid tbody tr:not(:last-child)>*{border-bottom:${px(R.row)} solid color-mix(in srgb,${rc} 30%,transparent)}\n`;
+    if (R.cell) c += `.rt .grid th,.rt .grid td{border:${px(R.cell)} solid color-mix(in srgb,${rc} 45%,transparent)}\n`;
+    if (st.zebra) c += `.rt .grid tbody tr:nth-child(even)>*{background:color-mix(in srgb,${st.accent || 'var(--ink)'} 7%,var(--panel))}\n`;
+    if (st.flags === 'shade') c += `.rt .grid td.good{background:var(--good-bg)}.rt .grid td.bad{background:var(--bad-bg)}.rt .grid td.warn{background:var(--warn-bg)}\n`;
+    else if (st.flags === 'text') c += `.rt .grid td.good{color:var(--good)}.rt .grid td.bad{color:var(--bad)}.rt .grid td.warn{color:var(--warn)}\n`;
+    if (!st.captions) c += `.rt .tnum,.rt .ttl,.rt .fnum,.rt .ftl{display:none}\n`;
+    if (!st.notesBelow) c += `.rt .tnote.prob{color:var(--muted)}\n`;
+    // figures
+    const pal = st.figPal === 'apa' ? FIGPAL.apa : PALETTES[st.figPal], dark = st.figPal === 'apa' ? FIGPAL.apaDark : null;
+    const vars = p => p ? p.map((x, i) => `--c${i + 1}:${x}`).join(';') + (st.figPal === 'apa' || st.figPal === 'gray' ? `;--neg:${p[2]};--warn:${p[3]};--hm-pos:${p[0]};--hm-neg:${p[1]}` : '') : '';
+    if (st.figBg === 'white') c += `.rt .chartbox .fbody{background:#fff;color:#1c1c1c;--ink:#1c1c1c;--line:#8c8c8c;--grid:#e6e6e6;--muted:#6b6b6b;--bg2:#f2f2f2;--good-bg:#dcefe4;--bad-bg:#f7dfdf;--warn:#b45309;--neg:#c0392b;--panel:#fff;${vars(pal)}}\n`;
+    else {
+      if (pal) c += `.rt .chartbox .fbody{${vars(pal)}}\n`;
+      if (dark) c += `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rt .chartbox .fbody{${vars(dark)}}}\n:root[data-theme="dark"] .rt .chartbox .fbody{${vars(dark)}}\n`;
+      if (st.figBg === 'transparent') c += `.rt .chartbox .fbody{background:transparent}\n`;
+    }
+    c += `.rt .chartbox .chart text{font-family:${TFONTS[st.figFont] || 'inherit'};font-size:${st.figSize}px}.rt .chartbox .chart .tt{font-size:${st.figSize + 2}px}\n`;
+    if (!st.figGrid) c += `.rt .chartbox .chart .gd{display:none}\n`;
+    return c;
+  }
+  function applyTS() {
+    let el = document.getElementById('tscss');
+    if (!el) { el = document.createElement('style'); el.id = 'tscss'; document.head.appendChild(el); }
+    el.textContent = tsCSS(S.ts); S.ap.decimals = S.ts.dec;
+  }
   // theme colour that an "auto" colour field currently shows
   const AUTO = { lvFill: '--lv', lvStroke: '--accent', lvText: '--lv-ink', indFill: '--ind', indStroke: '--edge', indText: '--ink', pathColor: '--edge', outerColor: '--edge', interFill: '--good-bg', interStroke: '--c3', color: '--edge' };
   function applyAppearance() {
@@ -1119,7 +1373,7 @@
         ${selField('g', 'font', g.font, t('st_font'), Object.keys(FONTS))}
         ${numField('g', 'labelFont', g.labelFont, t('st_label_size'), 8, 18, 0.5)}
         ${chkField('g', 'showOuter', g.showOuter, t('st_show_outer'))}${chkField('g', 'showR2', g.showR2, t('st_show_r2'))}
-        <label>${t('st_decimals')}<select data-ap="decimals">${[2, 3, 4].map(d => `<option${S.ap.decimals === d ? ' selected' : ''}>${d}</option>`).join('')}</select></label>
+        <label>${t('st_decimals')}<select data-ts="dec">${[0, 1, 2, 3, 4].map(d => `<option value="${d}"${S.ts.dec === d ? ' selected' : ''}>${d}</option>`).join('')}</select></label>
       </fieldset>
       <fieldset><legend>${t('st_constructs')}</legend>
         ${selField('g', 'lvShape', g.lvShape, t('st_shape'), ['ellipse', 'rect', 'rounded'])}
@@ -1145,14 +1399,15 @@
         <div class="swatches">${(PALETTES[S.ap.palette] || ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].map(v => `var(${v})`)).map(c => `<i style="background:${c}"></i>`).join('')}</div>
         <label>${t('st_ui_font')}<select data-ap="uiFont">${Object.keys(FONTS).map(k => `<option value="${k}"${S.ap.uiFont === k ? ' selected' : ''}>${esc(t('st_' + k))}</option>`).join('')}</select></label>
         <label>${t('st_ui_scale')} <output>${S.ap.uiScale}%</output><input type="range" data-ap="uiScale" min="85" max="130" step="5" value="${S.ap.uiScale}"></label>
-      </fieldset></div>`;
+      </fieldset>
+      <fieldset><legend>${t('ts_title')}</legend><p class="note">${t('ts_link_note')}</p><button type="button" data-act="tstyle">🎨 ${t('ts_open')}</button></fieldset></div>`;
   }
   function openStyle() {
     editor.snapshot(); $('#stylebody').innerHTML = styleBody(); $('#styledlg').showModal();
   }
   function resetStyle() {
     editor.snapshot(); editor.model.style = { global: {}, el: {} };
-    S.ap.palette = 'theme'; S.ap.decimals = 3; applyAppearance(); afterStyle(true);
+    S.ap.palette = 'theme'; applyAppearance(); afterStyle(true);
   }
   function afterStyle(redraw) {
     if (S.results && S.current && ['pls', 'plsc', 'bootstrap', 'cbsem'].includes(S.current)) applyOverlay(S.current); else editor.render();
@@ -1200,6 +1455,76 @@
         ids.forEach(id => { delete st.el[id]; });
         afterStyle(false); renderProps(); toast(t('applied_all'), 'good');
       }
+    });
+  }
+  // ---- table & figure style dialog (results toolbar, section header and the Appearance dialog open it)
+  function tsBody() {
+    const st = S.ts, o = (k, v, lab) => `<option value="${v}"${String(st[k]) === String(v) ? ' selected' : ''}>${esc(lab)}</option>`;
+    const sel = (k, label, opts, lab) => `<label>${esc(label)}<select data-ts="${k}">${opts.map(v => o(k, v, lab(v))).join('')}</select></label>`;
+    const rng = (k, label, min, max, step, unit) => `<label>${esc(label)} <output>${st[k]}${unit || ''}</output><input type="range" data-ts="${k}" min="${min}" max="${max}" step="${step}" value="${st[k]}"></label>`;
+    const chk = (k, label) => `<label class="check"><input type="checkbox" data-ts="${k}"${st[k] ? ' checked' : ''}> ${esc(label)}</label>`;
+    const col = (k, label, auto) => `<label class="cf">${esc(label)}<span><input type="color" data-ts="${k}" value="${st[k] || hex(getComputedStyle(document.documentElement).getPropertyValue(auto))}"><button type="button" class="mini${st[k] ? '' : ' on'}" data-tsauto="${k}">${t('auto_color')}</button></span></label>`;
+    const fonts = Object.keys(TFONTS), pals = ['apa'].concat(Object.keys(PALETTES));
+    return `<div class="presets" role="group" aria-label="${esc(t('ts_presets'))}">${Object.keys(TS_PRESETS).map(k => `<button type="button" class="preset tsp${st.preset === k ? ' on' : ''}" data-tspreset="${k}" aria-pressed="${st.preset === k}">${esc(t('tsp_' + k))}</button>`).join('')}</div>
+      <div class="tslayout"><div class="stgrid">
+      <fieldset><legend>${t('ts_tables')}</legend>
+        ${sel('font', t('st_font'), fonts, k => t('st_' + k))}${rng('size', t('ts_size'), 7, 14, 0.5, ' pt')}
+        ${sel('rules', t('ts_rules'), Object.keys(RULES), k => t('tsr_' + k))}${sel('pad', t('ts_pad'), ['normal', 'compact'], k => t('tspad_' + k))}
+        ${chk('zebra', t('ts_zebra'))}${sel('flags', t('ts_flags'), ['text', 'shade', 'none'], k => t('tsf_' + k))}
+        ${col('ink', t('ts_ink'), '--ink')}${col('headBg', t('ts_head_bg'), '--panel')}${col('headInk', t('ts_head_ink'), '--ink')}${col('accent', t('ts_accent'), '--ink')}
+      </fieldset>
+      <fieldset><legend>${t('ts_numbers')}</legend>
+        ${sel('dec', t('st_decimals'), [0, 1, 2, 3, 4], String)}${sel('pDec', t('ts_pdec'), [2, 3, 4], String)}
+        ${chk('apa', t('ts_lz'))}${chk('minus', t('ts_minus'))}${chk('ital', t('ts_ital'))}
+        ${chk('captions', t('ts_captions'))}${chk('notesBelow', t('ts_notes_below'))}${chk('spanners', t('ts_spanners'))}
+      </fieldset>
+      <fieldset><legend>${t('ts_figures')}</legend>
+        ${sel('figPal', t('st_palette'), pals, k => t('pal_' + k))}
+        <div class="swatches">${(st.figPal === 'apa' ? FIGPAL.apa : PALETTES[st.figPal] || ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].map(v => `var(${v})`)).map(c => `<i style="background:${c}"></i>`).join('')}</div>
+        ${sel('figFont', t('st_font'), fonts, k => t('st_' + k))}${rng('figSize', t('ts_fig_size'), 8, 16, 0.5, ' px')}
+        ${chk('figGrid', t('ts_fig_grid'))}${sel('figBg', t('ts_fig_bg'), ['white', 'theme', 'transparent'], k => t('tsb_' + k))}
+      </fieldset></div>
+      <div><h4>${t('ts_preview')}</h4><div id="tsprev" class="tsprev rt"></div></div></div>`;
+  }
+  function tsPreview() {
+    const el = $('#tsprev'); if (!el || !$('#tsdlg').open) return;
+    const rows = [['Image → Satisfaction', 0.4123, 0.0512, 8.05, 0.00002, 0.312, 0.509], ['Value → Satisfaction', 0.1789, 0.0688, 2.6, 0.0093, 0.044, 0.311], ['Image → Loyalty', -0.0871, 0.0601, -1.449, 0.1474, -0.205, 0.031], ['Satisfaction → Loyalty', 0.5234, 0.0577, 9.07, 0.0000001, 0.409, 0.633]];
+    el.innerHTML = rt(() => card(t('ts_sample'), table([t('relationship'), 'β', 'SE', 't', 'p', '2.5%', '97.5%'], rows.map(r => [r[0], f(r[1]), f(r[2]), f(r[3], 2), pcell(r[4]), f(r[5]), f(r[6])]), { title: 'sample', bounded: [1, 2, 5, 6] }) +
+      chart(C.bars(rows.map(r => ({ label: r[0], value: r[1] })), { title: t('path_coefs'), width: 460, thresholds: [{ value: 0.2, label: '0.20' }] }), 'sample'), { note: t('ts_sample_note') }));
+    numberOutput(el);
+  }
+  function openTS() {
+    if ($('#styledlg').open) $('#styledlg').close();
+    $('#tsbody').innerHTML = tsBody(); $('#tsdlg').showModal(); tsPreview();
+  }
+  // live: the stylesheet is regenerated and the visible output rebuilt; the style is saved in the project and as the
+  // browser's default for new projects
+  function tsChanged(redrawForm) {
+    applyTS(); prefs(true); autosave();
+    if (S.view === 'results' && $('#resultsview') && !$('#resultsview').hidden) { const sc = $('#secout') ? $('#secout').scrollTop : 0; renderResults(); if ($('#secout')) $('#secout').scrollTop = sc; }
+    if (redrawForm && $('#tsdlg').open) $('#tsbody').innerHTML = tsBody();
+    tsPreview();
+  }
+  function bindTS() {
+    const num = ['size', 'figSize', 'dec', 'pDec'];
+    const on = (e, commit) => {
+      const el = e.target, k = el.dataset && el.dataset.ts; if (k === undefined || !(k in TS_BASE)) return;
+      let v = inputValue(el); if (num.includes(k)) v = +v;
+      if (S.ts[k] === v && !commit) return;
+      S.ts[k] = v; S.ts.preset = 'custom';
+      const out = el.parentElement.querySelector('output'); if (out) out.textContent = el.value + (k === 'size' ? ' pt' : k === 'figSize' ? ' px' : '');
+      const auto = el.closest('.cf'); if (auto) auto.querySelector('button').classList.remove('on');
+      $$('#tsbody [data-tspreset]').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+      tsChanged(commit && k === 'figPal');
+    };
+    document.addEventListener('input', e => on(e, false));
+    document.addEventListener('change', e => on(e, true));
+    document.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.tspreset) { S.ts = tsPreset(b.dataset.tspreset); tsChanged(true); }
+      if (b.dataset.tsauto) { S.ts[b.dataset.tsauto] = ''; S.ts.preset = 'custom'; tsChanged(true); }
+      if (b.dataset.act === 'ts-reset') { S.ts = tsPreset('apa'); tsChanged(true); toast(t('ts_reset_done'), 'good'); }
+      if (b.dataset.act === 'tstyle') openTS();
     });
   }
   function elStyleHTML(sel) {
@@ -1435,7 +1760,7 @@
       if (b.dataset.exrun) { const [id, q] = b.dataset.exrun.split('|'); runExample(id, +q); }
       if (b.dataset.sec) { S.section = b.dataset.sec; renderResults(); $('#secout').scrollTop = 0; }
       if (b.dataset.csv) { const tb = TABLES.get(b.dataset.csv); if (tb) download(slug(S.name) + '_' + slug(tb.title) + '.csv', tb.csv, 'text/csv;charset=utf-8'); }
-      if (b.dataset.copy) { const tb = TABLES.get(b.dataset.copy); if (tb) { const tsv = tb.csv.replace(/^﻿/, '').split('\n').map(l => l.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\t')).join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => toast(t('copied'), 'good'), () => toast(t('copy_failed'), 'bad')); } }
+      if (b.dataset.copy) copyTable(b.dataset.copy);
       if (b.dataset.rmind) { const c = editor.byId(editor.sel.id); editor.snapshot(); c.indicators = c.indicators.filter(n => n !== b.dataset.rmind); editor.changed(); }
       const fig = b.closest('figure.chartbox'); if (fig && b.dataset.act) { exportChart(fig, b.dataset.act); return; }
       switch (b.dataset.act) {
@@ -1462,6 +1787,7 @@
         case 'style-reset': resetStyle(); break;
         case 'report': exportReport(); break;
         case 'excel': exportExcel(); break;
+        case 'copyall': copyAll(b.closest('.tsprev') || $('#secout')); break;
         case 'cmpreports': openCompare(); break;
         case 'addscores': addScoresToData(); break;
         case 'addseg': addSegmentsToData(); break;
@@ -1483,7 +1809,8 @@
       if (dr) {
         const r = S.results[S.current], row = r.rows[+dr.dataset.draw];
         $$('tr.picked').forEach(x => x.classList.remove('picked')); dr.classList.add('picked');
-        $('#drawbox').innerHTML = chart(C.histogram(row.draws, { title: row.label, xLabel: t('bootstrap_dist'), marks: [{ value: row.original, label: t('original') }, { value: row.lo, label: '', color: 'var(--c2)', dash: '4 3' }, { value: row.hi, label: '', color: 'var(--c2)', dash: '4 3' }] }), row.label);
+        $('#drawbox').innerHTML = rt(() => chart(C.histogram(row.draws, { title: row.label, xLabel: t('bootstrap_dist'), marks: [{ value: row.original, label: t('original') }, { value: row.lo, label: '', color: 'var(--c2)', dash: '4 3' }, { value: row.hi, label: '', color: 'var(--c2)', dash: '4 3' }] }), row.label));
+        numberOutput($('#secout'));
       }
     });
     document.addEventListener('keydown', e => {
@@ -1505,12 +1832,12 @@
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installbtn').hidden = false; });
   window.addEventListener('appinstalled', () => { $('#installbtn').hidden = true; toast(t('installed'), 'good'); });
   $('#installbtn').addEventListener('click', async () => { if (!installEvt) { setView('help'); S.help = 'desktop'; renderHelp(); return; } installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installbtn').hidden = true; });
-  prefs(false); applyTheme(); applyAppearance(); buildPluginMenu(); bind(); bindStyle();
+  prefs(false); applyTheme(); applyAppearance(); applyTS(); buildPluginMenu(); bind(); bindStyle(); bindTS();
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo(); });
   document.addEventListener('mousedown', e => { const p = $('#infopop'); if (p && !p.hidden && !e.target.closest('#infopop,[data-info]')) closeInfo(); });
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
   if (!restored) { editor.setModel(null); refreshAll(); }
   if (restored && editor.model.constructs.length) setView('model');
-  window.BabPls = { S, editor, run: openRun, info: openInfo, plugins: PLUGINS, tasks: TASKS };
+  window.BabPls = { S, editor, run: openRun, info: openInfo, plugins: PLUGINS, tasks: TASKS, tableStyle: openTS };
 })();

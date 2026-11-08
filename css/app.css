@@ -82,7 +82,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .tablewrap { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0; }
 table.grid { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 .grid th, .grid td { padding: 5px 10px; border-bottom: 1px solid var(--grid); text-align: start; white-space: nowrap; }
-.grid thead th { position: sticky; top: 0; background: var(--bg2); font-weight: 600; z-index: 1; }
+.grid thead { position: sticky; top: 0; z-index: 2; }
+.grid thead th { background: var(--bg2); font-weight: 600; }
 .grid tbody th { font-weight: 500; position: sticky; inset-inline-start: 0; background: var(--panel); }
 .grid td.num { text-align: end; direction: ltr; unicode-bidi: isolate; }
 [dir="rtl"] .grid td.num { text-align: left; }
@@ -90,9 +91,34 @@ table.grid { border-collapse: collapse; width: max-content; min-width: 100%; fon
 .grid td.diag { font-weight: 700; } .grid td.blank { color: transparent; }
 .grid.clickable tbody tr { cursor: pointer; }
 .grid.clickable tbody tr:hover td, .grid tr.picked td { background: var(--bg2); }
-.chartbox { margin: 10px 0; overflow-x: auto; }
-.chartbox svg { max-width: 100%; height: auto; direction: ltr; }
-.chartbox figcaption { display: flex; gap: 4px; justify-content: flex-end; }
+.chartbox { margin: 10px 0; }
+.chartbox .fbody { overflow-x: auto; display: inline-block; max-width: 100%; vertical-align: top; }
+.chartbox svg { max-width: 100%; height: auto; direction: ltr; display: block; }
+/* table & figure blocks: "Table n" + italic title above, tools, notes below (numbers and titles only in result output .rt) */
+.tblock { margin: 8px 0 14px; }
+.tcap, .fcap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin-bottom: 2px; }
+.tnum, .fnum { font-weight: 700; }
+.ttl, .ftl { flex-basis: 100%; order: 3; font-style: italic; }
+.ttools { display: inline-flex; gap: 4px; margin-inline-start: auto; }
+.tnum, .ttl, .fnum, .ftl { display: none; }
+.rt .tnum, .rt .fnum { display: inline; }
+.rt .ttl, .rt .ftl { display: block; }
+.ttl:empty, .ftl:empty { display: none !important; }
+.tnotes { font-size: 12.5px; }
+.tnote { margin: 4px 0 0; line-height: 1.45; }
+.rt .tblock .tablewrap { margin: 6px 0 2px; max-height: none; }
+.rt .tblock .tablewrap.long { max-height: 560px; }
+.rt .tnotes .tnote { color: var(--ink); }
+.grid .sig { display: inline-block; min-width: 1.7em; text-align: left; }
+.sechead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.sechead .meta { flex: 1; margin: 0; }
+.tslayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.tslayout .stgrid { grid-template-columns: 1fr; }
+.tsprev { border: 1px dashed var(--line); border-radius: var(--radius); padding: 6px; max-height: 70vh; overflow: auto; }
+.tsprev .card { box-shadow: none; margin: 0; }
+.preset.tsp { padding: 6px 12px; font-size: 13px; }
+.preset.tsp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+@media (max-width: 900px) { .tslayout { grid-template-columns: 1fr; } }
 .chartgrid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 .chartgrid > * { flex: 1 1 440px; min-width: 0; }
 
@@ -186,7 +212,7 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   .pname { width: 140px; }
 }
 @media print {
-  .top, .tabs, .secnav, .restabs, .cardtools, figcaption { display: none !important; }
+  .top, .tabs, .secnav, .restabs, .cardtools, figcaption, .ttools, .sechead button { display: none !important; }
   body { overflow: visible; height: auto; }
 }
 
@@ -218,7 +244,7 @@ label.check { color: var(--ink) !important; }
 .guide li { margin: 4px 0; }
 .guide table.grid { width: auto; min-width: 0; margin: 8px 0; }
 .method p { margin: 6px 0; }
-.formula { direction: ltr; text-align: left; font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 15px; background: var(--bg2); border-radius: 6px; padding: 8px 12px; margin: 8px 0; overflow-x: auto; }
+.formula { direction: ltr; text-align: left; font-family: "Cambria Math", "Latin Modern Math", "STIX Two Math", "Noto Sans Math", math, "Times New Roman", serif; font-size: 15px; background: var(--bg2); border-radius: 6px; padding: 8px 12px; margin: 8px 0; overflow-x: auto; }
 .refs { font-size: 13px; color: var(--muted); }
 .refs a, .about a { color: var(--accent); }
 .biblio { direction: ltr; text-align: left; padding-left: 28px; }
@@ -275,3 +301,5 @@ p.big { font-size: 18px; }
 .infopop .refs { font-size: 12px; color: var(--muted); }
 math[display="block"] { display: block math; margin: 4px 0; }
 .formula math { font-size: 1.05em; }
+
+#runfields textarea { width: 100%; min-height: 120px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; direction: ltr; text-align: left; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical; }

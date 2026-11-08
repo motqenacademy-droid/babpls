@@ -2,7 +2,7 @@
  * Every file the app needs is precached; responses are served from the cache and refreshed in the background.
  * Bump VERSION with every release (tests/pwa.test.js checks it matches package.json). */
 'use strict';
-const VERSION = '0.8.1';
+const VERSION = '0.9.0';
 const CACHE = 'babpls-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

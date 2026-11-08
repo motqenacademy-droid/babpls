@@ -174,26 +174,58 @@
   const x = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
   const colName = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
   // sheets: [{ name, rows: [[cell...]...] }]; first row is bold. Numbers stay numeric.
+  // sheets: [{ name, rows }] with plain values (first row = bold shaded header, decimals as 0.000) or, with styled: true,
+  // cells { v, s } where s = { b, i, fill, fmt (Excel number format code), bt / bb (top / bottom border: 1 thin, 2 medium),
+  // al ('center' | 'right') } and freeze = number of rows kept visible at the top (0: none)
   function writeXLSX(sheets, rtl) {
     const enc = new TextEncoder(), used = new Set();
     const safe = sheets.map((s, i) => { let n = String(s.name || 'Sheet' + (i + 1)).replace(/[\[\]:*?/\\]/g, ' ').slice(0, 31).trim() || 'Sheet' + (i + 1); let base = n.slice(0, 28), k = 2; while (used.has(n.toLowerCase())) n = base + ' ' + k++; used.add(n.toLowerCase()); return n; });
+    // style registry: cellXfs 0 = normal, 1 = legacy header, 2 = legacy 0.000; styled cells add their own combinations
+    const fmts = [], fonts = ['', 'b'], borders = ['0|0'], xfs = ['n', 'h', 'f'], xfIndex = { n: 0, h: 1, f: 2 };
+    const idx = (arr, k) => { let i = arr.indexOf(k); if (i < 0) { arr.push(k); i = arr.length - 1; } return i; };
+    const styleOf = st => {
+      if (!st) return 0;
+      const font = idx(fonts, (st.b ? 'b' : '') + (st.i ? 'i' : '')), border = idx(borders, (st.bt || 0) + '|' + (st.bb || 0));
+      const fmt = st.fmt ? 164 + 1 + idx(fmts, st.fmt) : 0, key = [font, st.fill ? 2 : 0, border, fmt, st.al || ''].join(',');
+      if (!(key in xfIndex)) { xfIndex[key] = xfs.length; xfs.push(key); }
+      return xfIndex[key];
+    };
     const files = [];
     files.push({ name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` });
     files.push({ name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
     files.push({ name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${safe.map((n, i) => `<sheet name="${x(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` });
     files.push({ name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` });
-    files.push({ name: 'xl/styles.xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.000"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EEF8"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="3"><xf xfId="0"/><xf xfId="0" fontId="1" fillId="2" applyFont="1" applyFill="1"/><xf xfId="0" numFmtId="164" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' });
     sheets.forEach((s, i) => {
       const width = Math.max(1, ...s.rows.map(r => r.length));
-      const cols = Array.from({ length: width }, (_, c) => Math.min(60, Math.max(8, ...s.rows.map(r => String(r[c] === undefined || r[c] === null ? '' : r[c]).length + 2))));
-      const body = s.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => {
-        const ref = colName(ci) + (ri + 1);
-        if (v === null || v === undefined || v === '') return '';
-        if (typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${ri === 0 ? ' s="1"' : (Number.isInteger(v) ? '' : ' s="2"')}><v>${v}</v></c>`;
-        return `<c r="${ref}" t="inlineStr"${ri === 0 ? ' s="1"' : ''}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+      const val = c => (s.styled && c && typeof c === 'object' ? c.v : c);
+      const cols = Array.from({ length: width }, (_, c) => Math.min(60, Math.max(8, ...s.rows.map(r => (r.length > 1 || !s.styled ? String(val(r[c]) === undefined || val(r[c]) === null ? '' : val(r[c])).length + 2 : 8)))));
+      const body = s.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((c, ci) => {
+        const ref = colName(ci) + (ri + 1), v = val(c);
+        let st;
+        if (s.styled) { st = c && typeof c === 'object' ? styleOf(c.s) : 0; if (v === null || v === undefined || v === '') return st ? `<c r="${ref}" s="${st}"/>` : ''; }
+        else { if (v === null || v === undefined || v === '') return ''; st = ri === 0 ? 1 : (typeof v === 'number' && !Number.isInteger(v) ? 2 : 0); }
+        if (typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${st ? ` s="${st}"` : ''}><v>${v}</v></c>`;
+        return `<c r="${ref}" t="inlineStr"${st ? ` s="${st}"` : ''}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
       }).join('')}</row>`).join('');
-      files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"${rtl ? ' rightToLeft="1"' : ''}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols.map((w, c) => `<col min="${c + 1}" max="${c + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${body}</sheetData></worksheet>` });
+      const fr = s.styled ? (s.freeze || 0) : 1;
+      const pane = fr ? `<pane ySplit="${fr}" topLeftCell="A${fr + 1}" activePane="bottomLeft" state="frozen"/>` : '';
+      files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"${rtl ? ' rightToLeft="1"' : ''}${s.styled ? ' showGridLines="0"' : ''}>${pane}</sheetView></sheetViews><cols>${cols.map((w, c) => `<col min="${c + 1}" max="${c + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${body}</sheetData></worksheet>` });
     });
+    const fontXML = f => `<font>${f.includes('b') ? '<b/>' : ''}${f.includes('i') ? '<i/>' : ''}<sz val="11"/><name val="Calibri"/></font>`;
+    const side = (tag, w) => (+w ? `<${tag} style="${+w > 1 ? 'medium' : 'thin'}"><color rgb="FF000000"/></${tag}>` : `<${tag}/>`);
+    const borderXML = b => { const [t, bo] = b.split('|'); return `<border><left/><right/>${side('top', t)}${side('bottom', bo)}<diagonal/></border>`; };
+    const xfXML = k => {
+      if (k === 'n') return '<xf xfId="0"/>';
+      if (k === 'h') return '<xf xfId="0" fontId="1" fillId="2" applyFont="1" applyFill="1"/>';
+      if (k === 'f') return '<xf xfId="0" numFmtId="164" applyNumberFormat="1"/>';
+      const [font, fill, border, fmt, al] = k.split(',');
+      return `<xf xfId="0" fontId="${font}" fillId="${fill}" borderId="${border}" numFmtId="${fmt}" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"${al ? ` applyAlignment="1"><alignment horizontal="${al}"/></xf>` : '/>'}`;
+    };
+    const numFmts = ['0.000'].concat(fmts);
+    files.push({ name: 'xl/styles.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="${numFmts.length}">${numFmts.map((f, i) => `<numFmt numFmtId="${164 + i}" formatCode="${x(f)}"/>`).join('')}</numFmts><fonts count="${fonts.length}">${fonts.map(fontXML).join('')}</fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EEF8"/></patternFill></fill></fills><borders count="${borders.length}">${borders.map(borderXML).join('')}</borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.map(xfXML).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>` });
+    // classic part order: package files, styles, then the sheets
+    const order = ['[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels', 'xl/styles.xml'];
+    files.sort((a, b) => ((order.indexOf(a.name) + 1 || 99) - (order.indexOf(b.name) + 1 || 99)));
     return zipStore(files.map(f => ({ name: f.name, data: enc.encode(f.text) })));
   }
 

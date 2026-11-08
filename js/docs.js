@@ -1,7 +1,7 @@
 /* BabPls documentation: user guide, methods with formulas and references, about page.
  * Every guide/method entry has both "ar" and "en"; every reference key used must exist (tests/docs.test.js). */
 window.YPDocs = {
-  version: '0.8.1',
+  version: '0.9.0',
 
   // ------------------------------------------------------------------ references (APA 7)
   refs: {

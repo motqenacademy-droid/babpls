@@ -1,7 +1,7 @@
 {
   "name": "babpls-desktop",
   "productName": "BabPls",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "BabPls: free, open-source PLS-SEM and CB-SEM software",
   "author": "Dr. Ahmed Youssef",
   "license": "MIT",
