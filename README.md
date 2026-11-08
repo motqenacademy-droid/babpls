@@ -65,7 +65,7 @@
 
 ## خطوات العمل
 
-1. **البيانات:** استورد ملف CSV (الصف الأول أسماء المتغيرات؛ الفاصل `,` أو `;` أو Tab؛ الفاصلة العشرية `,` مقبولة؛ الخلايا الفارغة و`NA` و`-99` تُعدّ مفقودة؛ الأعمدة النصية تُعدّ فئوية للمقارنة بين المجموعات). تظهر الإحصاءات الوصفية ومصفوفة الارتباط وتوزيع كل متغير.
+1. **البيانات:** حرّر البيانات في «عرض البيانات» و«عرض المتغيرات» (الأنواع ومستويات القياس وتسميات القيم والقيم المفقودة) وحوّلها من قائمة «تحويل» (حساب متغير، إعادة الترميز، عكس البنود، الدرجات المعيارية، الرتب، التقسيم إلى فئات، المتغيرات الوهمية، إحلال المفقود، Box–Cox، المتطرف، الدمج)، أو استورد ملف CSV (الصف الأول أسماء المتغيرات؛ الفاصل `,` أو `;` أو Tab؛ الفاصلة العشرية `,` مقبولة؛ الخلايا الفارغة و`NA` و`-99` تُعدّ مفقودة؛ الأعمدة النصية تُعدّ فئوية للمقارنة بين المجموعات). تظهر الإحصاءات الوصفية ومصفوفة الارتباط وتوزيع كل متغير.
 2. **النموذج:** أداة «متغير كامن» ثم انقر على اللوحة، واسحب المؤشرات من القائمة إليه (أو إلى مساحة فارغة فيُنشأ متغير باسم بادئتها)، أو زرّ «أنشئ المتغيرات الكامنة من بادئات الأسماء» لأسماء مثل `sat_1, sat_2`. أداة «مسار»: انقر المصدر ثم الهدف. اختر لكل متغير: انعكاسي (Mode A) أو تكويني (Mode B). للتعديل (Moderation) حدّد مساراً ثم «أضف أثراً معدِّلاً». تراجع/إعادة (Ctrl+Z / Ctrl+Y)، ترتيب تلقائي، تكبير، تصدير صورة SVG.
 3. **احسب:** من قائمة «احسب». تظهر القيم على النموذج نفسه (معاملات المسار و p في الإقلاع الذاتي، وR² داخل المتغيرات، والتشبعات على الأسهم).
 4. **النتائج:** كل جدول يُنزَّل CSV أو يُنسخ للصقه في Excel، وكل رسم يُنزَّل SVG أو PNG، والتقرير كاملاً HTML (يُطبع PDF من المتصفح).
@@ -139,6 +139,8 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 | `js/editor.js` | لوحة رسم النموذج (SVG) |
 | `js/charts.js` | الرسوم البيانية (SVG بلا مكتبات) |
 | `js/app.js` | الواجهة: البيانات والنموذج والنتائج والتصدير |
+| `js/data.js` | محرّك تحرير البيانات (يعمل في Node): خصائص المتغيرات، لغة التعبيرات الآمنة، إعادة الترميز والرتب والتقسيم إلى فئات والمتغيرات الوهمية وإحلال المفقود وكشف المتطرف والدمج |
+| `js/dataview.js` | محرّر البيانات: عرض البيانات (جدول افتراضي سريع مع التراجع والنسخ واللصق)، وعرض المتغيرات، وقوائم التحرير والتحويل والتصدير |
 | `js/examples.js` | معرض الأمثلة: دليل ثنائي اللغة لكل تحليل (البيانات في `js/example-data.js`) |
 | `js/i18n.js` | نصوص الواجهة بالعربية والإنجليزية (كل مفتاح في اللغتين؛ يحرسه `tests/i18n.test.js`) |
 | `examples/` | تسع مجموعات بيانات أمثلة مصطنعة تغطي كل التحليلات (رضا العملاء، التعديل والوساطة، PROCESS، البنى التكوينية وCTA والمرتبة العليا، FIMIX/POS، الكوبولا، اللوجستي، PLS الموزون وMGA، مصفوفة ارتباطات) ونماذجها |
@@ -168,7 +170,7 @@ python3 tools/make_io_fixtures.py                                 # ملفات E
 
 **New in 0.2:** appearance presets and full control of fonts, colours, shapes, sizes and arrow styles (whole diagram or single elements), chart palettes (incl. colour-blind safe and greyscale), high-resolution PNG/SVG model export; a bilingual user guide, a methods page with the formula and APA references for every statistic (45 sources), 📖 links from every results table, and an About page with citation info.
 
-**Workflow:** import a CSV → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.babpls.json` (data + model).
+**Workflow:** import a CSV, Excel or SPSS file (or edit the data in the Data view / Variable view and transform it from the Transform menu) → draw constructs, drag indicators onto them (or auto-create constructs from name prefixes) → connect paths, choose reflective/formative, add moderating effects → *Calculate* → results are overlaid on the model and listed in report sections; every table exports to CSV/clipboard, every chart to SVG/PNG, and the whole report to HTML. Projects autosave in the browser and save/open as `.babpls.json` (data + model).
 
 **Analyses:** PLS-SEM (path/factor/centroid weighting; loadings, weights, path coefficients, total/indirect/specific indirect effects, R², adjusted R², f², LV scores) · quality criteria (Cronbach's α, ρA, ρc, AVE, Fornell-Larcker, HTMT, cross-loadings, outer/inner VIF, SRMR, d_ULS, d_G, χ², NFI for saturated and estimated model, AIC/BIC/HQ) · consistent PLS (PLSc) · bootstrapping (percentile or BCa CIs, one/two-tailed, distribution histograms, CI plots) · blindfolding Q² · PLSpredict (Q²predict, RMSE, MAE vs LM benchmark) · IPMA (constructs and indicators) · MGA permutation test with MICOM steps 2–3 · two-stage moderation with simple-slope plots · NCA (CE-FDH, permutation test, bottleneck tables) · OLS regression · higher-order constructs via repeated indicators.
 

@@ -303,3 +303,87 @@ math[display="block"] { display: block math; margin: 4px 0; }
 .formula math { font-size: 1.05em; }
 
 #runfields textarea { width: 100%; min-height: 120px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; direction: ltr; text-align: left; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical; }
+
+/* data editor (js/dataview.js): Data view grid, Variable view, menus, dialogs. The grid keeps a left-to-right layout in
+   Arabic (numbers and columns read left to right); the surrounding tools follow the page direction. */
+#dataview.dvmode { overflow: hidden; padding: 0; display: flex; flex-direction: column; }
+.dv { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.dvbar, .dvtools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 14px 0; }
+.dvbar h2 { margin: 0 6px 0 0; font-size: 17px; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dvtools { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.dvtools .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+.dvtabs { display: flex; gap: 2px; background: var(--bg2); border-radius: 8px; padding: 2px; }
+.dvtabs button { border: none; background: none; padding: 4px 12px; }
+.dvtabs button.on { background: var(--panel); color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.pill.filt { background: var(--warn-bg); color: var(--warn); display: inline-flex; align-items: center; gap: 4px; }
+.pill .x { border: none; background: none; padding: 0 2px; line-height: 1; color: inherit; }
+.dvlab { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.dvmenu { position: relative; }
+.dvmenu .menu, .dvctx { inset-inline-start: 0; inset-inline-end: auto; min-width: 270px; }
+.dvctx { position: fixed; z-index: 60; }
+.menu button kbd, .dvctx kbd { float: inline-end; margin-inline-start: 18px; font: 11px ui-monospace, monospace; color: var(--muted); }
+.dvmain { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.dvmain.scroll { overflow: auto; padding: 14px; display: block; }
+.dvstatus { display: flex; gap: 14px; align-items: center; padding: 4px 14px; border-top: 1px solid var(--line); background: var(--panel); font-size: 12.5px; min-height: 26px; white-space: nowrap; overflow: hidden; }
+/* the virtualised grid */
+.dg { --rnw: 60px; flex: 1; min-height: 0; display: grid; grid-template-columns: var(--rnw) minmax(0, 1fr); grid-template-rows: 34px minmax(0, 1fr); position: relative; outline: none; font-size: 13px; font-variant-numeric: tabular-nums; background: var(--panel); }
+.dg:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.dg-corner { background: var(--bg2); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: cell; }
+.dg-head, .dg-rn { overflow: hidden; position: relative; background: var(--bg2); }
+.dg-head { border-bottom: 1px solid var(--line); }
+.dg-rn { border-right: 1px solid var(--line); }
+.dg-hin, .dg-rin { position: absolute; top: 0; left: 0; will-change: transform; }
+.dg-hin { height: 34px; }
+.dg-rin { width: 100%; }
+.dh { position: absolute; top: 0; height: 34px; display: flex; align-items: center; gap: 5px; padding: 0 8px; border-right: 1px solid var(--line); font-weight: 600; cursor: pointer; overflow: hidden; white-space: nowrap; user-select: none; }
+.dh span { overflow: hidden; text-overflow: ellipsis; }
+.dh.sel, .dr.sel { background: color-mix(in srgb, var(--accent) 22%, var(--bg2)); }
+.dh.cur, .dr.cur { color: var(--accent); }
+.dh.ghost, .dr.ghost { color: var(--muted); font-weight: 400; font-style: italic; }
+.dh .rz { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; }
+.dh .rz:hover { background: var(--accent); }
+.mi { width: 9px; height: 9px; flex: none; border-radius: 2px; display: inline-block; }
+.mi.m-scale { background: var(--c3); } .mi.m-ordinal { background: var(--c4); border-radius: 50% 50% 2px 2px; } .mi.m-nominal { background: var(--c5); border-radius: 50%; }
+.dr { position: absolute; left: 0; right: 0; height: 26px; line-height: 26px; padding: 0 8px; text-align: right; color: var(--muted); border-bottom: 1px solid var(--grid); cursor: pointer; user-select: none; }
+.dr.off { text-decoration: line-through; opacity: .6; }
+.dg-body { overflow: auto; position: relative; }
+.dg-sizer { position: relative; }
+.dg-cells { position: absolute; inset: 0; }
+.dc { position: absolute; height: 26px; line-height: 25px; padding: 0 7px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: cell; user-select: none; }
+.dc.a-right { text-align: right; } .dc.a-center { text-align: center; } .dc.a-left { text-align: left; }
+.dc.miss { background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--muted) 12%, transparent) 5px 6px); }
+.dc.umiss { color: var(--bad); font-style: italic; }
+.dc.off { color: var(--muted); background-color: color-mix(in srgb, var(--muted) 10%, transparent); }
+.dc.ghost { background: color-mix(in srgb, var(--bg2) 50%, transparent); }
+.dc.sel { background-color: color-mix(in srgb, var(--accent) 16%, transparent); }
+.dg-act { position: absolute; border: 2px solid var(--accent); pointer-events: none; box-sizing: border-box; z-index: 2; }
+.dg-ed { position: absolute; z-index: 3; border: 2px solid var(--accent); border-radius: 0; padding: 0 6px; font: inherit; background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+.dg-ro { position: absolute; bottom: 10px; inset-inline-end: 18px; background: var(--warn-bg); color: var(--warn); padding: 4px 10px; border-radius: 6px; font-size: 12.5px; pointer-events: none; }
+/* Variable view */
+.vv { padding: 0; }
+.vvt td { padding: 3px 6px; vertical-align: middle; }
+.vvt input, .vvt select { padding: 3px 6px; font-size: 13px; width: 100%; min-width: 70px; }
+.vvt input[data-vf="name"] { min-width: 130px; font-weight: 600; }
+.vvt input[data-vf="label"] { min-width: 180px; }
+.vvt input[type=number] { width: 70px; min-width: 60px; }
+.vvt .vh { cursor: grab; color: var(--muted); text-align: center; }
+.vvt tr.dragging { opacity: .4; } .vvt tr.dropat td { box-shadow: inset 0 2px 0 var(--accent); }
+.vlbtn { max-width: 220px; overflow: hidden; text-overflow: ellipsis; text-align: start; }
+/* data dialogs */
+.dvdlg .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.dvdlg textarea { width: 100%; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; direction: ltr; text-align: left; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical; margin-top: 3px; }
+.dvdlg select[multiple], .dvdlg select[size] { display: block; width: 100%; }
+.dvdlg fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; }
+.dvdlg .vlrow, .dvdlg .rule, .dvdlg .sortkey, .dvdlg .cond { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+.dvdlg .vlrow .vlc { width: 90px; } .dvdlg .vlrow .vll { flex: 1; }
+.dvdlg .rule input { width: 90px; }
+.dvdlg .cond input { width: 110px; }
+.dvprev { margin-top: 8px; max-height: 280px; overflow: auto; }
+.dvprev .bad, .dvprev .warn { font-weight: 600; } .dvprev .bad { color: var(--bad); }
+table.grid.mini { min-width: 0; font-size: 12.5px; }
+table.grid.mini th, table.grid.mini td { padding: 2px 8px; }
+.dvhelp summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+dialog.dvdlg menu { align-items: center; }
+dialog.dvdlg:not([open]) { display: none; }
+dialog.dvdlg[open]:not(:modal) { position: fixed; top: 70px; z-index: 50; }
+.dvstatus .dvnote { color: var(--accent); font-weight: 600; }

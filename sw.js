@@ -2,11 +2,11 @@
  * Every file the app needs is precached; responses are served from the cache and refreshed in the background.
  * Bump VERSION with every release (tests/pwa.test.js checks it matches package.json). */
 'use strict';
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 const CACHE = 'babpls-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/engine.js', 'js/advanced.js', 'js/advanced2.js', 'js/advanced3.js', 'js/stats.js', 'js/stats2.js', 'js/amos.js', 'js/process2.js', 'js/ui-stats.js', 'js/ui-stats2.js', 'js/ui-amos.js', 'js/ui-process.js', 'js/io.js', 'js/charts.js', 'js/editor.js',
+  'js/engine.js', 'js/advanced.js', 'js/advanced2.js', 'js/advanced3.js', 'js/stats.js', 'js/stats2.js', 'js/amos.js', 'js/process2.js', 'js/ui-stats.js', 'js/ui-stats2.js', 'js/ui-amos.js', 'js/ui-process.js', 'js/io.js', 'js/data.js', 'js/dataview.js', 'js/charts.js', 'js/editor.js',
   'js/i18n.js', 'js/docs.js', 'js/example-data.js', 'js/examples.js', 'js/app.js', 'js/worker.js',
   'assets/logo.svg',
   'examples/customer_satisfaction.csv', 'examples/workload_wellbeing.csv', 'examples/training_performance.csv', 'examples/corporate_reputation.csv',

@@ -1,11 +1,11 @@
 {
   "name": "babpls",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Free, open-source PLS-SEM and CB-SEM software that runs in the browser and on the desktop",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "node --test tests/examples.test.js tests/engine.test.js tests/advanced.test.js tests/io.test.js tests/i18n.test.js tests/docs.test.js tests/pwa.test.js tests/stats.test.js tests/stats2.test.js tests/amos.test.js tests/process2.test.js tests/format.test.js",
+    "test": "node --test tests/examples.test.js tests/engine.test.js tests/advanced.test.js tests/io.test.js tests/i18n.test.js tests/docs.test.js tests/pwa.test.js tests/stats.test.js tests/stats2.test.js tests/amos.test.js tests/process2.test.js tests/format.test.js tests/data.test.js",
     "serve": "python3 -m http.server 8765",
     "example": "node tools/make_example.js && node tools/make_examples.js"
   },

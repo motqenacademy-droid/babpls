@@ -40,6 +40,20 @@ test('every key used by the UI is defined', () => {
   ['maxK', 'K', 'starts', 'center', 'weightVar', 'pmodel', 'procX', 'procY', 'procM', 'procW'].forEach(k => used.add('f_' + k));
   ['cbsem_formative', 'cbsem_interactions', 'cbsem_unidentified', 'cbsem_start', 'pos_too_small', 'pos_failed', 'cta_no_block', 'process_vars', 'no_weight'].forEach(k => used.add('err_' + k));
   ['no_constructs', 'no_indicators', 'missing_column', 'non_numeric', 'bad_path', 'bad_interaction', 'cycle', 'no_paths', 'no_interactions', 'no_group', 'one_group', 'same_group', 'bad_regression', 'cancelled'].forEach(k => used.add('err_' + k));
+  // data editor (js/dataview.js): literal keys and the dynamic families of its menus, options and errors
+  const dv = fs.readFileSync(path.join(root, 'js/dataview.js'), 'utf8');
+  for (const m of dv.matchAll(/\bt\('([a-z0-9_]+)'/gi)) if (!m[1].endsWith('_')) used.add(m[1]);
+  for (const m of dv.matchAll(/'(dv_[a-z0-9_]+)'/g)) if (!m[1].endsWith('_')) used.add(m[1]);
+  for (const m of dv.matchAll(/^\s+(?:edit|data|transform|export): \[([^\]]+)\]/gm)) for (const a of m[1].match(/'([a-z_]+)'/g)) if (a !== "'-'") used.add('dv_a_' + a.slice(1, -1));
+  for (const m of dv.matchAll(/selField\('[a-zA-Z]+', \[([^\]]+)\][^)]*?(?:, '([a-z]+_)')?\)/g)) for (const a of m[1].match(/'([a-z0-9]+)'/g)) used.add('dv_o_' + (m[2] || '') + a.slice(1, -1));
+  ['inscasebelow', 'insvarright', 'sortasc', 'sortdesc', 'varprops'].forEach(k => used.add('dv_a_' + k));
+  ['data', 'vars', 'summary'].forEach(k => used.add('dv_tab_' + k)); ['edit', 'data', 'transform', 'export'].forEach(k => used.add('dv_menu_' + k));
+  ['numeric', 'categorical', 'string', 'date'].forEach(k => used.add('dv_type_' + k)); ['scale', 'ordinal', 'nominal'].forEach(k => used.add('dv_m_' + k));
+  ['input', 'target', 'both', 'none'].forEach(k => used.add('dv_role_' + k)); ['auto', 'left', 'center', 'right'].forEach(k => used.add('dv_al_' + k));
+  ['value', 'range', 'lowest', 'highest', 'missing', 'sysmis', 'else'].forEach(k => used.add('dv_r_' + k)); ['value', 'missing', 'copy'].forEach(k => used.add('dv_r_to_' + k));
+  ['rank', 'percent', 'fraction', 'ntiles'].forEach(k => used.add('dv_o_' + k));
+  ['empty', 'syntax', 'end', 'char', 'string', 'chain', 'unknown_var', 'unknown_fn', 'args', 'range', 'range_here', 'unknown_label'].forEach(k => used.add('expr_' + k));
+  ['name_empty', 'name_chars', 'name_reserved', 'name_taken', 'not_number', 'bad_date'].forEach(k => used.add('dv_' + k));
   const missing = [...used].filter(k => !L.en[k] || !L.ar[k]);
   assert.deepStrictEqual(missing, []);
 });

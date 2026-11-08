@@ -1,7 +1,7 @@
 /* BabPls application: data, model, analyses and reports. */
 (function () {
   'use strict';
-  const E = window.YPEngine, C = window.YPCharts, I18N = window.YPI18N;
+  const E = window.YPEngine, C = window.YPCharts, I18N = window.YPI18N, DATA = window.YPData;
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = C.esc;
   const STORE = 'babpls.project.v1', PREF = 'babpls.prefs.v1';
@@ -25,13 +25,14 @@
   const FMT = C.fmt;
 
   const S = {
-    name: 'Untitled', csv: '', dataName: '', ds: null, desc: null,
+    name: 'Untitled', data: null, dataVer: 0, dataName: '', ds: null, desc: null,
     settings: Object.assign({}, E.DEFAULTS), results: {}, view: 'data', current: null, section: null,
     selCols: [], lang: 'ar', theme: 'auto', showResults: true, dataSel: null,
     ap: { palette: 'theme', decimals: 2, uiFont: 'system', uiScale: 100 }, ts: tsPreset('apa'), help: 'start',
     models: [], cur: 0, history: [], fromMatrix: null, cmp: null
   };
 
+  let DV = null; // data editor (js/dataview.js), created at start
   // ---------------------------------------------------------------- i18n
   function t(k, v) {
     let s = (I18N[S.lang] && I18N[S.lang][k]) || I18N.en[k] || k;
@@ -178,7 +179,7 @@
   function syncModel() { if (!S.models.length) S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.models[S.cur].model = editor.model; }
   function projectJSON(full) {
     syncModel();
-    const p = { format: 'babpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.csv, fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ts.dec, tables: S.ts } };
+    const p = { format: 'babpls', version: 2, name: S.name, data: { name: S.dataName, csv: S.data ? DATA.toCSV(S.data, { raw: true }) : '', meta: DATA.metaJSON(S.data), fromMatrix: S.fromMatrix }, model: editor.model, models: S.models, cur: S.cur, settings: S.settings, view: editor.view, appearance: { palette: S.ap.palette, decimals: S.ts.dec, tables: S.ts } };
     if (full) { // reports are saved in the project file (not in the browser autosave); history entries that are current results are stored as references
       p.results = S.results;
       p.history = S.history.map(h => { const k = Object.keys(S.results).find(q => S.results[q] === h.r); return k ? { id: h.id, label: h.label, ref: k } : h; });
@@ -189,6 +190,8 @@
   function autosave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
+      // data beyond about 1.5 million cells cannot fit in browser storage: skip (as a failed write would) instead of freezing
+      if (S.data && S.data.n * S.data.vars.length > 1.5e6) return;
       try { localStorage.setItem(STORE, JSON.stringify(projectJSON())); } catch (e) { /* too large or blocked: ignore */ }
     }, 400);
   }
@@ -199,7 +202,9 @@
     S.settings = Object.assign({}, E.DEFAULTS, p.settings || {});
     S.results = p.results || {}; S.history = (p.history || []).map(h => (h.ref ? { id: h.id, label: h.label, r: S.results[h.ref] } : h)).filter(h => h.r); S.current = null; S.cmp = null;
     S.fromMatrix = (p.data && p.data.fromMatrix) || null;
-    if (p.data && p.data.csv) setData(p.data.csv, p.data.name, true); else { S.csv = ''; S.ds = null; S.dataName = ''; }
+    if (p.data && p.data.csv && p.data.meta) { try { useData(DATA.fromCSV(p.data.csv, p.data.meta), p.data.name, true); } catch (e) { setData(p.data.csv, p.data.name, true); } }
+    else if (p.data && p.data.csv) setData(p.data.csv, p.data.name, true); else { S.data = null; S.ds = null; S.dataName = ''; }
+    S.dataVer = 0; Object.values(S.results).forEach(r => { if (r && r.meta) r.meta.dataVer = 0; }); if (DV) DV.reset();
     if (p.appearance) {
       S.ap.palette = p.appearance.palette || 'theme';
       if (p.appearance.tables) S.ts = tsMerge(p.appearance.tables); // projects from before 0.8.2 keep the browser's style; a changed decimals setting still applies
@@ -213,18 +218,57 @@
   }
 
   // ------------------------------------------------------------------ data
+  // The editable dataset S.data (js/data.js: variables with types, labels, missing values) is the source; S.ds, the
+  // dataset every analysis and the worker receive, is rebuilt from it after each change (user-missing values as NaN,
+  // categories coded 1..k, cases outside the filter left out).
   function setData(text, name, quiet) {
     let ds;
     try { ds = E.parseCSV(text); } catch (e) { toast(t('csv_error') + ': ' + e.message, 'bad'); return false; }
-    S.csv = text; S.ds = ds; S.dataName = name || 'data.csv'; S.desc = E.describe(ds); S.dataSel = null;
-    if (!quiet) { toast(t('data_loaded', { n: ds.n, k: ds.names.length })); autosave(); }
+    return useData(DATA.fromDS(ds), name, quiet);
+  }
+  function useData(D, name, quiet) {
+    D.readOnly = !!S.fromMatrix;
+    S.data = D; S.dataName = name || 'data.csv'; S.dataSel = null;
+    S.ds = DATA.toDS(D); S.desc = null; S.dataVer++;
+    if (DV) DV.reset();
+    if (!quiet) { toast(t('data_loaded', { n: D.n, k: D.vars.length })); autosave(); }
     refreshAll(); return true;
   }
+  // after an edit of S.data (data editor, transformations, added scores): new analysis dataset, stale results, autosave
+  function dataChanged(o) {
+    o = o || {};
+    S.ds = S.data ? DATA.toDS(S.data) : null; S.desc = null; S.dataVer++;
+    if (S.dataSel !== null && (!S.ds || S.dataSel >= S.ds.names.length)) S.dataSel = null;
+    S.selCols = S.selCols.filter(n => S.ds && S.ds.names.includes(n));
+    autosave();
+    if (S.view === 'model') { renderIndicators(); renderProps(); }
+    if (!o.keepView && S.view === 'data' && DV) DV.refresh();
+  }
+  // per-column descriptives, cached by column (a cell edit recomputes one column only)
+  const DESC = new WeakMap();
+  function describeDS(ds) {
+    return ds.names.map((nm, j) => {
+      let d = DESC.get(ds.cols[j]); if (!d) { d = E.describe({ names: [nm], cols: [ds.cols[j]], kinds: [ds.kinds[j]] })[0]; DESC.set(ds.cols[j], d); }
+      return Object.assign({}, d, { name: nm });
+    });
+  }
+  // measurement level decides where a variable is offered: scale/ordinal numbers as numeric variables,
+  // nominal/ordinal and categorical variables as grouping factors
+  const isNumVar = j => S.ds.kinds[j] === 'num' && (!S.ds.measures || S.ds.measures[j] !== 'nominal');
+  const isCatVar = j => S.ds.kinds[j] === 'cat' || (S.ds.measures ? S.ds.measures[j] !== 'scale' : new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))).size <= 12);
+  const numNames = () => S.ds ? S.ds.names.filter((n, j) => isNumVar(j)) : [];
+  const catNames = () => S.ds ? S.ds.names.filter((n, j) => isCatVar(j)) : [];
   function renderData() {
     const el = $('#dataview');
+    el.classList.remove('dvmode');
     if (!S.ds) { el.innerHTML = welcome(); return; }
-    const ds = S.ds, d = S.desc;
-    let h = `<div class="datahead"><h2>${esc(S.dataName)}</h2>${S.fromMatrix ? `<span class="pill warn">${t('from_matrix', { n: S.fromMatrix.n })}</span>` : ''}<span class="grow"></span><button data-act="groups">${t('define_groups')}</button><button data-act="covimport">${t('import_cov')}</button></div><div class="datahead"><span class="pill">${t('rows')}: ${ds.n}</span><span class="pill">${t('variables')}: ${ds.names.length}</span><span class="pill">${t('missing')}: ${d.reduce((a, x) => a + x.missing, 0)}</span></div>`;
+    if (DV) { DV.render(el); return; }
+    el.innerHTML = summaryHTML();
+  }
+  // the descriptive summary (Summary tab of the data editor)
+  function summaryHTML() {
+    const ds = S.ds, d = S.desc || (S.desc = describeDS(ds));
+    let h = `<div class="datahead"><span class="pill">${t('rows')}: ${ds.n}</span><span class="pill">${t('variables')}: ${ds.names.length}</span><span class="pill">${t('missing')}: ${d.reduce((a, x) => a + x.missing, 0)}</span></div>`;
     const descRows = d.map(x => [x.name, x.kind === 'cat' ? t('categorical') : t('numeric'), x.n, x.missing, f(x.mean), f(x.median), f(x.min), f(x.max), f(x.sd), f(x.kurtosis), f(x.skewness)]);
     h += card(t('descriptives'), `<p class="note">${t('click_var')}</p>` + table([t('variable'), t('type'), 'N', t('missing'), t('mean'), t('median'), t('min'), t('max'), t('sd'), t('kurtosis'), t('skewness')], descRows, { title: 'descriptives', cls: 'clickable', rowAttr: i => `data-var="${i}"` }), { doc: 'descriptives' });
     if (S.dataSel !== null) {
@@ -236,7 +280,7 @@
       } else extra = chart(C.histogram(v, { title: ds.names[j], marks: [{ value: E.mean(v), label: t('mean') }] }), ds.names[j]);
       h += card(t('distribution') + ': ' + ds.names[j], extra);
     }
-    const num = ds.names.map((n, j) => j).filter(j => ds.kinds[j] === 'num').slice(0, 40);
+    const num = ds.names.map((n, j) => j).filter(j => isNumVar(j)).slice(0, 40);
     if (num.length > 1) {
       const R = num.map(a => num.map(b => {
         const x = [], y = []; for (let i = 0; i < ds.n; i++) { const p = ds.cols[a][i], q = ds.cols[b][i]; if (!isNaN(p) && !isNaN(q)) { x.push(p); y.push(q); } }
@@ -248,7 +292,7 @@
     const prev = Math.min(ds.n, 200);
     const rows = []; for (let i = 0; i < prev; i++) rows.push([String(i + 1)].concat(ds.cols.map((c, j) => isNaN(c[i]) ? '' : ds.kinds[j] === 'cat' ? ds.labels[j][c[i] - 1] : c[i])));
     h += card(t('preview', { n: prev }), table(['#'].concat(ds.names), rows, { title: 'data' }));
-    el.innerHTML = h;
+    return h;
   }
   function welcome() {
     return `<div class="welcome"><img src="assets/logo.svg" alt="" width="84" height="84"><h1>BabPls</h1><p>${t('tagline')}</p>
@@ -265,7 +309,7 @@
     if (!S.ds) { el.innerHTML = `<p class="note">${t('no_data')}</p>`; return; }
     const own = owners();
     el.innerHTML = S.ds.names.map((n, j) => {
-      if (S.ds.kinds[j] !== 'num' || (q && !n.toLowerCase().includes(q))) return '';
+      if (!isNumVar(j) || (q && !n.toLowerCase().includes(q))) return '';
       const sel = S.selCols.includes(n);
       return `<li draggable="true" data-col="${esc(n)}" class="${sel ? 'sel' : ''}${own[n] ? ' used' : ''}" tabindex="0"><span>${esc(n)}</span>${own[n] ? `<small>${esc(own[n].join(', '))}</small>` : ''}</li>`;
     }).join('');
@@ -375,7 +419,7 @@
         ctrl = `<select name="target">${endo.map(c => `<option value="${c.id}"${c.id === pick ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`; break;
       }
       case 'groupVar': {
-        const cats = S.ds.names.filter((n, j) => { const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; });
+        const cats = S.ds.names.filter((n, j) => { if (!isCatVar(j)) return false; const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; });
         ctrl = `<select name="groupVar">${cats.map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select>`;
         return `<label>${t('f_groupVar')}${ctrl}</label><div id="groupPick"></div>`;
       }
@@ -392,14 +436,14 @@
       case 'K': ctrl = num(2, 10); break;
       case 'starts': ctrl = num(1, 100); break;
       case 'center': return `<label class="check"><input type="checkbox" name="center"${st.center ? ' checked' : ''}> ${t('f_center')}</label>`;
-      case 'weightVar': ctrl = `<select name="weightVar"><option value="">${t('none')}</option>${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${st.weightVar === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`; break;
+      case 'weightVar': ctrl = `<select name="weightVar"><option value="">${t('none')}</option>${numNames().map(n => `<option${st.weightVar === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`; break;
       case 'pmodel': ctrl = `<select name="pmodel">${[4, 6, 1, 7, 14].map(v => `<option value="${v}"${+st.pmodel === v ? ' selected' : ''}>${t('pm_' + v)}</option>`).join('')}</select>`; break;
       case 'procX': case 'procY': case 'procW': case 'procM': {
         const vars = processVars(), multi = k === 'procM';
         ctrl = `<select name="${k}"${multi ? ' multiple size="6"' : ''}>${k === 'procW' ? `<option value="">${t('none')}</option>` : ''}${vars.map(v => `<option${pick(v)}>${esc(v)}</option>`).join('')}</select>${multi ? `<small>${t('multi_hint')}</small>` : ''}`; break;
       }
-      case 'regY': ctrl = `<select name="regY">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select>`; break;
-      case 'regX': ctrl = `<select name="regX" multiple size="8">${S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num').map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
+      case 'regY': ctrl = `<select name="regY">${numNames().map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select>`; break;
+      case 'regX': ctrl = `<select name="regX" multiple size="8">${numNames().map(n => `<option${pick(n)}>${esc(n)}</option>`).join('')}</select><small>${t('multi_hint')}</small>`; break;
     }
     return `<label>${t('f_' + k)}${ctrl}</label>`;
   }
@@ -418,8 +462,7 @@
   }
   // helpers handed to plugin field renderers
   function fieldCtx(k, st) {
-    const nums = () => S.ds ? S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num') : [];
-    const cats = () => S.ds ? S.ds.names.filter((n, j) => { if (S.ds.kinds[j] === 'cat') return true; const v = new Set(Array.from(S.ds.cols[j]).filter(x => !isNaN(x))); return v.size >= 2 && v.size <= 12; }) : [];
+    const nums = numNames, cats = catNames;
     const sel = (v, x) => ((Array.isArray(v) ? v.includes(x) : String(v) === String(x)) ? ' selected' : '');
     return {
       key: k, st, value: st[k], t, esc, S, E, nums, cats, all: () => S.ds ? S.ds.names.slice() : [], lvs: () => processVars().filter(v => v.startsWith('LV: ')),
@@ -516,11 +559,11 @@
     const model = JSON.parse(JSON.stringify(editor.model));
     if (kind === 'compare') opts.models = S.models.map(x => ({ name: x.name, model: JSON.parse(JSON.stringify(x.model)) }));
     const bar = $('#busy'); bar.hidden = false; $('#busytext').textContent = t(TASKS[kind].title) + '…'; $('#busybar').style.width = '0%';
-    const t0 = performance.now();
+    const t0 = performance.now(), ver = S.dataVer;
     try {
       const r = await runTask(task, model, settings, opts, p => { $('#busybar').style.width = Math.round(p * 100) + '%'; });
       if (opts.models) delete opts.models;
-      r.meta = { kind, model, modelName: (S.models[S.cur] || {}).name, settings, opts, time: new Date().toISOString(), ms: Math.round(performance.now() - t0) };
+      r.meta = { kind, model, modelName: (S.models[S.cur] || {}).name, settings, opts, time: new Date().toISOString(), ms: Math.round(performance.now() - t0), dataVer: S.dataVer };
       S.results[kind] = r; S.current = kind; S.section = null; S.cmp = null;
       S.history.unshift({ id: Date.now(), label: t(TASKS[kind].title) + ' · ' + r.meta.modelName + ' · ' + new Date().toLocaleTimeString(), r }); if (S.history.length > 30) S.history.pop();
       if (['pls', 'plsc', 'bootstrap', 'cbsem'].includes(kind)) applyOverlay(kind);
@@ -590,7 +633,8 @@
     const m = r.meta; if (m.kind === 'cmp') return `<p class="meta">${t('compare_reports')}</p>`; let s = `<p class="meta">${esc(t(TASKS[m.kind].title))}${m.modelName ? ' · ' + esc(m.modelName) : ''} · ${new Date(m.time).toLocaleString(S.lang === 'ar' ? 'ar' : 'en')} · ${t('done', { s: (m.ms / 1000).toFixed(1) })}`;
     const b = r.kind === 'bootstrap' ? r.base : r;
     if (b && b.kind === 'pls') s += ` · N = ${b.n} · ${t('iterations')}: ${b.iterations}${b.converged ? '' : ' ⚠ ' + t('not_converged')}`;
-    if (sig(m.model) !== sig(editor.model)) s += ` · <span class="warn">${t('stale')}</span>`;
+    if (sig(m.model) !== sig(editor.model) || (m.dataVer !== undefined && m.dataVer !== S.dataVer)) s += ` · <span class="warn">${t('stale')}</span>`;
+    if (S.data && S.data.filter && m.dataVer === S.dataVer) s += ` · ${esc(t('dv_filtered_n', { n: S.ds.n, all: S.data.n }))}`;
     return s + '</p>';
   }
   const sec = (group, id, title, html) => ({ group, id, title, html });
@@ -790,7 +834,7 @@
   }
 
   function processVars() {
-    const v = S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num');
+    const v = numNames();
     const ok = editor.model.constructs.length && !E.validate(editor.model, S.ds).length;
     return (ok ? editor.model.constructs.map(c => 'LV: ' + c.name) : []).concat(v);
   }
@@ -1061,19 +1105,24 @@
     $('#rundlg').dataset.kind = '__compare'; $('#rundlg').showModal();
   }
   // ---- datasets: write back to CSV, add columns, define groups, covariance input
-  function datasetCSV(ds) {
+  function datasetCSV(ds) { // matrix-generated data (read-only) are stored as CSV like imported data
     const c = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const rows = [ds.names.map(c).join(',')];
     for (let i = 0; i < ds.n; i++) rows.push(ds.cols.map((col, j) => (isNaN(col[i]) ? '' : ds.kinds[j] === 'cat' ? c(ds.labels[j][col[i] - 1]) : c(col[i]))).join(','));
     return rows.join('\n');
   }
-  function addColumns(list) { // [{ name, values: array indexed by data row (NaN = missing), labels? }]
-    const ds = S.ds; let added = 0;
-    list.forEach(col => {
-      let nm = col.name, k = 2; while (ds.names.includes(nm)) nm = col.name + '_' + k++;
-      ds.names.push(nm); ds.cols.push(Float64Array.from(col.values)); ds.kinds.push(col.labels ? 'cat' : 'num'); ds.labels.push(col.labels || null); added++;
+  // [{ name, values: array indexed by analysed case (NaN = missing), labels? }]: cases outside the filter stay missing;
+  // an undoable edit of the data editor
+  function addColumns(list) {
+    if (!S.data) return;
+    const rows = S.ds.rowIndex, n = S.data.n;
+    const cols = list.map(col => {
+      const v = new Float64Array(n).fill(NaN);
+      for (let q = 0; q < col.values.length; q++) { const i = rows ? rows[q] : q; if (i < n) v[i] = col.values[q]; }
+      return { name: col.name, values: v, labels: col.labels ? col.labels.map((l, i) => [i + 1, l]) : null };
     });
-    const name = S.dataName; setData(datasetCSV(ds), name, true); autosave(); toast(t('columns_added', { n: added }), 'good');
+    if (DV) DV.addVariables(cols, t('add_scores')); else return;
+    toast(t('columns_added', { n: list.length }), 'good');
   }
   function addScoresToData() {
     const r = S.results[S.current]; const base = r.kind === 'bootstrap' ? r.base : r.kind === 'cca' ? r.base : r;
@@ -1083,26 +1132,6 @@
     const r = S.results[S.current], v = new Float64Array(S.ds.n).fill(NaN);
     r.membership.forEach(x => { v[x.row - 1] = x.segment; });
     addColumns([{ name: (r.kind === 'fimix' ? 'FIMIX_K' : 'POS_K') + r.K, values: v, labels: Array.from({ length: r.K }, (_, i) => t('segment') + ' ' + (i + 1)) }]);
-  }
-  function openGroups() {
-    if (!S.ds) { toast(t('no_data'), 'bad'); return; }
-    const nums = S.ds.names.filter((n, j) => S.ds.kinds[j] === 'num');
-    $('#runtitle').textContent = t('define_groups'); $('#rundesc').textContent = t('define_groups_d');
-    $('#runfields').innerHTML = `<label>${t('variable')}<select name="gVar">${nums.map(n => `<option>${esc(n)}</option>`).join('')}</select></label>
-      <label>${t('grp_method')}<select name="gMethod"><option value="median">${t('grp_median')}</option><option value="cuts">${t('grp_cuts')}</option><option value="quantiles">${t('grp_quantiles')}</option></select></label>
-      <label>${t('grp_param')}<input name="gParam" placeholder="${t('grp_param_ph')}"></label><label>${t('name')}<input name="gName" placeholder="group"></label>`;
-    $('#rundlg').dataset.kind = '__groups'; $('#rundlg').showModal();
-  }
-  function makeGroups(fd) {
-    const j = S.ds.names.indexOf(fd.gVar), col = S.ds.cols[j], vals = Array.from(col).filter(v => !isNaN(v)).sort((a, b) => a - b);
-    let cuts;
-    if (fd.gMethod === 'median') cuts = [E.quantile(vals, 0.5)];
-    else if (fd.gMethod === 'quantiles') { const k = Math.max(2, Math.min(10, parseInt(fd.gParam, 10) || 3)); cuts = Array.from({ length: k - 1 }, (_, i) => E.quantile(vals, (i + 1) / k)); }
-    else cuts = String(fd.gParam || '').split(/[;,\s]+/).map(Number).filter(isFinite).sort((a, b) => a - b);
-    if (!cuts.length) { toast(t('grp_need_cuts'), 'bad'); return; }
-    const labels = cuts.map((c, i) => (i === 0 ? '≤ ' + c : '(' + cuts[i - 1] + ', ' + c + ']')).concat(['> ' + cuts[cuts.length - 1]]);
-    const v = Float64Array.from(col, x => { if (isNaN(x)) return NaN; let g = 0; while (g < cuts.length && x > cuts[g]) g++; return g + 1; });
-    addColumns([{ name: (fd.gName || 'group_' + fd.gVar).trim(), values: v, labels }]);
   }
   function importCovMatrix(text, fname) {
     let parsed; try { parsed = E.parseCovMatrix(text); } catch (e) { toast(t('csv_error') + ': ' + errMsg(e.message), 'bad'); return; }
@@ -1699,10 +1728,12 @@
   function bind() {
     $('#csvfile').addEventListener('change', e => {
       const fl = e.target.files[0]; if (!fl) return; e.target.value = '';
-      const ext = fl.name.split('.').pop().toLowerCase(), after = txt => { if (setData(txt, fl.name)) { if (!editor.model.constructs.length) setView('model'); } };
+      const ext = fl.name.split('.').pop().toLowerCase(), done = ok => { if (ok && !editor.model.constructs.length) setView('model'); }, after = txt => done(setData(txt, fl.name));
+      S.fromMatrix = null;
       if (ext === 'xlsx' || ext === 'sav') {
         const fr = new FileReader();
-        fr.onload = async () => { try { after(ext === 'xlsx' ? await window.YPIO.xlsxToCSV(fr.result) : window.YPIO.savToCSV(fr.result)); } catch (err) { const k = 'err_' + err.message; toast(t('csv_error') + ': ' + (t(k) !== k ? t(k) : err.message), 'bad'); } };
+        // .sav keeps its dictionary: variable and value labels, missing values, measurement levels, formats
+        fr.onload = async () => { try { if (ext === 'sav') { const r = window.YPIO.readSAV(fr.result); done(useData(DATA.fromVars(r.vars, r.n), fl.name)); } else after(await window.YPIO.xlsxToCSV(fr.result)); } catch (err) { const k = 'err_' + err.message; toast(t('csv_error') + ': ' + (t(k) !== k ? t(k) : err.message), 'bad'); } };
         fr.readAsArrayBuffer(fl);
       } else readFile(fl, after);
     });
@@ -1714,10 +1745,9 @@
     $('#cancelrun').addEventListener('click', cancelRun);
     $('#rundlg').addEventListener('submit', e => {
       e.preventDefault(); const kind = $('#rundlg').dataset.kind;
-      if (kind === '__compare' || kind === '__groups') {
+      if (kind === '__compare') {
         const fd = {}; $$('input,select', $('#runfields')).forEach(el => { fd[el.name] = el.value; }); $('#rundlg').close();
-        if (kind === '__groups') makeGroups(fd);
-        else { const a = S.history.find(h => String(h.id) === fd.cmpA), b = S.history.find(h => String(h.id) === fd.cmpB); S.cmp = { kind: 'cmp', a, b, meta: { kind: 'cmp', model: editor.model, time: new Date().toISOString(), ms: 0 } }; S.section = null; setView('results'); }
+        { const a = S.history.find(h => String(h.id) === fd.cmpA), b = S.history.find(h => String(h.id) === fd.cmpB); S.cmp = { kind: 'cmp', a, b, meta: { kind: 'cmp', model: editor.model, time: new Date().toISOString(), ms: 0 } }; S.section = null; setView('results'); }
         return;
       }
       run(kind);
@@ -1769,7 +1799,7 @@
         case 'import': $('#csvfile').click(); break;
         case 'open': $('#projfile').click(); break;
         case 'save': download(slug(S.name) + '.babpls.json', JSON.stringify(projectJSON(true)), 'application/json'); break;
-        case 'new': if (confirm(t('confirm_new'))) { S.name = 'Untitled'; $('#pname').value = S.name; S.csv = ''; S.ds = null; S.results = {}; S.history = []; S.fromMatrix = null; editor.history = []; editor.setModel(null); S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.cur = 0; renderModelTabs(); try { localStorage.removeItem(STORE); } catch (e) { } setView('data'); } break;
+        case 'new': if (confirm(t('confirm_new'))) { S.name = 'Untitled'; $('#pname').value = S.name; S.data = null; S.ds = null; S.dataVer++; if (DV) DV.reset(); S.results = {}; S.history = []; S.fromMatrix = null; editor.history = []; editor.setModel(null); S.models = [{ name: t('model') + ' 1', model: editor.model }]; S.cur = 0; renderModelTabs(); try { localStorage.removeItem(STORE); } catch (e) { } setView('data'); } break;
         case 'undo': editor.undo(); break;
         case 'redo': editor.redo(); break;
         case 'delete': editor.removeSelected(); break;
@@ -1791,7 +1821,7 @@
         case 'cmpreports': openCompare(); break;
         case 'addscores': addScoresToData(); break;
         case 'addseg': addSegmentsToData(); break;
-        case 'groups': openGroups(); break;
+        case 'groups': if (S.data && DV) DV.open('bin'); else toast(t('no_data'), 'bad'); break;
         case 'covimport': $('#covfile').click(); break;
         case 'mnew': { syncModel(); const copy = JSON.parse(JSON.stringify(editor.model)); S.models.push({ name: t('model') + ' ' + (S.models.length + 1), model: copy }); useModel(S.models.length - 1); toast(t('model_copied'), 'good'); break; }
         case 'addquad': { const pth = editor.model.paths.find(q => q.id === editor.sel.id); if (!pth) break; if (editor.model.interactions.some(i => i.x === pth.from && i.m === pth.from && i.y === pth.to)) break; const a = editor.byId(pth.from), b = editor.byId(pth.to); editor.snapshot(); editor.model.interactions.push({ id: window.YPEditor.newId('i'), name: a.name + '²', x: pth.from, m: pth.from, y: pth.to, px: (a.x + b.x) / 2, py: Math.max(a.y, b.y) + 90 }); editor.changed(); break; }
@@ -1833,11 +1863,24 @@
   window.addEventListener('appinstalled', () => { $('#installbtn').hidden = true; toast(t('installed'), 'good'); });
   $('#installbtn').addEventListener('click', async () => { if (!installEvt) { setView('help'); S.help = 'desktop'; renderHelp(); return; } installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installbtn').hidden = true; });
   prefs(false); applyTheme(); applyAppearance(); applyTS(); buildPluginMenu(); bind(); bindStyle(); bindTS();
+  // the data editor gets the app's toolkit: rebuilding the analysis dataset, model references, output helpers
+  if (window.YPDataView) DV = window.YPDataView.create({
+    S, E, C, t, esc, toast, download, slug, table, card, chart, rt, numberOutput, summaryHTML, setView,
+    changed: dataChanged, autosave,
+    models: () => { syncModel(); return S.models; },
+    modelsJSON: () => { syncModel(); return JSON.stringify(S.models); },
+    setModelsJSON: js => { S.models = JSON.parse(js); editor.setModel(S.models[S.cur].model); renderModelTabs(); },
+    renamed: (from, to) => { // references to a renamed variable outside the models: selections, last dialog settings
+      S.selCols = S.selCols.map(x => (x === from ? to : x)); if (S.settings.weightVar === from) S.settings.weightVar = to;
+      Object.keys(S).filter(k => k.startsWith('last_')).forEach(k => { const o = S[k]; Object.keys(o || {}).forEach(q => { if (o[q] === from) o[q] = to; else if (Array.isArray(o[q])) o[q] = o[q].map(x => (x === from ? to : x)); }); });
+      editor.render();
+    }
+  });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo(); });
   document.addEventListener('mousedown', e => { const p = $('#infopop'); if (p && !p.hidden && !e.target.closest('#infopop,[data-info]')) closeInfo(); });
   let restored = false;
   try { const p = JSON.parse(localStorage.getItem(STORE) || 'null'); if (p) { loadProject(p); restored = true; } } catch (e) { /* ignore */ }
   if (!restored) { editor.setModel(null); refreshAll(); }
   if (restored && editor.model.constructs.length) setView('model');
-  window.BabPls = { S, editor, run: openRun, info: openInfo, plugins: PLUGINS, tasks: TASKS, tableStyle: openTS };
+  window.BabPls = { S, editor, run: openRun, info: openInfo, plugins: PLUGINS, tasks: TASKS, tableStyle: openTS, dv: DV, projectJSON, useData };
 })();
