@@ -261,9 +261,10 @@
       // Henseler et al. (2009): P(θ1 > θ2) from all pairs of bias-centred bootstrap estimates
       const c1 = d1.map(v => 2 * row.g1 - v).sort((a, b) => a - b), c2 = d2.map(v => 2 * row.g2 - v);
       let cnt = 0; c2.forEach(v => { let lo = 0, hi = c1.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (c1[mid] <= v) lo = mid + 1; else hi = mid; } cnt += lo; });
-      const pGreater = 1 - cnt / (c1.length * c2.length);
+      // one-tailed p for H1: θ1 > θ2 is the share of pairs with θ1* ≤ θ2* (small when group 1 is clearly larger)
+      const pOne = cnt / (c1.length * c2.length);
       row.se1 = s1; row.se2 = s2;
-      row.hP1 = pGreater; row.hP2 = 2 * Math.min(pGreater, 1 - pGreater);
+      row.hP1 = pOne; row.hP2 = 2 * Math.min(pOne, 1 - pOne);
       const sp = Math.sqrt(((n1 - 1) ** 2 / (n1 + n2 - 2)) * s1 * s1 + ((n2 - 1) ** 2 / (n1 + n2 - 2)) * s2 * s2) * Math.sqrt(1 / n1 + 1 / n2);
       row.parT = Math.abs(row.diff) / sp; row.parP = tTwoTailedP(row.parT, n1 + n2 - 2);
       const v1 = (n1 - 1) / n1 * s1 * s1, v2 = (n2 - 1) / n2 * s2 * s2;
