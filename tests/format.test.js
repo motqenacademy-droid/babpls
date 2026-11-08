@@ -53,6 +53,7 @@ test('text: re-typesets formatted cells by column kind', () => {
 
 test('colKind: p values, bounded statistics, test statistics', () => {
   ['p', 'P', 'Boot p', 'p (χ²)', 'PLS-MGA p (1>2)', 'Permutation p', 'p التباديل', 'p (LR)'].forEach(h => assert.strictEqual(F.colKind(h), 'p', h));
+  ['η²p', 'ω²p', 'η²'].forEach(h => assert.strictEqual(F.colKind(h), 'bounded', h)); // effect sizes, not p values
   ['r', 'R²', 'R² adjusted', "Cronbach's α", 'ρA (rho_a)', 'β', 'AVE', 'CR', 'CFI', 'RMSEA', 'SRMR', 'Q²predict', '|β|min', 'ΔCFI'].forEach(h => assert.strictEqual(F.colKind(h), 'bounded', h));
   ['t', 'T', 'z', 'F', 'df', 'VIF', 'f²', 'HTMT', 'χ²', 'AIC', 'PLS RMSE'].forEach(h => assert.strictEqual(F.colKind(h), 'stat', h));
   ['P(1)', 'Loading', 'SE', 'M', 'Estimate', 'TLI', 'PLS', ''].forEach(h => assert.strictEqual(F.colKind(h), '', h));

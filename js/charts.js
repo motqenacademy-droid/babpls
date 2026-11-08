@@ -194,7 +194,8 @@
   function colKind(h, extra) {
     h = String(h === null || h === undefined ? '' : h).trim();
     if (!h || /^P\(/.test(h)) return '';
-    if (/(^|[^A-Za-z])[pP](?![A-Za-z0-9])/.test(h)) return 'p';
+    // a p-value column: a lone p, not the subscript of an effect size such as η²p or ω²p
+    if (/(^|[^A-Za-z0-9²³\u0370-\u03FF])[pP](?![A-Za-z0-9])/.test(h)) return 'p';
     if (STAT_RE.test(h)) return 'stat';
     if (BOUND_RE.test(h) || (extra || []).includes(h)) return 'bounded';
     return '';
